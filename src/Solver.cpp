@@ -288,10 +288,10 @@ CeSuper Solver::runDatabasePropagation() {
     double cPrio = 0;
     for (int it_ws = 0; it_ws < std::ssize(ws); ++it_ws) {
       int idx = ws[it_ws].idx;
-      if (idx < 0 && isTrue(level, idx + INF)) {
-        assert(dynamic_cast<Clause*>(&(ca[ws[it_ws].cref])) != nullptr);
+      if (idx < 0 && isTrue(level, idx + INF)) {  // blocked literal check
+        assert(dynamic_cast<Clause*>(&ca[ws[it_ws].cref]) != nullptr);
         continue;
-      }  // blocked literal check
+      }
       CRef cr = ws[it_ws].cref;
       WatchStatus wstat = checkForPropagation(cr, ws[it_ws].idx, -p);
       if (wstat == WatchStatus::DROPWATCH) {

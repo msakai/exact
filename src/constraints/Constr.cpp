@@ -181,11 +181,9 @@ WatchStatus Clause::checkForPropagation(CRef cr, int& idx, const Lit p, Solver& 
   assert(idx < 0);
   assert(p == data[0] || p == data[1]);
   assert(size() > 1);
-  int widx = 0;
-  Lit watch = data[0];
-  Lit otherwatch = data[1];
+  Lit& watch = data[0];
+  Lit& otherwatch = data[1];
   if (p == data[1]) {
-    widx = 1;
     watch = data[1];
     otherwatch = data[0];
   }
@@ -196,14 +194,22 @@ WatchStatus Clause::checkForPropagation(CRef cr, int& idx, const Lit p, Solver& 
     return WatchStatus::KEEPWATCH;  // constraint is satisfied
   }
 
-  for (unsigned int i = 2; i < size(); ++i) {
+  unsigned int start = aux::getRand(2, size());
+  for (unsigned int i = start; i < size(); ++i) {
     if (const Lit l = data[i]; !isFalse(level, l)) {
-      const unsigned int mid = i / 2 + 1;
-      data[i] = data[mid];
-      data[mid] = watch;
-      data[widx] = l;
+      data[i] = watch;
+      watch = l;
       adj[l].emplace_back(cr, otherwatch - INF);
-      stats.NWATCHCHECKS += i - 1;
+      stats.NWATCHCHECKS += i + 1 - start;
+      return WatchStatus::DROPWATCH;
+    }
+  }
+  for (unsigned int i = 2; i < start; ++i) {
+    if (const Lit l = data[i]; !isFalse(level, l)) {
+      data[i] = watch;
+      watch = l;
+      adj[l].emplace_back(cr, otherwatch - INF);
+      stats.NWATCHCHECKS += size() + i - start - 1;
       return WatchStatus::DROPWATCH;
     }
   }
@@ -217,7 +223,7 @@ WatchStatus Clause::checkForPropagation(CRef cr, int& idx, const Lit p, Solver& 
   }
   assert(!isTrue(level, otherwatch));
   ++stats.NPROPCLAUSE;
-  assert(isCorrectlyPropagating(solver, 1 - widx));
+  assert(isCorrectlyPropagating(solver, otherwatch == data[1]));
   solver.propagate(otherwatch, cr);
   ++stats.NPROPCHECKS;
   return WatchStatus::KEEPWATCH;
