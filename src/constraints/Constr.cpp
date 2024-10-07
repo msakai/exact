@@ -66,8 +66,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 namespace xct {
 Constr::Constr(const ID i, const Origin o, const bool lkd, const unsigned int lngth, const float strngth,
                const unsigned int maxLBD)
-    : priority(static_cast<float>(maxLBD + 1) - strngth),
-      header{0, 0, lkd, static_cast<unsigned int>(o), i},
+    : header{0, 0, lkd, static_cast<unsigned int>(o), i},
+      priority(static_cast<float>(maxLBD + 1) - strngth),
       sze(lngth) {
   assert(strngth <= 1);
   assert(strngth > 0);  // so we know that 1-strngth < 1 and it will not interfere with the LBD when stored together

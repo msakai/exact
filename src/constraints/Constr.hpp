@@ -75,7 +75,6 @@ struct Stats;
 struct Constr {  // internal solver constraint optimized for fast propagation
   virtual size_t getMemSize() const = 0;
 
-  float priority;  // Integer part is LBD (0 to 1e5), fractional part is 1-strength. Lower is better.
   struct {
     unsigned seen : 1;  // utility bit to avoid hash maps
     unsigned markedfordel : 1;
@@ -83,6 +82,7 @@ struct Constr {  // internal solver constraint optimized for fast propagation
     const unsigned origin : 5;
     const unsigned long long id : 56;  // plenty of bits to store ID
   } header;
+  float priority;  // Integer part is LBD (0 to 1e5), fractional part is 1-strength. Lower is better.
   const uint32_t sze;
 
   Constr(ID i, Origin o, bool lkd, unsigned int lngth, float strngth, unsigned int maxLBD);
