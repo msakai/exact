@@ -84,6 +84,7 @@ struct Constr {  // internal solver constraint optimized for fast propagation
   } header;
   float priority;  // Integer part is LBD (0 to 1e5), fractional part is 1-strength. Lower is better.
   const uint32_t sze;
+  uint32_t next_watch_idx;
 
   Constr(ID i, Origin o, bool lkd, unsigned int lngth, float strngth, unsigned int maxLBD);
   virtual ~Constr() {}
@@ -173,9 +174,7 @@ struct Clause final : Constr {
 };
 
 struct Cardinality final : Constr {
-  unsigned int watchIdx;
   const unsigned int degr;
-  long long ntrailpops;
   Lit data[];  // Flexible Array Member
 
   static size_t getMemSize(unsigned int length);
@@ -193,9 +192,7 @@ struct Cardinality final : Constr {
       : Constr(_id, constraint->orig, locked, constraint->nVars(),
                static_cast<double>(constraint->getDegree()) / constraint->nVars(),
                constraint->global.options.dbMaxLBD.get()),
-        watchIdx(0),
-        degr(static_cast<unsigned int>(constraint->getDegree())),
-        ntrailpops(-1) {
+        degr(static_cast<unsigned int>(constraint->getDegree())) {
     assert(degr > 1);  // otherwise should be a clause
     assert(_id > ID_Trivial);
     assert(constraint->nVars() < INF);

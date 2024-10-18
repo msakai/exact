@@ -64,11 +64,11 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "../Solver.hpp"
 
 namespace xct {
-Constr::Constr(const ID i, const Origin o, const bool lkd, const unsigned int lngth, const float strngth,
-               const unsigned int maxLBD)
+Constr::Constr(ID i, const Origin o, bool lkd, unsigned int lngth, float strngth, unsigned int maxLBD)
     : header{0, 0, lkd, static_cast<unsigned int>(o), i},
       priority(static_cast<float>(maxLBD + 1) - strngth),
-      sze(lngth) {
+      sze(lngth),
+      next_watch_idx(lngth) {
   assert(strngth <= 1);
   assert(strngth > 0);  // so we know that 1-strngth < 1 and it will not interfere with the LBD when stored together
   assert(maxLBD <= MAXLBD);
@@ -194,22 +194,25 @@ WatchStatus Clause::checkForPropagation(CRef cr, int& idx, const Lit p, Solver& 
     return WatchStatus::KEEPWATCH;  // constraint is satisfied
   }
 
-  unsigned int start = aux::getRand(2, size());
-  for (unsigned int i = start; i < size(); ++i) {
-    if (const Lit l = data[i]; !isFalse(level, l)) {
-      data[i] = watch;
+  const uint32_t start = next_watch_idx;
+  for (; next_watch_idx < size(); ++next_watch_idx) {
+    if (const Lit l = data[next_watch_idx]; !isFalse(level, l)) {
+      data[next_watch_idx] = watch;
       watch = l;
       adj[l].emplace_back(cr, otherwatch - INF);
-      stats.NWATCHCHECKS += i + 1 - start;
+      ++next_watch_idx;
+      stats.NWATCHCHECKS += next_watch_idx - start + 1;
       return WatchStatus::DROPWATCH;
     }
   }
-  for (unsigned int i = 2; i < start; ++i) {
-    if (const Lit l = data[i]; !isFalse(level, l)) {
-      data[i] = watch;
+  next_watch_idx = 2;
+  for (; next_watch_idx < start; ++next_watch_idx) {
+    if (const Lit l = data[next_watch_idx]; !isFalse(level, l)) {
+      data[next_watch_idx] = watch;
       watch = l;
       adj[l].emplace_back(cr, otherwatch - INF);
-      stats.NWATCHCHECKS += size() + i - start - 1;
+      stats.NWATCHCHECKS += size() - start + next_watch_idx - 1;
+      ++next_watch_idx;
       return WatchStatus::DROPWATCH;
     }
   }
@@ -343,36 +346,40 @@ WatchStatus Cardinality::checkForPropagation(CRef cr, int& idx, [[maybe_unused]]
   assert(idx >= 0);
   assert(idx < INF);
   assert(data[idx] == p);
-  if (ntrailpops < stats.NTRAILPOPS) {
-    ntrailpops = static_cast<long long>(stats.NTRAILPOPS.z);
-    watchIdx = degr + 1;
-  }
-  assert(watchIdx > degr);
-  stats.NWATCHCHECKS -= watchIdx;
-  for (; watchIdx < size(); ++watchIdx) {
-    if (const Lit l = data[watchIdx]; !isFalse(level, l)) {
-      const unsigned int mid = (watchIdx + degr + 1) / 2;
-      assert(mid <= watchIdx);
-      assert(mid > degr);
-      data[watchIdx] = data[mid];
-      data[mid] = data[idx];
+  assert(next_watch_idx > degr);
+
+  const uint32_t start = next_watch_idx;
+  for (; next_watch_idx < size(); ++next_watch_idx) {
+    if (const Lit l = data[next_watch_idx]; !isFalse(level, l)) {
+      data[next_watch_idx] = data[idx];
       data[idx] = l;
       adj[l].emplace_back(cr, idx);
-      stats.NWATCHCHECKS += watchIdx + 1;
+      stats.NWATCHCHECKS += next_watch_idx - start + 1;
       return WatchStatus::DROPWATCH;
     }
   }
-  stats.NWATCHCHECKS += watchIdx;
+  next_watch_idx = degr + 1;
+  for (; next_watch_idx < start; ++next_watch_idx) {
+    if (const Lit l = data[next_watch_idx]; !isFalse(level, l)) {
+      data[next_watch_idx] = data[idx];
+      data[idx] = l;
+      adj[l].emplace_back(cr, idx);
+      stats.NWATCHCHECKS += size() - start + next_watch_idx - degr + 1;
+      return WatchStatus::DROPWATCH;
+    }
+  }
+  stats.NWATCHCHECKS += size() - degr - 1;
+
   assert(isFalse(level, data[idx]));
   for (unsigned int i = degr + 1; i < size(); ++i) assert(isFalse(level, data[i]));
-  for (int i = 0; i <= static_cast<int>(degr); ++i)
-    if (i != idx && isFalse(level, data[i])) {
+  for (uint32_t i = 0; i <= degr; ++i)
+    if (static_cast<int>(i) != idx && isFalse(level, data[i])) {
       assert(isCorrectlyConflicting(solver));
       return WatchStatus::CONFLICTING;
     }
   int cardprops = 0;
-  for (int i = 0; i <= static_cast<int>(degr); ++i) {
-    if (const Lit l = data[i]; i != idx && !isTrue(level, l)) {
+  for (uint32_t i = 0; i <= degr; ++i) {
+    if (const Lit l = data[i]; static_cast<int>(i) != idx && !isTrue(level, l)) {
       ++cardprops;
       assert(isCorrectlyPropagating(solver, i));
       solver.propagate(l, cr);
