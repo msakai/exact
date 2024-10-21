@@ -181,9 +181,11 @@ WatchStatus Clause::checkForPropagation(CRef cr, int& idx, const Lit p, Solver& 
   assert(idx < 0);
   assert(p == data[0] || p == data[1]);
   assert(size() > 1);
-  Lit& watch = data[0];
-  Lit& otherwatch = data[1];
+  int widx = 0;
+  Lit watch = data[0];
+  Lit otherwatch = data[1];
   if (p == data[1]) {
+    widx = 1;
     watch = data[1];
     otherwatch = data[0];
   }
@@ -198,7 +200,7 @@ WatchStatus Clause::checkForPropagation(CRef cr, int& idx, const Lit p, Solver& 
   for (; next_watch_idx < size(); ++next_watch_idx) {
     if (const Lit l = data[next_watch_idx]; !isFalse(level, l)) {
       data[next_watch_idx] = watch;
-      watch = l;
+      data[widx] = l;
       adj[l].emplace_back(cr, otherwatch - INF);
       ++next_watch_idx;
       stats.NWATCHCHECKS += next_watch_idx - start + 1;
@@ -209,7 +211,7 @@ WatchStatus Clause::checkForPropagation(CRef cr, int& idx, const Lit p, Solver& 
   for (; next_watch_idx < start; ++next_watch_idx) {
     if (const Lit l = data[next_watch_idx]; !isFalse(level, l)) {
       data[next_watch_idx] = watch;
-      watch = l;
+      data[widx] = l;
       adj[l].emplace_back(cr, otherwatch - INF);
       stats.NWATCHCHECKS += size() - start + next_watch_idx - 1;
       ++next_watch_idx;
@@ -372,14 +374,14 @@ WatchStatus Cardinality::checkForPropagation(CRef cr, int& idx, [[maybe_unused]]
 
   assert(isFalse(level, data[idx]));
   for (unsigned int i = degr + 1; i < size(); ++i) assert(isFalse(level, data[i]));
-  for (uint32_t i = 0; i <= degr; ++i)
-    if (static_cast<int>(i) != idx && isFalse(level, data[i])) {
+  for (int i = 0; i <= static_cast<int>(degr); ++i)
+    if (i != idx && isFalse(level, data[i])) {
       assert(isCorrectlyConflicting(solver));
       return WatchStatus::CONFLICTING;
     }
   int cardprops = 0;
-  for (uint32_t i = 0; i <= degr; ++i) {
-    if (const Lit l = data[i]; static_cast<int>(i) != idx && !isTrue(level, l)) {
+  for (int i = 0; i <= static_cast<int>(degr); ++i) {
+    if (const Lit l = data[i]; i != idx && !isTrue(level, l)) {
       ++cardprops;
       assert(isCorrectlyPropagating(solver, i));
       solver.propagate(l, cr);
