@@ -223,8 +223,6 @@ struct Cardinality final : Constr {
 template <typename CF, typename DG>
 struct Watched final : Constr {
   unsigned int unsaturatedIdx;
-  unsigned int watchIdx;
-  long long ntrailpops;
   const DG degr;
   DG watchslack;
   Lit data[0];  // Flexible Array Member - gcc complains about destruction when using the proper syntax '[]'
@@ -254,8 +252,6 @@ struct Watched final : Constr {
   Watched(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id, double strngth)
       : Constr(_id, constraint->orig, locked, constraint->nVars(), strngth, constraint->global.options.dbMaxLBD.get()),
         unsaturatedIdx(0),
-        watchIdx(0),
-        ntrailpops(-1),
         degr(static_cast<DG>(constraint->getDegree())),
         watchslack(0) {
     assert(_id > ID_Trivial);
@@ -297,8 +293,6 @@ struct Watched final : Constr {
 template <typename CF, typename DG>
 struct WatchedSafe final : Constr {
   unsigned int unsaturatedIdx;
-  unsigned int watchIdx;
-  long long ntrailpops;
   const DG degr;
   DG watchslack;
   CF* cfs;
@@ -327,8 +321,6 @@ struct WatchedSafe final : Constr {
   WatchedSafe(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id, double strngth)
       : Constr(_id, constraint->orig, locked, constraint->nVars(), strngth, constraint->global.options.dbMaxLBD.get()),
         unsaturatedIdx(0),
-        watchIdx(0),
-        ntrailpops(-1),
         degr(static_cast<DG>(constraint->getDegree())),
         watchslack(0),
         cfs(new CF[sze]) {

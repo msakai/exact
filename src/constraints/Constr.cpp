@@ -497,29 +497,33 @@ WatchStatus Watched<CF, DG>::checkForPropagation(CRef cr, int& idx, [[maybe_unus
   assert(lit(_idx) == p);
   const CF& lrgstCf = _c(0);
 
-  if (ntrailpops < stats.NTRAILPOPS) {
-    ntrailpops = static_cast<long long>(stats.NTRAILPOPS.z);
-    watchIdx = 0;
-  }
-
   assert(hasWatch(_idx));
   const bool lookForWatches = watchslack >= lrgstCf;
   watchslack -= _c(_idx);
-  if (lookForWatches) {  // look for new watches if previously, slack was at least lrgstCf
-    stats.NWATCHCHECKS -= watchIdx;
-    for (; watchIdx < size() && watchslack < lrgstCf; ++watchIdx) {
-      if (const Lit l = lit(watchIdx); !hasWatch(watchIdx) && !isFalse(level, l)) {
-        watchslack += _c(watchIdx);
-        flipWatch(watchIdx);
-        adj[l].emplace_back(cr, watchIdx + INF);
+  // look for new watches if previously, watchslack was at least lrgstCf
+  // else we did not find enough watches last time, so we can skip looking for them now
+  if (lookForWatches) {
+    const uint32_t start = next_watch_idx;
+    for (; next_watch_idx < size() && watchslack < lrgstCf; ++next_watch_idx) {
+      if (const Lit l = lit(next_watch_idx); !hasWatch(next_watch_idx) && !isFalse(level, l)) {
+        watchslack += _c(next_watch_idx);
+        flipWatch(next_watch_idx);
+        adj[l].emplace_back(cr, next_watch_idx + INF);
       }
     }  // NOTE: first innermost loop
-    stats.NWATCHCHECKS += watchIdx;
+    stats.NWATCHCHECKS += next_watch_idx - start;
     if (watchslack < lrgstCf) {
-      assert(watchIdx == size());
-      watchIdx = 0;
+      next_watch_idx = 0;
+      for (; next_watch_idx < start && watchslack < lrgstCf; ++next_watch_idx) {
+        if (const Lit l = lit(next_watch_idx); !hasWatch(next_watch_idx) && !isFalse(level, l)) {
+          watchslack += _c(next_watch_idx);
+          flipWatch(next_watch_idx);
+          adj[l].emplace_back(cr, next_watch_idx + INF);
+        }
+      }  // NOTE: first innermost loop
+      stats.NWATCHCHECKS += next_watch_idx;
     }
-  }  // else we did not find enough watches last time, so we can skip looking for them now
+  }
 
   assert(hasCorrectSlack(solver));
   assert(hasCorrectWatches(solver));
@@ -535,17 +539,17 @@ WatchStatus Watched<CF, DG>::checkForPropagation(CRef cr, int& idx, [[maybe_unus
   }
   // keep the watch, check for propagation
   int watchprops = 0;
-  stats.NPROPCHECKS -= watchIdx;
-  for (; watchIdx < size() && _c(watchIdx) > watchslack; ++watchIdx) {
-    if (const Lit l = lit(watchIdx); isUnknown(position, l)) {
+  uint32_t prop_idx = 0;
+  for (; prop_idx < size() && _c(prop_idx) > watchslack; ++prop_idx) {
+    if (const Lit l = lit(prop_idx); isUnknown(position, l)) {
       stats.NPROPCLAUSE += degr == 1;
       stats.NPROPCARD += degr != 1 && lrgstCf == 1;
       ++watchprops;
-      assert(isCorrectlyPropagating(solver, watchIdx));
+      assert(isCorrectlyPropagating(solver, prop_idx));
       solver.propagate(l, cr);
     }  // NOTE: second innermost loop
   }
-  stats.NPROPCHECKS += watchIdx;
+  stats.NPROPCHECKS += prop_idx;
   stats.NPROPWATCH += watchprops;
   return WatchStatus::KEEPWATCH;
 }
@@ -689,29 +693,33 @@ WatchStatus WatchedSafe<CF, DG>::checkForPropagation(CRef cr, int& idx, [[maybe_
   assert(lit(_idx) == p);
   const CF& lrgstCf = _c(0);
 
-  if (ntrailpops < stats.NTRAILPOPS) {
-    ntrailpops = static_cast<long long>(stats.NTRAILPOPS.z);
-    watchIdx = 0;
-  }
-
   assert(hasWatch(_idx));
   const bool lookForWatches = watchslack >= lrgstCf;
   watchslack -= _c(_idx);
-  if (lookForWatches) {  // look for new watches if previously, slack was at least lrgstCf
-    stats.NWATCHCHECKS -= watchIdx;
-    for (; watchIdx < size() && watchslack < lrgstCf; ++watchIdx) {
-      if (const Lit l = lit(watchIdx); !hasWatch(watchIdx) && !isFalse(level, l)) {
-        watchslack += _c(watchIdx);
-        flipWatch(watchIdx);
-        adj[l].emplace_back(cr, watchIdx + INF);
+  // look for new watches if previously, watchslack was at least lrgstCf
+  // else we did not find enough watches last time, so we can skip looking for them now
+  if (lookForWatches) {
+    const uint32_t start = next_watch_idx;
+    for (; next_watch_idx < size() && watchslack < lrgstCf; ++next_watch_idx) {
+      if (const Lit l = lit(next_watch_idx); !hasWatch(next_watch_idx) && !isFalse(level, l)) {
+        watchslack += _c(next_watch_idx);
+        flipWatch(next_watch_idx);
+        adj[l].emplace_back(cr, next_watch_idx + INF);
       }
     }  // NOTE: first innermost loop
-    stats.NWATCHCHECKS += watchIdx;
+    stats.NWATCHCHECKS += next_watch_idx - start;
     if (watchslack < lrgstCf) {
-      assert(watchIdx == size());
-      watchIdx = 0;
+      next_watch_idx = 0;
+      for (; next_watch_idx < start && watchslack < lrgstCf; ++next_watch_idx) {
+        if (const Lit l = lit(next_watch_idx); !hasWatch(next_watch_idx) && !isFalse(level, l)) {
+          watchslack += _c(next_watch_idx);
+          flipWatch(next_watch_idx);
+          adj[l].emplace_back(cr, next_watch_idx + INF);
+        }
+      }  // NOTE: first innermost loop
+      stats.NWATCHCHECKS += next_watch_idx;
     }
-  }  // else we did not find enough watches last time, so we can skip looking for them now
+  }
 
   assert(hasCorrectSlack(solver));
   assert(hasCorrectWatches(solver));
@@ -727,17 +735,17 @@ WatchStatus WatchedSafe<CF, DG>::checkForPropagation(CRef cr, int& idx, [[maybe_
   }
   // keep the watch, check for propagation
   int watchprops = 0;
-  stats.NPROPCHECKS -= watchIdx;
-  for (; watchIdx < size() && _c(watchIdx) > watchslack; ++watchIdx) {
-    if (const Lit l = lit(watchIdx); isUnknown(position, l)) {
+  uint32_t prop_idx = 0;
+  for (; prop_idx < size() && _c(prop_idx) > watchslack; ++prop_idx) {
+    if (const Lit l = lit(prop_idx); isUnknown(position, l)) {
       stats.NPROPCLAUSE += degr == 1;
       stats.NPROPCARD += degr != 1 && lrgstCf == 1;
       ++watchprops;
-      assert(isCorrectlyPropagating(solver, watchIdx));
+      assert(isCorrectlyPropagating(solver, prop_idx));
       solver.propagate(l, cr);
     }  // NOTE: second innermost loop
   }
-  stats.NPROPCHECKS += watchIdx;
+  stats.NPROPCHECKS += prop_idx;
   stats.NPROPWATCH += watchprops;
   return WatchStatus::KEEPWATCH;
 }
@@ -869,7 +877,7 @@ template <typename CF, typename DG>
 bool Watched<CF, DG>::hasCorrectWatches(const Solver& solver) {
   return true;  // comment to run check
   if (watchslack >= _c(0)) return true;
-  for (int i = 0; i < (int)watchIdx; ++i) assert(isKnown(solver.getPos(), lit(i)));
+  // for (int i = 0; i < (int)watchIdx; ++i) assert(isKnown(solver.getPos(), lit(i)));
   for (int i = 0; i < (int)size(); ++i) {
     if (!(hasWatch(i) || isFalse(solver.getLevel(), lit(i)))) {
       std::cout << i << " " << _c(i) << " " << isFalse(solver.getLevel(), lit(i)) << std::endl;
@@ -884,7 +892,7 @@ template <typename CF, typename DG>
 bool WatchedSafe<CF, DG>::hasCorrectWatches(const Solver& solver) {
   return true;  // comment to run check
   if (watchslack >= _c(0)) return true;
-  for (int i = 0; i < (int)watchIdx; ++i) assert(isKnown(solver.getPos(), lit(i)));
+  // for (int i = 0; i < (int)watchIdx; ++i) assert(isKnown(solver.getPos(), lit(i)));
   for (int i = 0; i < (int)size(); ++i) {
     if (!(hasWatch(i) || isFalse(solver.getLevel(), lit(i)))) {
       std::cout << i << " " << _c(i) << " " << isFalse(solver.getLevel(), lit(i)) << std::endl;
