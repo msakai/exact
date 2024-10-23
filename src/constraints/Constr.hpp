@@ -84,7 +84,6 @@ struct Constr {  // internal solver constraint optimized for fast propagation
   } header;
   float priority;  // Integer part is LBD (0 to 1e5), fractional part is 1-strength. Lower is better.
   const uint32_t sze;
-  uint32_t next_watch_idx;
 
   Constr(ID i, Origin o, bool lkd, uint32_t lngth, float strngth, uint32_t maxLBD);
   virtual ~Constr() {}
@@ -132,6 +131,7 @@ struct Constr {  // internal solver constraint optimized for fast propagation
 std::ostream& operator<<(std::ostream& o, const Constr& c);
 
 struct Clause final : Constr {
+  uint32_t next_watch_idx;
   Lit data[];  // Flexible Array Member
 
   static size_t getMemSize(uint32_t length);
@@ -147,7 +147,8 @@ struct Clause final : Constr {
   template <typename SMALL, typename LARGE>
   Clause(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id)
       : Constr(_id, constraint->orig, locked, constraint->nVars(), 1 / static_cast<double>(constraint->nVars()),
-               constraint->global.options.dbMaxLBD.get()) {
+               constraint->global.options.dbMaxLBD.get()),
+        next_watch_idx(sze) {
     assert(_id > ID_Trivial);
     assert(constraint->nVars() < INF);
     assert(constraint->getDegree() == 1);
@@ -175,6 +176,7 @@ struct Clause final : Constr {
 
 struct Cardinality final : Constr {
   const uint32_t degr;
+  uint32_t next_watch_idx;
   Lit data[];  // Flexible Array Member
 
   static size_t getMemSize(uint32_t length);
@@ -192,7 +194,8 @@ struct Cardinality final : Constr {
       : Constr(_id, constraint->orig, locked, constraint->nVars(),
                static_cast<double>(constraint->getDegree()) / constraint->nVars(),
                constraint->global.options.dbMaxLBD.get()),
-        degr(static_cast<uint32_t>(constraint->getDegree())) {
+        degr(static_cast<uint32_t>(constraint->getDegree())),
+        next_watch_idx(sze) {
     assert(degr > 1);  // otherwise should be a clause
     assert(_id > ID_Trivial);
     assert(constraint->nVars() < INF);
@@ -222,6 +225,7 @@ struct Cardinality final : Constr {
 
 template <typename CF, typename DG>
 struct Watched final : Constr {
+  uint32_t next_watch_idx;
   uint32_t start_watch_idx;
   uint32_t prop_idx;
   uint32_t unsaturatedIdx;
@@ -253,6 +257,7 @@ struct Watched final : Constr {
   template <typename SMALL, typename LARGE>
   Watched(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id, double strngth)
       : Constr(_id, constraint->orig, locked, constraint->nVars(), strngth, constraint->global.options.dbMaxLBD.get()),
+        next_watch_idx(sze),
         start_watch_idx(next_watch_idx),
         prop_idx(0),
         unsaturatedIdx(0),
@@ -296,6 +301,7 @@ struct Watched final : Constr {
 
 template <typename CF, typename DG>
 struct WatchedSafe final : Constr {
+  uint32_t next_watch_idx;
   uint32_t start_watch_idx;
   uint32_t prop_idx;
   uint32_t unsaturatedIdx;
@@ -326,6 +332,7 @@ struct WatchedSafe final : Constr {
   template <typename SMALL, typename LARGE>
   WatchedSafe(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id, double strngth)
       : Constr(_id, constraint->orig, locked, constraint->nVars(), strngth, constraint->global.options.dbMaxLBD.get()),
+        next_watch_idx(sze),
         start_watch_idx(next_watch_idx),
         prop_idx(0),
         unsaturatedIdx(0),
