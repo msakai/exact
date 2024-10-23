@@ -503,18 +503,9 @@ WatchStatus Watched<CF, DG>::checkForPropagation(CRef cr, int& idx, [[maybe_unus
   // look for new watches if previously, watchslack was at least lrgstCf
   // else we did not find enough watches last time, so we can skip looking for them now
   if (lookForWatches) {
-    const uint32_t start = next_watch_idx;
-    for (; next_watch_idx < size() && watchslack < lrgstCf; ++next_watch_idx) {
-      if (const Lit l = lit(next_watch_idx); !hasWatch(next_watch_idx) && !isFalse(level, l)) {
-        watchslack += _c(next_watch_idx);
-        flipWatch(next_watch_idx);
-        adj[l].emplace_back(cr, next_watch_idx + INF);
-      }
-    }  // NOTE: first innermost loop
-    stats.NWATCHCHECKS += next_watch_idx - start;
-    if (watchslack < lrgstCf) {
-      next_watch_idx = 0;
-      for (; next_watch_idx < start && watchslack < lrgstCf; ++next_watch_idx) {
+    if (next_watch_idx >= start_watch_idx) {
+      stats.NWATCHCHECKS -= next_watch_idx;
+      for (; next_watch_idx < size() && watchslack < lrgstCf; ++next_watch_idx) {
         if (const Lit l = lit(next_watch_idx); !hasWatch(next_watch_idx) && !isFalse(level, l)) {
           watchslack += _c(next_watch_idx);
           flipWatch(next_watch_idx);
@@ -523,6 +514,19 @@ WatchStatus Watched<CF, DG>::checkForPropagation(CRef cr, int& idx, [[maybe_unus
       }  // NOTE: first innermost loop
       stats.NWATCHCHECKS += next_watch_idx;
     }
+
+    if (watchslack < lrgstCf) {
+      next_watch_idx = 0;
+      for (; next_watch_idx < start_watch_idx && watchslack < lrgstCf; ++next_watch_idx) {
+        if (const Lit l = lit(next_watch_idx); !hasWatch(next_watch_idx) && !isFalse(level, l)) {
+          watchslack += _c(next_watch_idx);
+          flipWatch(next_watch_idx);
+          adj[l].emplace_back(cr, next_watch_idx + INF);
+        }
+      }  // NOTE: first innermost loop
+      stats.NWATCHCHECKS += next_watch_idx;
+    }
+    assert(watchslack >= lrgstCf || next_watch_idx == start_watch_idx);
   }
 
   assert(hasCorrectSlack(solver));
@@ -538,19 +542,16 @@ WatchStatus Watched<CF, DG>::checkForPropagation(CRef cr, int& idx, [[maybe_unus
     return WatchStatus::CONFLICTING;
   }
   // keep the watch, check for propagation
-  int watchprops = 0;
-  uint32_t prop_idx = 0;
+  stats.NPROPCHECKS -= prop_idx;
   for (; prop_idx < size() && _c(prop_idx) > watchslack; ++prop_idx) {
     if (const Lit l = lit(prop_idx); isUnknown(position, l)) {
-      stats.NPROPCLAUSE += degr == 1;
-      stats.NPROPCARD += degr != 1 && lrgstCf == 1;
-      ++watchprops;
+      ++stats.NPROPWATCH;
       assert(isCorrectlyPropagating(solver, prop_idx));
       solver.propagate(l, cr);
     }  // NOTE: second innermost loop
   }
   stats.NPROPCHECKS += prop_idx;
-  stats.NPROPWATCH += watchprops;
+
   return WatchStatus::KEEPWATCH;
 }
 
@@ -558,6 +559,8 @@ template <typename CF, typename DG>
 void Watched<CF, DG>::undoFalsified(const int i) {
   assert(i >= INF);
   assert(hasWatch(i - INF));
+  start_watch_idx = next_watch_idx;
+  prop_idx = 0;
   watchslack += _c(i - INF);
 }
 
@@ -699,18 +702,9 @@ WatchStatus WatchedSafe<CF, DG>::checkForPropagation(CRef cr, int& idx, [[maybe_
   // look for new watches if previously, watchslack was at least lrgstCf
   // else we did not find enough watches last time, so we can skip looking for them now
   if (lookForWatches) {
-    const uint32_t start = next_watch_idx;
-    for (; next_watch_idx < size() && watchslack < lrgstCf; ++next_watch_idx) {
-      if (const Lit l = lit(next_watch_idx); !hasWatch(next_watch_idx) && !isFalse(level, l)) {
-        watchslack += _c(next_watch_idx);
-        flipWatch(next_watch_idx);
-        adj[l].emplace_back(cr, next_watch_idx + INF);
-      }
-    }  // NOTE: first innermost loop
-    stats.NWATCHCHECKS += next_watch_idx - start;
-    if (watchslack < lrgstCf) {
-      next_watch_idx = 0;
-      for (; next_watch_idx < start && watchslack < lrgstCf; ++next_watch_idx) {
+    if (next_watch_idx >= start_watch_idx) {
+      stats.NWATCHCHECKS -= next_watch_idx;
+      for (; next_watch_idx < size() && watchslack < lrgstCf; ++next_watch_idx) {
         if (const Lit l = lit(next_watch_idx); !hasWatch(next_watch_idx) && !isFalse(level, l)) {
           watchslack += _c(next_watch_idx);
           flipWatch(next_watch_idx);
@@ -719,6 +713,19 @@ WatchStatus WatchedSafe<CF, DG>::checkForPropagation(CRef cr, int& idx, [[maybe_
       }  // NOTE: first innermost loop
       stats.NWATCHCHECKS += next_watch_idx;
     }
+
+    if (watchslack < lrgstCf) {
+      next_watch_idx = 0;
+      for (; next_watch_idx < start_watch_idx && watchslack < lrgstCf; ++next_watch_idx) {
+        if (const Lit l = lit(next_watch_idx); !hasWatch(next_watch_idx) && !isFalse(level, l)) {
+          watchslack += _c(next_watch_idx);
+          flipWatch(next_watch_idx);
+          adj[l].emplace_back(cr, next_watch_idx + INF);
+        }
+      }  // NOTE: first innermost loop
+      stats.NWATCHCHECKS += next_watch_idx;
+    }
+    assert(watchslack >= lrgstCf || next_watch_idx == start_watch_idx);
   }
 
   assert(hasCorrectSlack(solver));
@@ -733,20 +740,18 @@ WatchStatus WatchedSafe<CF, DG>::checkForPropagation(CRef cr, int& idx, [[maybe_
     assert(isCorrectlyConflicting(solver));
     return WatchStatus::CONFLICTING;
   }
+
   // keep the watch, check for propagation
-  int watchprops = 0;
-  uint32_t prop_idx = 0;
+  stats.NPROPCHECKS -= prop_idx;
   for (; prop_idx < size() && _c(prop_idx) > watchslack; ++prop_idx) {
     if (const Lit l = lit(prop_idx); isUnknown(position, l)) {
-      stats.NPROPCLAUSE += degr == 1;
-      stats.NPROPCARD += degr != 1 && lrgstCf == 1;
-      ++watchprops;
+      ++stats.NPROPWATCH;
       assert(isCorrectlyPropagating(solver, prop_idx));
       solver.propagate(l, cr);
     }  // NOTE: second innermost loop
   }
   stats.NPROPCHECKS += prop_idx;
-  stats.NPROPWATCH += watchprops;
+
   return WatchStatus::KEEPWATCH;
 }
 
@@ -754,6 +759,8 @@ template <typename CF, typename DG>
 void WatchedSafe<CF, DG>::undoFalsified(const int i) {
   assert(i >= INF);
   assert(hasWatch(i - INF));
+  start_watch_idx = next_watch_idx;
+  prop_idx = 0;
   watchslack += _c(i - INF);
 }
 
@@ -762,8 +769,7 @@ uint32_t WatchedSafe<CF, DG>::resolveWith(CeSuper& confl, const Lit l, Solver& s
   return confl->resolveWith(lits, cfs, size(), degr, id(), getOrigin(), l, solver.getLevel(), solver.getPos(), actSet);
 }
 template <typename CF, typename DG>
-uint32_t WatchedSafe<CF, DG>::subsumeWith(CeSuper& confl, const Lit l, Solver& solver,
-                                              IntSet& saturatedLits) const {
+uint32_t WatchedSafe<CF, DG>::subsumeWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& saturatedLits) const {
   return confl->subsumeWith(lits, cfs, size(), degr, id(), l, solver.getLevel(), solver.getPos(), saturatedLits);
 }
 
