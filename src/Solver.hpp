@@ -233,7 +233,7 @@ class Solver {
   [[nodiscard]] CeSuper runDatabasePropagation();
   [[nodiscard]] CeSuper runPropagation();
   [[nodiscard]] CeSuper runPropagationWithLP();
-  WatchStatus checkForPropagation(CRef cr, int& idx, Lit p);
+  WatchStatus checkForPropagation(Watch& w, Lit p);
 
   // ---------------------------------------------------------------------
   // Conflict analysis

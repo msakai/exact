@@ -204,7 +204,7 @@ void Solver::undoOne() {
   Lit l = trail.back();
   if (qhead == (int)trail.size()) {
     for (const Watch& w : adj[-l])
-      if (w.idx >= INF) {
+      if (w.idx < INF) {
         ca[w.cref].undoFalsified(w.idx);
         ++global.stats.NWATCHLOOKUPSBJ;
       }
@@ -283,17 +283,17 @@ State Solver::probe(Lit l, bool deriveImplications) {
 CeSuper Solver::runDatabasePropagation() {
   while (qhead < (int)trail.size()) {
     Lit p = trail[qhead++];
+    float prevPrio = std::numeric_limits<float>::lowest();
+    float cPrio = 0;
     std::vector<Watch>& ws = adj[-p];
-    double prevPrio = std::numeric_limits<double>::lowest();
-    double cPrio = 0;
     for (int it_ws = 0; it_ws < std::ssize(ws); ++it_ws) {
-      int idx = ws[it_ws].idx;
-      if (idx < 0 && isTrue(level, idx + INF)) {  // blocked literal check
+      const uint32_t& idx = ws[it_ws].idx;
+      const Lit& blocking = ws[it_ws].blocking;
+      if (idx >= 2 * INF && isTrue(level, blocking)) {  // blocking literal check
         assert(dynamic_cast<Clause*>(&ca[ws[it_ws].cref]) != nullptr);
         continue;
       }
-      CRef cr = ws[it_ws].cref;
-      WatchStatus wstat = checkForPropagation(cr, ws[it_ws].idx, -p);
+      WatchStatus wstat = checkForPropagation(ws[it_ws], -p);
       if (wstat == WatchStatus::DROPWATCH) {
         plf::single_reorderase(ws, ws.begin() + it_ws);
         --it_ws;
@@ -301,13 +301,13 @@ CeSuper Solver::runDatabasePropagation() {
         ++global.stats.NTRAILPOPS;
         for (int i = 0; i <= it_ws; ++i) {
           const Watch& w = ws[i];
-          if (w.idx >= INF) {
+          if (w.idx < INF) {
             ca[w.cref].undoFalsified(w.idx);
             ++global.stats.NWATCHLOOKUPSBJ;
           }
         }
         --qhead;
-        Constr& c = ca[cr];
+        Constr& c = ca[ws[it_ws].cref];
         CeSuper result = c.toExpanded(global.cePools);
         c.decreaseLBD(result->getLBD(level));
         c.fixEncountered(global.stats);
@@ -315,7 +315,7 @@ CeSuper Solver::runDatabasePropagation() {
         return result;
       } else {
         assert(wstat == WatchStatus::KEEPWATCH);
-        Constr& c = ca[cr];
+        Constr& c = ca[ws[it_ws].cref];
         cPrio = c.priority;
         if (cPrio < prevPrio) {
           assert(it_ws > 0);
@@ -352,13 +352,12 @@ CeSuper Solver::runPropagationWithLP() {
   return CeNull();
 }
 
-WatchStatus Solver::checkForPropagation(CRef cr, int& idx, Lit p) {
+WatchStatus Solver::checkForPropagation(Watch& w, Lit p) {
   assert(isFalse(level, p));
-  Constr& c = ca[cr];
-  if (c.isMarkedForDelete()) return WatchStatus::DROPWATCH;
   ++global.stats.NWATCHLOOKUPS;
-
-  return c.checkForPropagation(cr, idx, p, *this, global.stats);
+  Constr& c = ca[w.cref];
+  if (c.isMarkedForDelete()) return WatchStatus::DROPWATCH;
+  return c.checkForPropagation(w, p, *this, global.stats);
 }
 
 // ---------------------------------------------------------------------

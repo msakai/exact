@@ -113,8 +113,8 @@ struct Constr {  // internal solver constraint optimized for fast propagation
   virtual bool isAtMostOne() const = 0;
 
   virtual void initializeWatches(CRef cr, Solver& solver) = 0;
-  virtual WatchStatus checkForPropagation(CRef cr, int& idx, Lit p, Solver& slvr, Stats& stats) = 0;
-  virtual void undoFalsified(int i) = 0;
+  virtual WatchStatus checkForPropagation(Watch& w, Lit p, Solver& slvr, Stats& stats) = 0;
+  virtual void undoFalsified(uint32_t i) = 0;
   virtual uint32_t resolveWith(CeSuper& confl, Lit l, Solver& solver, IntSet& actSet) const = 0;
   virtual uint32_t subsumeWith(CeSuper& confl, Lit l, Solver& solver, IntSet& saturatedLits) const = 0;
 
@@ -146,7 +146,7 @@ struct Clause final : Constr {
 
   template <typename SMALL, typename LARGE>
   Clause(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id)
-      : Constr(_id, constraint->orig, locked, constraint->nVars(), 1 / static_cast<double>(constraint->nVars()),
+      : Constr(_id, constraint->orig, locked, constraint->nVars(), 1 / static_cast<float>(constraint->nVars()),
                constraint->global.options.dbMaxLBD.get()),
         next_watch_idx(sze) {
     assert(_id > ID_Trivial);
@@ -163,8 +163,8 @@ struct Clause final : Constr {
   void cleanup() {}
 
   void initializeWatches(CRef cr, Solver& solver);
-  WatchStatus checkForPropagation(CRef cr, int& idx, Lit p, Solver& solver, Stats& stats);
-  void undoFalsified([[maybe_unused]] int i) { assert(false); }
+  WatchStatus checkForPropagation(Watch& w, Lit p, Solver& solver, Stats& stats);
+  void undoFalsified([[maybe_unused]] uint32_t i) { assert(false); }
   uint32_t resolveWith(CeSuper& confl, Lit l, Solver& solver, IntSet& actSet) const;
   uint32_t subsumeWith(CeSuper& confl, Lit l, Solver& solver, IntSet& saturatedLits) const;
 
@@ -192,7 +192,7 @@ struct Cardinality final : Constr {
   template <typename SMALL, typename LARGE>
   Cardinality(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id)
       : Constr(_id, constraint->orig, locked, constraint->nVars(),
-               static_cast<double>(constraint->getDegree()) / constraint->nVars(),
+               static_cast<float>(constraint->getDegree()) / constraint->nVars(),
                constraint->global.options.dbMaxLBD.get()),
         degr(static_cast<uint32_t>(constraint->getDegree())),
         next_watch_idx(sze) {
@@ -212,8 +212,8 @@ struct Cardinality final : Constr {
   void cleanup() {}
 
   void initializeWatches(CRef cr, Solver& solver);
-  WatchStatus checkForPropagation(CRef cr, int& idx, Lit p, Solver& solver, Stats& stats);
-  void undoFalsified([[maybe_unused]] int i) { assert(false); }
+  WatchStatus checkForPropagation(Watch& w, Lit p, Solver& solver, Stats& stats);
+  void undoFalsified([[maybe_unused]] uint32_t i) { assert(false); }
   uint32_t resolveWith(CeSuper& confl, Lit l, Solver& solver, IntSet& actSet) const;
   uint32_t subsumeWith(CeSuper& confl, Lit l, Solver& solver, IntSet& saturatedLits) const;
 
@@ -284,8 +284,8 @@ struct Watched final : Constr {
   void flipWatch(uint32_t);
 
   void initializeWatches(CRef cr, Solver& solver);
-  WatchStatus checkForPropagation(CRef cr, int& idx, [[maybe_unused]] Lit p, Solver& solver, Stats& stats);
-  void undoFalsified(int i);
+  WatchStatus checkForPropagation(Watch& w, [[maybe_unused]] Lit p, Solver& solver, Stats& stats);
+  void undoFalsified(uint32_t i);
   uint32_t resolveWith(CeSuper& confl, Lit l, Solver& solver, IntSet& actSet) const;
   uint32_t subsumeWith(CeSuper& confl, Lit l, Solver& solver, IntSet& saturatedLits) const;
 
@@ -360,8 +360,8 @@ struct WatchedSafe final : Constr {
   void flipWatch(uint32_t);
 
   void initializeWatches(CRef cr, Solver& solver);
-  WatchStatus checkForPropagation(CRef cr, int& idx, [[maybe_unused]] Lit p, Solver& solver, Stats& stats);
-  void undoFalsified(int i);
+  WatchStatus checkForPropagation(Watch& w, [[maybe_unused]] Lit p, Solver& solver, Stats& stats);
+  void undoFalsified(uint32_t i);
   uint32_t resolveWith(CeSuper& confl, Lit l, Solver& solver, IntSet& actSet) const;
   uint32_t subsumeWith(CeSuper& confl, Lit l, Solver& solver, IntSet& saturatedLits) const;
 

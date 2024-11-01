@@ -90,13 +90,13 @@ inline bool isPropagated(const std::vector<CRef>& reasons, Lit l) { return !isDe
 
 struct Watch {
   CRef cref;
-  int idx;
   /**
-   * idx<0: blocked literal for clausal propagation
-   * 0<=idx<INF: index of watched literal for cardinality propagation
-   * INF<=idx: index of watched literal for watched/counting propagation
+   * 0<=idx<INF: index of watched literal for watched propagation
+   * INF<=idx<2*INF: index of watched literal for cardinality propagation
+   * idx==2*INF: clause
    **/
-  Watch(CRef cr, int i) : cref(cr), idx(i){};
+  uint32_t idx;
+  Lit blocking;
   bool operator==(const Watch& other) const { return other.cref == cref && other.idx == idx; }
 };
 
