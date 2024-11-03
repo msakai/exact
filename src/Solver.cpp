@@ -854,6 +854,7 @@ void Solver::dropExternal(ID id, bool erasable, bool forceDelete) {
   auto old_it = external.find(id);
   assert(old_it != external.end());
   if (old_it == external.end()) return;  // TODO: should never happen, happened in some old test run. Temporary fix...
+  // happened on memout in MIPLIB/scpk4.mps
   CRef cr = old_it->second;
   external.erase(old_it);
   ca[cr].setLocked(!erasable);
