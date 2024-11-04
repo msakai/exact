@@ -294,14 +294,13 @@ CeSuper Solver::runDatabasePropagation() {
       const Lit& blocking = ws[it_ws].blocking;
 
       if (isTrue(level, blocking)) {  // blocking literal check
-        if (idx >= 2 * INF) {
-          assert(dynamic_cast<Clause*>(&ca[ws[it_ws].cref]) != nullptr);
-          continue;
-        }
-        if (position[toVar(blocking)] < position[toVar(p)]) {
+        if (idx >= 2 * INF || position[toVar(blocking)] < position[toVar(p)]) {
+          assert(idx < INF || dynamic_cast<Clause*>(&ca[ws[it_ws].cref]) != nullptr);
+          global.stats.NBLOCKINGSUCCESS += idx<INF;
           continue;
         }
       }
+      global.stats.NBLOCKINGFAILS += idx<INF;
 
       WatchStatus wstat = checkForPropagation(ws[it_ws], -p);
       if (wstat == WatchStatus::DROPWATCH) {

@@ -172,6 +172,9 @@ struct Stats {
   Stat NWATCHLOOKUPSBJ{0, "watch backjump lookups"};
   Stat NWATCHCHECKS{0, "watch checks"};
   Stat NPROPCHECKS{0, "propagation checks"};
+  Stat NBLOCKINGSUCCESS{0, "blocking literal success"};
+  Stat NBLOCKINGFAILS{0,   "blocking literal fails  "};
+
   Stat NADDEDLITERALS{0, "literal additions"};
   Stat NSATURATESTEPS{0, "saturation steps"};
   Stat NUNKNOWNROUNDEDUP{0, "unknown literals rounded up"};
@@ -424,6 +427,8 @@ struct Stats {
       &NWATCHLOOKUPSBJ,
       &NWATCHCHECKS,
       &NPROPCHECKS,
+      &NBLOCKINGSUCCESS,
+      &NBLOCKINGFAILS,
       &NADDEDLITERALS,
       &NSATURATESTEPS,
       &NUNKNOWNROUNDEDUP,
