@@ -203,11 +203,14 @@ void Solver::undoOne() {
   ++global.stats.NTRAILPOPS;
   Lit l = trail.back();
   if (qhead == (int)trail.size()) {
-    for (const Watch& w : adj[-l])
-      if (w.idx < INF) {
-        ca[w.cref].undoFalsified(w.idx);
-        ++global.stats.NWATCHLOOKUPSBJ;
+    for (const Watch& w : adj[-l]) {
+      if (w.idx < INF) {  // avoids the cardinality and clausal case
+        if (Lit blocking = w.blocking; !isTrue(level, blocking) || position[toVar(blocking)] >= position[toVar(l)]) {
+          ca[w.cref].undoFalsified(w.idx);
+          ++global.stats.NWATCHLOOKUPSBJ;
+        }
       }
+    }
     --qhead;
   }
   Var v = toVar(l);
@@ -289,10 +292,17 @@ CeSuper Solver::runDatabasePropagation() {
     for (int it_ws = 0; it_ws < std::ssize(ws); ++it_ws) {
       const uint32_t& idx = ws[it_ws].idx;
       const Lit& blocking = ws[it_ws].blocking;
-      if (idx >= 2 * INF && isTrue(level, blocking)) {  // blocking literal check
-        assert(dynamic_cast<Clause*>(&ca[ws[it_ws].cref]) != nullptr);
-        continue;
+
+      if (isTrue(level, blocking)) {  // blocking literal check
+        if (idx >= 2 * INF) {
+          assert(dynamic_cast<Clause*>(&ca[ws[it_ws].cref]) != nullptr);
+          continue;
+        }
+        if (position[toVar(blocking)] < position[toVar(p)]) {
+          continue;
+        }
       }
+
       WatchStatus wstat = checkForPropagation(ws[it_ws], -p);
       if (wstat == WatchStatus::DROPWATCH) {
         plf::single_reorderase(ws, ws.begin() + it_ws);
@@ -301,9 +311,12 @@ CeSuper Solver::runDatabasePropagation() {
         ++global.stats.NTRAILPOPS;
         for (int i = 0; i <= it_ws; ++i) {
           const Watch& w = ws[i];
-          if (w.idx < INF) {
-            ca[w.cref].undoFalsified(w.idx);
-            ++global.stats.NWATCHLOOKUPSBJ;
+          if (w.idx < INF) {  // avoids the cardinality and clausal case
+            if (Lit blocking = w.blocking;
+                !isTrue(level, blocking) || position[toVar(blocking)] >= position[toVar(p)]) {
+              ca[w.cref].undoFalsified(w.idx);
+              ++global.stats.NWATCHLOOKUPSBJ;
+            }
           }
         }
         --qhead;

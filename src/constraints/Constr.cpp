@@ -445,11 +445,16 @@ void Watched<CF, DG>::initializeWatches(CRef cr, Solver& solver) {
   watchslack = -degr;
   const CF& lrgstCf = _c(0);
   for (uint32_t i = 0; i < size() && watchslack < lrgstCf; ++i) {
-    if (const Lit l = lit(i); !isFalse(level, l) || position[toVar(l)] >= qhead) {
+    const Lit l = lit(i);
+    const int pos_l = position[toVar(l)];
+    if (pos_l >= qhead || !isFalse(level, l)) {
       assert(!hasWatch(i));
       watchslack += _c(i);
       flipWatch(i);
-      adj[l].emplace_back(cr, i, 0);
+      adj[l].emplace_back(cr, i, blocking);
+      if (i < unsaturatedIdx && pos_l < position[toVar(blocking)]) {
+        blocking = l;
+      }
     }
   }
   assert(watchslack >= 0);
@@ -468,7 +473,7 @@ void Watched<CF, DG>::initializeWatches(CRef cr, Solver& solver) {
       assert(!hasWatch(i));
       diff -= _c(i);
       flipWatch(i);
-      adj[lit(i)].emplace_back(cr, i, 0);
+      adj[lit(i)].emplace_back(cr, i, blocking);
       if (diff <= 0) break;
     }
     // perform initial propagation
@@ -503,7 +508,10 @@ WatchStatus Watched<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] cons
         if (const Lit l = lit(next_watch_idx); !hasWatch(next_watch_idx) && !isFalse(level, l)) {
           watchslack += _c(next_watch_idx);
           flipWatch(next_watch_idx);
-          adj[l].emplace_back(w.cref, next_watch_idx, 0);
+          adj[l].emplace_back(w.cref, next_watch_idx, blocking);
+          if (next_watch_idx < unsaturatedIdx && position[toVar(l)] < position[toVar(blocking)]) {
+            blocking = l;
+          }
         }
       }  // NOTE: first innermost loop
       stats.NWATCHCHECKS += next_watch_idx;
@@ -515,7 +523,10 @@ WatchStatus Watched<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] cons
         if (const Lit l = lit(next_watch_idx); !hasWatch(next_watch_idx) && !isFalse(level, l)) {
           watchslack += _c(next_watch_idx);
           flipWatch(next_watch_idx);
-          adj[l].emplace_back(w.cref, next_watch_idx, 0);
+          adj[l].emplace_back(w.cref, next_watch_idx, blocking);
+          if (next_watch_idx < unsaturatedIdx && position[toVar(l)] < position[toVar(blocking)]) {
+            blocking = l;
+          }
         }
       }  // NOTE: first innermost loop
       stats.NWATCHCHECKS += next_watch_idx;
@@ -640,11 +651,16 @@ void WatchedSafe<CF, DG>::initializeWatches(CRef cr, Solver& solver) {
   watchslack = -degr;
   const CF& lrgstCf = _c(0);
   for (uint32_t i = 0; i < size() && watchslack < lrgstCf; ++i) {
-    if (const Lit l = lit(i); !isFalse(level, l) || position[toVar(l)] >= qhead) {
+    const Lit l = lit(i);
+    const int pos_l = position[toVar(l)];
+    if (pos_l >= qhead || !isFalse(level, l)) {
       assert(!hasWatch(i));
       watchslack += _c(i);
       flipWatch(i);
-      adj[l].emplace_back(cr, i, 0);
+      adj[l].emplace_back(cr, i, blocking);
+      if (i < unsaturatedIdx && pos_l < position[toVar(blocking)]) {
+        blocking = l;
+      }
     }
   }
   assert(watchslack >= 0);
@@ -663,7 +679,7 @@ void WatchedSafe<CF, DG>::initializeWatches(CRef cr, Solver& solver) {
       assert(!hasWatch(i));
       diff -= _c(i);
       flipWatch(i);
-      adj[lit(i)].emplace_back(cr, i, 0);
+      adj[lit(i)].emplace_back(cr, i, blocking);
       if (diff <= 0) break;
     }
     // perform initial propagation
@@ -699,7 +715,10 @@ WatchStatus WatchedSafe<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] 
         if (const Lit l = lit(next_watch_idx); !hasWatch(next_watch_idx) && !isFalse(level, l)) {
           watchslack += _c(next_watch_idx);
           flipWatch(next_watch_idx);
-          adj[l].emplace_back(w.cref, next_watch_idx, 0);
+          adj[l].emplace_back(w.cref, next_watch_idx, blocking);
+          if (next_watch_idx < unsaturatedIdx && position[toVar(l)] < position[toVar(blocking)]) {
+            blocking = l;
+          }
         }
       }  // NOTE: first innermost loop
       stats.NWATCHCHECKS += next_watch_idx;
@@ -711,7 +730,10 @@ WatchStatus WatchedSafe<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] 
         if (const Lit l = lit(next_watch_idx); !hasWatch(next_watch_idx) && !isFalse(level, l)) {
           watchslack += _c(next_watch_idx);
           flipWatch(next_watch_idx);
-          adj[l].emplace_back(w.cref, next_watch_idx, 0);
+          adj[l].emplace_back(w.cref, next_watch_idx, blocking);
+          if (next_watch_idx < unsaturatedIdx && position[toVar(l)] < position[toVar(blocking)]) {
+            blocking = l;
+          }
         }
       }  // NOTE: first innermost loop
       stats.NWATCHCHECKS += next_watch_idx;

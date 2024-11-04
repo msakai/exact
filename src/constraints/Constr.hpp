@@ -231,6 +231,7 @@ struct Watched final : Constr {
   uint32_t unsaturatedIdx;
   const DG degr;
   DG watchslack;
+  Lit blocking;
   Lit data[0];  // Flexible Array Member - gcc complains about destruction when using the proper syntax '[]'
   // WARNING: Watched only works for int coefficients for now (they take up the same bytes as Lit)
   // use WatchedSafe for other coefficient types
@@ -262,7 +263,8 @@ struct Watched final : Constr {
         prop_idx(0),
         unsaturatedIdx(0),
         degr(static_cast<DG>(constraint->getDegree())),
-        watchslack(0) {
+        watchslack(0),
+        blocking(0) {
     assert(_id > ID_Trivial);
     assert(fitsIn<DG>(constraint->getDegree()));
     assert(fitsIn<CF>(constraint->getLargestCoef()));
@@ -308,6 +310,7 @@ struct WatchedSafe final : Constr {
   const DG degr;
   DG watchslack;
   CF* cfs;
+  Lit blocking;
   Lit lits[0];
 
   static size_t getMemSize(uint32_t length) {
@@ -338,7 +341,8 @@ struct WatchedSafe final : Constr {
         unsaturatedIdx(0),
         degr(static_cast<DG>(constraint->getDegree())),
         watchslack(0),
-        cfs(new CF[sze]) {
+        cfs(new CF[sze]),
+        blocking(0) {
     assert(_id > ID_Trivial);
     assert(fitsIn<DG>(constraint->getDegree()));
     assert(fitsIn<CF>(constraint->getLargestCoef()));
