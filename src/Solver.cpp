@@ -296,11 +296,11 @@ CeSuper Solver::runDatabasePropagation() {
       if (isTrue(level, blocking)) {  // blocking literal check
         if (idx >= 2 * INF || position[toVar(blocking)] < position[toVar(p)]) {
           assert(idx < INF || dynamic_cast<Clause*>(&ca[ws[it_ws].cref]) != nullptr);
-          global.stats.NBLOCKINGSUCCESS += idx<INF;
+          global.stats.NBLOCKINGSUCCESS += idx < INF;
           continue;
         }
       }
-      global.stats.NBLOCKINGFAILS += idx<INF;
+      global.stats.NBLOCKINGFAILS += idx < INF;
 
       WatchStatus wstat = checkForPropagation(ws[it_ws], -p);
       if (wstat == WatchStatus::DROPWATCH) {
