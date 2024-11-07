@@ -510,7 +510,7 @@ WatchStatus Watched<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] cons
   if (lookForWatches) {
     if (next_watch_idx >= start_watch_idx) {
       stats.NWATCHCHECKS -= next_watch_idx;
-      for (; next_watch_idx < size() && watchslack < lrgstCf; ++next_watch_idx) {
+      for (; next_watch_idx < unsaturatedIdx && watchslack < lrgstCf; ++next_watch_idx) {
         if (const Lit l = lit(next_watch_idx); !isFalse(level, l)) {
           if (next_watch_idx < unsaturatedIdx && position[toVar(l)] < p_pos) {
             assert(isTrue(level, l));
@@ -527,12 +527,19 @@ WatchStatus Watched<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] cons
           }
         }
       }  // NOTE: first innermost loop
+      for (; next_watch_idx < size() && watchslack < lrgstCf; ++next_watch_idx) {
+        if (const Lit l = lit(next_watch_idx); !hasWatch(next_watch_idx) && !isFalse(level, l)) {
+          watchslack += _c(next_watch_idx);
+          flipWatch(next_watch_idx);
+          adj[l].emplace_back(w.cref, next_watch_idx, blocking);
+        }
+      }  // NOTE: second innermost loop
       stats.NWATCHCHECKS += next_watch_idx;
     }
 
     if (watchslack < lrgstCf) {
       next_watch_idx = 0;
-      for (; next_watch_idx < start_watch_idx && watchslack < lrgstCf; ++next_watch_idx) {
+      for (; next_watch_idx < std::min(unsaturatedIdx, start_watch_idx) && watchslack < lrgstCf; ++next_watch_idx) {
         if (const Lit l = lit(next_watch_idx); !isFalse(level, l)) {
           if (next_watch_idx < unsaturatedIdx && position[toVar(l)] < p_pos) {
             assert(isTrue(level, l));
@@ -549,6 +556,13 @@ WatchStatus Watched<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] cons
           }
         }
       }  // NOTE: first innermost loop
+      for (; next_watch_idx < start_watch_idx && watchslack < lrgstCf; ++next_watch_idx) {
+        if (const Lit l = lit(next_watch_idx); !hasWatch(next_watch_idx) && !isFalse(level, l)) {
+          watchslack += _c(next_watch_idx);
+          flipWatch(next_watch_idx);
+          adj[l].emplace_back(w.cref, next_watch_idx, blocking);
+        }
+      }  // NOTE: second innermost loop
       stats.NWATCHCHECKS += next_watch_idx;
     }
     assert(watchslack >= lrgstCf || next_watch_idx == start_watch_idx);
@@ -736,7 +750,7 @@ WatchStatus WatchedSafe<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] 
   if (lookForWatches) {
     if (next_watch_idx >= start_watch_idx) {
       stats.NWATCHCHECKS -= next_watch_idx;
-      for (; next_watch_idx < size() && watchslack < lrgstCf; ++next_watch_idx) {
+      for (; next_watch_idx < unsaturatedIdx && watchslack < lrgstCf; ++next_watch_idx) {
         if (const Lit l = lit(next_watch_idx); !isFalse(level, l)) {
           if (next_watch_idx < unsaturatedIdx && position[toVar(l)] < p_pos) {
             assert(isTrue(level, l));
@@ -753,12 +767,19 @@ WatchStatus WatchedSafe<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] 
           }
         }
       }  // NOTE: first innermost loop
+      for (; next_watch_idx < size() && watchslack < lrgstCf; ++next_watch_idx) {
+        if (const Lit l = lit(next_watch_idx); !hasWatch(next_watch_idx) && !isFalse(level, l)) {
+          watchslack += _c(next_watch_idx);
+          flipWatch(next_watch_idx);
+          adj[l].emplace_back(w.cref, next_watch_idx, blocking);
+        }
+      }  // NOTE: second innermost loop
       stats.NWATCHCHECKS += next_watch_idx;
     }
 
     if (watchslack < lrgstCf) {
       next_watch_idx = 0;
-      for (; next_watch_idx < start_watch_idx && watchslack < lrgstCf; ++next_watch_idx) {
+      for (; next_watch_idx < std::min(unsaturatedIdx, start_watch_idx) && watchslack < lrgstCf; ++next_watch_idx) {
         if (const Lit l = lit(next_watch_idx); !isFalse(level, l)) {
           if (next_watch_idx < unsaturatedIdx && position[toVar(l)] < p_pos) {
             assert(isTrue(level, l));
@@ -775,6 +796,13 @@ WatchStatus WatchedSafe<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] 
           }
         }
       }  // NOTE: first innermost loop
+      for (; next_watch_idx < start_watch_idx && watchslack < lrgstCf; ++next_watch_idx) {
+        if (const Lit l = lit(next_watch_idx); !hasWatch(next_watch_idx) && !isFalse(level, l)) {
+          watchslack += _c(next_watch_idx);
+          flipWatch(next_watch_idx);
+          adj[l].emplace_back(w.cref, next_watch_idx, blocking);
+        }
+      }  // NOTE: second innermost loop
       stats.NWATCHCHECKS += next_watch_idx;
     }
     assert(watchslack >= lrgstCf || next_watch_idx == start_watch_idx);
