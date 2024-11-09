@@ -229,8 +229,6 @@ struct Cardinality final : Constr {
 template <typename CF, typename DG>
 struct Watched final : Constr {
   uint32_t next_watch_idx;
-  uint32_t start_watch_idx;
-  uint32_t prop_idx;
   uint32_t unsaturatedIdx;
   const DG degr;
   DG watchslack;
@@ -262,8 +260,6 @@ struct Watched final : Constr {
   Watched(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id, double strngth)
       : Constr(_id, constraint->orig, locked, constraint->nVars(), strngth, constraint->global.options.dbMaxLBD.get()),
         next_watch_idx(sze),
-        start_watch_idx(next_watch_idx),
-        prop_idx(0),
         unsaturatedIdx(0),
         degr(static_cast<DG>(constraint->getDegree())),
         watchslack(0),
@@ -307,8 +303,6 @@ struct Watched final : Constr {
 template <typename CF, typename DG>
 struct WatchedSafe final : Constr {
   uint32_t next_watch_idx;
-  uint32_t start_watch_idx;
-  uint32_t prop_idx;
   uint32_t unsaturatedIdx;
   const DG degr;
   DG watchslack;
@@ -339,8 +333,6 @@ struct WatchedSafe final : Constr {
   WatchedSafe(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id, double strngth)
       : Constr(_id, constraint->orig, locked, constraint->nVars(), strngth, constraint->global.options.dbMaxLBD.get()),
         next_watch_idx(sze),
-        start_watch_idx(next_watch_idx),
-        prop_idx(0),
         unsaturatedIdx(0),
         degr(static_cast<DG>(constraint->getDegree())),
         watchslack(0),
