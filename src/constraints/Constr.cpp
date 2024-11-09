@@ -598,7 +598,7 @@ WatchStatus Watched<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] cons
 
   // NOTE: when skipping the watch calculation in subsequent propagation phases, it can happen that the constraint
   // became conflicting.
-  return true_sum < degr ? WatchStatus::CONFLICTING : WatchStatus::KEEPWATCH;
+  return prop_idx >= size() && true_sum < degr ? WatchStatus::CONFLICTING : WatchStatus::KEEPWATCH;
 }
 
 template <typename CF, typename DG>
@@ -843,7 +843,7 @@ WatchStatus WatchedSafe<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] 
 
   // NOTE: when skipping the watch calculation in subsequent propagation phases, it can happen that the constraint
   // became conflicting.
-  return true_sum < degr ? WatchStatus::CONFLICTING : WatchStatus::KEEPWATCH;
+  return prop_idx >= size() && true_sum < degr ? WatchStatus::CONFLICTING : WatchStatus::KEEPWATCH;
 }
 
 template <typename CF, typename DG>
