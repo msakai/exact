@@ -582,12 +582,17 @@ WatchStatus Watched<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] cons
   }
   // keep the watch, check for propagation
   uint32_t prop_idx = 0;
-  for (; prop_idx < size() && _c(prop_idx) > watchslack; ++prop_idx) {
-    if (const Lit l = lit(prop_idx); isUnknown(position, l)) {
+  DG true_sum = 0;
+  for (; prop_idx < size() && true_sum < degr && _c(prop_idx) > watchslack; ++prop_idx) {
+    const Lit l = lit(prop_idx);
+    if (isTrue(level, l)) {
+      true_sum += _c(prop_idx);
+    } else if (isUnknown(position, l)) {
+      true_sum += _c(prop_idx);
       ++stats.NPROPWATCH;
       assert(isCorrectlyPropagating(solver, prop_idx));
       solver.propagate(l, w.cref);
-    }  // NOTE: second innermost loop
+    }  // NOTE: third innermost loop
   }
   stats.NPROPCHECKS += prop_idx;
 
@@ -820,12 +825,17 @@ WatchStatus WatchedSafe<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] 
 
   // keep the watch, check for propagation
   uint32_t prop_idx = 0;
-  for (; prop_idx < size() && _c(prop_idx) > watchslack; ++prop_idx) {
-    if (const Lit l = lit(prop_idx); isUnknown(position, l)) {
+  DG true_sum = 0;
+  for (; prop_idx < size() && true_sum < degr && _c(prop_idx) > watchslack; ++prop_idx) {
+    const Lit l = lit(prop_idx);
+    if (isTrue(level, l)) {
+      true_sum += _c(prop_idx);
+    } else if (isUnknown(position, l)) {
+      true_sum += _c(prop_idx);
       ++stats.NPROPWATCH;
       assert(isCorrectlyPropagating(solver, prop_idx));
       solver.propagate(l, w.cref);
-    }  // NOTE: second innermost loop
+    }  // NOTE: third innermost loop
   }
   stats.NPROPCHECKS += prop_idx;
 
