@@ -109,6 +109,7 @@ struct Constr {  // internal solver constraint optimized for fast propagation
   virtual bigint coef(uint32_t i) const = 0;
   virtual Lit lit(uint32_t i) const = 0;
   virtual uint32_t getUnsaturatedIdx() const = 0;
+  virtual bool hasWatch(uint32_t i) const = 0;
   virtual bool isClauseOrCard() const = 0;
   virtual bool isAtMostOne() const = 0;
 
@@ -140,6 +141,7 @@ struct Clause final : Constr {
   bigint degree() const;
   bigint coef(uint32_t) const;
   Lit lit(uint32_t i) const;
+  bool hasWatch(uint32_t i) const;
   uint32_t getUnsaturatedIdx() const;
   bool isClauseOrCard() const;
   bool isAtMostOne() const;
@@ -185,6 +187,7 @@ struct Cardinality final : Constr {
   bigint degree() const;
   bigint coef(uint32_t) const;
   Lit lit(uint32_t i) const;
+  bool hasWatch(uint32_t i) const;
   uint32_t getUnsaturatedIdx() const;
   bool isClauseOrCard() const;
   bool isAtMostOne() const;

@@ -129,6 +129,7 @@ size_t Clause::getMemSize() const { return getMemSize(size()); }
 bigint Clause::degree() const { return 1; }
 bigint Clause::coef(uint32_t) const { return 1; }
 Lit Clause::lit(const uint32_t i) const { return data[i]; }
+bool Clause::hasWatch(uint32_t i) const { return i < 2; }
 uint32_t Clause::getUnsaturatedIdx() const { return size(); }
 bool Clause::isClauseOrCard() const { return true; }
 bool Clause::isAtMostOne() const { return size() == 2; }
@@ -289,6 +290,7 @@ size_t Cardinality::getMemSize() const { return getMemSize(size()); }
 bigint Cardinality::degree() const { return degr; }
 bigint Cardinality::coef(uint32_t) const { return 1; }
 Lit Cardinality::lit(const uint32_t i) const { return data[i]; }
+bool Cardinality::hasWatch(uint32_t i) const { return i < degr; }
 uint32_t Cardinality::getUnsaturatedIdx() const { return 0; }
 bool Cardinality::isClauseOrCard() const { return true; }
 bool Cardinality::isAtMostOne() const { return degr == size() - 1; }
@@ -930,8 +932,8 @@ void Constr::print(const Solver& solver) const {
   for (uint32_t i = 0; i < size(); ++i) {
     const int pos = solver.getPos()[toVar(lit(i))];
     std::cout << coef(i) << "x" << lit(i)
-              << (pos < solver.qhead ? (isTrue(solver.getLevel(), lit(i)) ? "t" : "f") : "u") << (pos == INF ? -1 : pos)
-              << " ";
+              << (pos < solver.qhead ? (isTrue(solver.getLevel(), lit(i)) ? "t" : "f") : "u")
+              << (hasWatch(i) ? "*" : "") << (pos >= INF ? -1 : pos) << " ";
   }
   std::cout << ">= " << degree() << std::endl;
 }
