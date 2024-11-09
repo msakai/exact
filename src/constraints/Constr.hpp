@@ -243,12 +243,12 @@ struct Watched final : Constr {
   size_t getMemSize() const { return getMemSize(size()); }
 
   bigint degree() const { return degr; }
-  const CF& _c(uint32_t i) const { return data[sze + i]; }
-  bigint coef(uint32_t i) const { return _c(i); }
+  const CF& cf(uint32_t i) const { return data[sze + i]; }
+  bigint coef(uint32_t i) const { return cf(i); }
   Lit lit(uint32_t i) const { return data[i] >> 1; }
   uint32_t getUnsaturatedIdx() const { return unsaturatedIdx; }
   bool isClauseOrCard() const {
-    assert(_c(0) > 1);
+    assert(cf(0) > 1);
     return false;
   }
   bool isAtMostOne() const {
@@ -274,8 +274,8 @@ struct Watched final : Constr {
       assert(constraint->getLit(v) != 0);
       data[i] = constraint->getLit(v) << 1;
       data[i + size()] = static_cast<CF>(aux::abs(constraint->coefs[v]));
-      unsaturatedIdx += _c(i) >= degr;
-      assert(_c(i) <= degr);
+      unsaturatedIdx += cf(i) >= degr;
+      assert(cf(i) <= degr);
     }
   }
 
@@ -316,12 +316,12 @@ struct WatchedSafe final : Constr {
   size_t getMemSize() const { return getMemSize(size()); }
 
   bigint degree() const { return bigint(degr); }
-  const CF& _c(uint32_t i) const { return cfs[i]; }
-  bigint coef(uint32_t i) const { return _c(i); }
+  const CF& cf(uint32_t i) const { return cfs[i]; }
+  bigint coef(uint32_t i) const { return cf(i); }
   Lit lit(uint32_t i) const { return lits[i] >> 1; }
   uint32_t getUnsaturatedIdx() const { return unsaturatedIdx; }
   bool isClauseOrCard() const {
-    assert(_c(0) > 1);
+    assert(cf(0) > 1);
     return false;
   }
   bool isAtMostOne() const {
@@ -348,8 +348,8 @@ struct WatchedSafe final : Constr {
       assert(constraint->getLit(v) != 0);
       cfs[i] = static_cast<CF>(aux::abs(constraint->coefs[v]));
       lits[i] = constraint->getLit(v) << 1;
-      unsaturatedIdx += _c(i) >= degr;
-      assert(_c(i) <= degr);
+      unsaturatedIdx += cf(i) >= degr;
+      assert(cf(i) <= degr);
     }
   }
 
