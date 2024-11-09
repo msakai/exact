@@ -596,7 +596,7 @@ WatchStatus Watched<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] cons
   }
   stats.NPROPCHECKS += prop_idx;
 
-  return WatchStatus::KEEPWATCH;
+  return true_sum < degr ? WatchStatus::CONFLICTING : WatchStatus::KEEPWATCH;
 }
 
 template <typename CF, typename DG>
@@ -839,7 +839,7 @@ WatchStatus WatchedSafe<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] 
   }
   stats.NPROPCHECKS += prop_idx;
 
-  return WatchStatus::KEEPWATCH;
+  return true_sum < degr ? WatchStatus::CONFLICTING : WatchStatus::KEEPWATCH;
 }
 
 template <typename CF, typename DG>
