@@ -596,6 +596,8 @@ WatchStatus Watched<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] cons
   }
   stats.NPROPCHECKS += prop_idx;
 
+  // NOTE: when skipping the watch calculation in subsequent propagation phases, it can happen that the constraint
+  // became conflicting.
   return true_sum < degr ? WatchStatus::CONFLICTING : WatchStatus::KEEPWATCH;
 }
 
@@ -839,6 +841,8 @@ WatchStatus WatchedSafe<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] 
   }
   stats.NPROPCHECKS += prop_idx;
 
+  // NOTE: when skipping the watch calculation in subsequent propagation phases, it can happen that the constraint
+  // became conflicting.
   return true_sum < degr ? WatchStatus::CONFLICTING : WatchStatus::KEEPWATCH;
 }
 
