@@ -83,6 +83,8 @@ class Solver {
   template <typename CF, typename DG>
   friend struct Watched;
   template <typename CF, typename DG>
+  friend struct WatchedUnsaturated;
+  template <typename CF, typename DG>
   friend struct WatchedSafe;
   friend class Propagator;
   friend class Equalities;
@@ -233,7 +235,6 @@ class Solver {
   [[nodiscard]] CeSuper runDatabasePropagation();
   [[nodiscard]] CeSuper runPropagation();
   [[nodiscard]] CeSuper runPropagationWithLP();
-  WatchStatus checkForPropagation(Watch& w, Lit p);
 
   // ---------------------------------------------------------------------
   // Conflict analysis

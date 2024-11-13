@@ -83,6 +83,7 @@ constexpr int32_t resize_factor = 2;
 
 constexpr int32_t INF =
     1e9 + 1;  // 1e9 < 30 bits is the maximum number of variables in the system, anything beyond is infinity
+constexpr uint32_t UINF = INF;
 // NOTE: 31 bits is not possible due to the idx entry in the Watch struct
 constexpr long long INFLPINT = 4e15 + 1;  // 4e15 < 52 bits, based on max long long range captured by double
 
@@ -343,8 +344,11 @@ struct Cardinality;
 template <typename CF, typename DG>
 struct Watched;
 template <typename CF, typename DG>
+struct WatchedUnsaturated;
+template <typename CF, typename DG>
 struct WatchedSafe;
 using Watched32 = Watched<int, long long>;
+using WatchedU32 = WatchedUnsaturated<int, long long>;
 using Watched64 = WatchedSafe<long long, int128>;
 using Watched96 = WatchedSafe<int128, int128>;
 using Watched128 = WatchedSafe<int128, int256>;

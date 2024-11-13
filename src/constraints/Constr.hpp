@@ -301,6 +301,75 @@ struct Watched final : Constr {
 };
 
 template <typename CF, typename DG>
+struct WatchedUnsaturated final : Constr {
+  const DG degr;
+  DG watchslack;
+  uint32_t next_watch_idx;
+  Lit data[0];  // Flexible Array Member - gcc complains about destruction when using the proper syntax '[]'
+  // WARNING: Watched only works for int coefficients for now (they take up the same bytes as Lit)
+  // use WatchedSafe for other coefficient types
+
+  static size_t getMemSize(uint32_t length) {
+    return aux::ceildiv(sizeof(WatchedUnsaturated<CF, DG>) + sizeof(Lit) * length * 2, maxAlign);
+  }
+  size_t getMemSize() const { return getMemSize(size()); }
+
+  bigint degree() const { return degr; }
+  const CF& cf(uint32_t i) const { return data[sze + i]; }
+  bigint coef(uint32_t i) const { return cf(i); }
+  Lit lit(uint32_t i) const { return data[i] >> 1; }
+  uint32_t getUnsaturatedIdx() const { return 0; }
+  bool isClauseOrCard() const {
+    assert(cf(0) > 1);
+    return false;
+  }
+  bool isAtMostOne() const {
+    assert(!isClauseOrCard());
+    return false;
+  }
+
+  template <typename SMALL, typename LARGE>
+  WatchedUnsaturated(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id, double strngth)
+      : Constr(_id, constraint->orig, locked, constraint->nVars(), strngth, constraint->global.options.dbMaxLBD.get()),
+        degr(static_cast<DG>(constraint->getDegree())),
+        watchslack(0),
+        next_watch_idx(sze) {
+    assert(_id > ID_Trivial);
+    assert(fitsIn<DG>(constraint->getDegree()));
+    assert(fitsIn<CF>(constraint->getLargestCoef()));
+    assert(strngth == constraint->getStrength());
+
+    for (uint32_t i = 0; i < size(); ++i) {
+      Var v = constraint->getVars()[i];
+      assert(constraint->getLit(v) != 0);
+      data[i] = constraint->getLit(v) << 1;
+      data[i + size()] = static_cast<CF>(aux::abs(constraint->coefs[v]));
+      assert(cf(i) <= degr);
+    }
+  }
+
+  void cleanup() {}
+
+  bool hasWatch(uint32_t) const;
+  void flipWatch(uint32_t);
+
+  void initializeWatches(CRef cr, Solver& solver);
+  WatchStatus checkForPropagation(Watch& w, [[maybe_unused]] Lit p, Solver& solver, Stats& stats);
+  void undoFalsified(uint32_t i);
+  uint32_t resolveWith(CeSuper& confl, Lit l, Solver& solver, IntSet& actSet) const;
+  uint32_t subsumeWith(CeSuper& confl, Lit l, Solver& solver, IntSet& saturatedLits) const;
+
+  CePtr<CF, DG> expandTo(ConstrExpPools& cePools) const;
+  CeSuper toExpanded(ConstrExpPools& cePools) const;
+  bool isSatisfiedAtRoot(const IntMap<int>& level) const;
+  bool canBeSimplified(const IntMap<int>& level, Equalities& equalities, Implications& implications,
+                       IntSetPool& isp) const;
+
+  bool hasCorrectSlack(const Solver& solver);
+  bool hasCorrectWatches(const Solver& solver);
+};
+
+template <typename CF, typename DG>
 struct WatchedSafe final : Constr {
   uint32_t next_watch_idx;
   uint32_t unsaturatedIdx;

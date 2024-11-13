@@ -286,6 +286,7 @@ State Solver::probe(Lit l, bool deriveImplications) {
 CeSuper Solver::runDatabasePropagation() {
   while (qhead < (int)trail.size()) {
     Lit p = trail[qhead++];
+    assert(isTrue(level, p));
     float prevPrio = std::numeric_limits<float>::lowest();
     float cPrio = 0;
     std::vector<Watch>& ws = adj[-p];
@@ -302,24 +303,43 @@ CeSuper Solver::runDatabasePropagation() {
       }
       global.stats.NBLOCKINGFAILS += idx < INF;
 
-      WatchStatus wstat = checkForPropagation(ws[it_ws], -p);
+      ++global.stats.NWATCHLOOKUPS;
+      Watch& w = ws[it_ws];
+      Constr& c = ca[w.cref];
+      WatchStatus wstat = WatchStatus::DROPWATCH;
+      if (!c.isMarkedForDelete()) {
+        // Try to avoid the vTable indirection
+        if (idx < UINF) {
+          wstat = static_cast<Watched32&>(c).checkForPropagation(w, -p, *this, global.stats);
+          // } else if (idx < 2 * UINF) {
+          //   wstat = static_cast<WatchedU32&>(c).checkForPropagation(w, -p, *this, global.stats);
+        } else if (idx == 4 * UINF) {
+          wstat = static_cast<Clause&>(c).checkForPropagation(w, -p, *this, global.stats);
+        } else if (idx >= 3 * UINF) {
+          wstat = static_cast<Cardinality&>(c).checkForPropagation(w, -p, *this, global.stats);
+        } else {
+          assert(idx < 3 * UINF);
+          assert(idx >= 2 * UINF);
+          wstat = c.isMarkedForDelete() ? WatchStatus::DROPWATCH : c.checkForPropagation(w, -p, *this, global.stats);
+        }
+      }
+
       if (wstat == WatchStatus::DROPWATCH) {
         plf::single_reorderase(ws, ws.begin() + it_ws);
         --it_ws;
       } else if (wstat == WatchStatus::CONFLICTING) {  // clean up current level and stop propagation
         ++global.stats.NTRAILPOPS;
         for (int i = 0; i <= it_ws; ++i) {
-          const Watch& w = ws[i];
-          if (w.idx < INF) {  // avoids the cardinality and clausal case
-            if (Lit blocking = w.blocking;
+          const Watch& wa = ws[i];
+          if (wa.idx < INF) {  // avoids the cardinality and clausal case
+            if (Lit blocking = wa.blocking;
                 !isTrue(level, blocking) || position[toVar(blocking)] >= position[toVar(p)]) {
-              ca[w.cref].undoFalsified(w.idx);
+              ca[wa.cref].undoFalsified(wa.idx);
               ++global.stats.NWATCHLOOKUPSBJ;
             }
           }
         }
         --qhead;
-        Constr& c = ca[ws[it_ws].cref];
         CeSuper result = c.toExpanded(global.cePools);
         c.decreaseLBD(result->getLBD(level));
         c.fixEncountered(global.stats);
@@ -327,7 +347,6 @@ CeSuper Solver::runDatabasePropagation() {
         return result;
       } else {
         assert(wstat == WatchStatus::KEEPWATCH);
-        Constr& c = ca[ws[it_ws].cref];
         cPrio = c.priority;
         if (cPrio < prevPrio) {
           assert(it_ws > 0);
@@ -362,14 +381,6 @@ CeSuper Solver::runPropagationWithLP() {
     }
   }
   return CeNull();
-}
-
-WatchStatus Solver::checkForPropagation(Watch& w, Lit p) {
-  assert(isFalse(level, p));
-  ++global.stats.NWATCHLOOKUPS;
-  Constr& c = ca[w.cref];
-  if (c.isMarkedForDelete()) return WatchStatus::DROPWATCH;
-  return c.checkForPropagation(w, p, *this, global.stats);
 }
 
 // ---------------------------------------------------------------------
