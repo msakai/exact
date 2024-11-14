@@ -226,24 +226,23 @@ struct Cardinality final : Constr {
                        IntSetPool& isp) const;
 };
 
-template <typename CF, typename DG>
-struct Watched final : Constr {
+struct Watched32 final : Constr {
   uint32_t next_watch_idx;
   uint32_t unsaturatedIdx;
-  const DG degr;
-  DG watchslack;
+  const int64_t degr;
+  int64_t watchslack;
   Lit blocking;
   Lit data[0];  // Flexible Array Member - gcc complains about destruction when using the proper syntax '[]'
   // WARNING: Watched only works for int coefficients for now (they take up the same bytes as Lit)
   // use WatchedSafe for other coefficient types
 
   static size_t getMemSize(uint32_t length) {
-    return aux::ceildiv(sizeof(Watched<CF, DG>) + sizeof(Lit) * length * 2, maxAlign);
+    return aux::ceildiv(sizeof(Watched32) + sizeof(Lit) * length * 2, maxAlign);
   }
   size_t getMemSize() const { return getMemSize(size()); }
 
   bigint degree() const { return degr; }
-  const CF& cf(uint32_t i) const { return data[sze + i]; }
+  const int32_t& cf(uint32_t i) const { return data[sze + i]; }
   bigint coef(uint32_t i) const { return cf(i); }
   Lit lit(uint32_t i) const { return data[i] >> 1; }
   uint32_t getUnsaturatedIdx() const { return unsaturatedIdx; }
@@ -257,23 +256,23 @@ struct Watched final : Constr {
   }
 
   template <typename SMALL, typename LARGE>
-  Watched(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id, double strngth)
+  Watched32(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id, double strngth)
       : Constr(_id, constraint->orig, locked, constraint->nVars(), strngth, constraint->global.options.dbMaxLBD.get()),
         next_watch_idx(sze),
         unsaturatedIdx(0),
-        degr(static_cast<DG>(constraint->getDegree())),
+        degr(static_cast<int64_t>(constraint->getDegree())),
         watchslack(0),
         blocking(0) {
     assert(_id > ID_Trivial);
-    assert(fitsIn<DG>(constraint->getDegree()));
-    assert(fitsIn<CF>(constraint->getLargestCoef()));
+    assert(fitsIn<int64_t>(constraint->getDegree()));
+    assert(fitsIn<int32_t>(constraint->getLargestCoef()));
     assert(strngth == constraint->getStrength());
 
     for (uint32_t i = 0; i < size(); ++i) {
       Var v = constraint->getVars()[i];
       assert(constraint->getLit(v) != 0);
       data[i] = constraint->getLit(v) << 1;
-      data[i + size()] = static_cast<CF>(aux::abs(constraint->coefs[v]));
+      data[i + size()] = static_cast<int32_t>(aux::abs(constraint->coefs[v]));
       unsaturatedIdx += cf(i) >= degr;
       assert(cf(i) <= degr);
     }
@@ -290,7 +289,7 @@ struct Watched final : Constr {
   uint32_t resolveWith(CeSuper& confl, Lit l, Solver& solver, IntSet& actSet) const;
   uint32_t subsumeWith(CeSuper& confl, Lit l, Solver& solver, IntSet& saturatedLits) const;
 
-  CePtr<CF, DG> expandTo(ConstrExpPools& cePools) const;
+  Ce32 expandTo(ConstrExpPools& cePools) const;
   CeSuper toExpanded(ConstrExpPools& cePools) const;
   bool isSatisfiedAtRoot(const IntMap<int>& level) const;
   bool canBeSimplified(const IntMap<int>& level, Equalities& equalities, Implications& implications,

@@ -167,6 +167,10 @@ inline bool fits<long long>(const bigint& x) {
   return aux::abs(x) <= static_cast<bigint>(limitAbs<long long, int128>());
 }
 template <>
+inline bool fits<int64_t>(const bigint& x) {
+  return aux::abs(x) <= static_cast<bigint>(limitAbs<long long, int128>());
+}
+template <>
 inline bool fits<int128>(const bigint& x) {
   return aux::abs(x) <= static_cast<bigint>(limitAbs<int128, int256>());
 }
@@ -345,7 +349,6 @@ template <typename CF, typename DG>
 struct Watched;
 template <typename CF, typename DG>
 struct WatchedSafe;
-using Watched32 = Watched<int, long long>;
 using Watched64 = WatchedSafe<long long, int128>;
 using Watched96 = WatchedSafe<int128, int128>;
 using Watched128 = WatchedSafe<int128, int256>;

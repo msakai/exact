@@ -80,8 +80,7 @@ class Solver {
   friend struct Constr;
   friend struct Clause;
   friend struct Cardinality;
-  template <typename CF, typename DG>
-  friend struct Watched;
+  friend struct Watched32;
   template <typename CF, typename DG>
   friend struct WatchedSafe;
   friend class Propagator;
