@@ -92,7 +92,6 @@ struct Watch {
   CRef cref;
   /**
    * 0<=idx<INF: index of watched literal for Watched32 propagation
-   * INF<=idx<2*INF: index of watched literal for WatchedU32 propagation
    * INF<=idx<2*INF: index of watched literal for WatchedSafe propagation
    * INF<=idx<2*INF: index of watched literal for Cardinality propagation
    * idx==4*INF: Clause

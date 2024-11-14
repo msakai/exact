@@ -257,6 +257,7 @@ CRef ConstrExp<SMALL, LARGE>::toConstr(ConstraintAllocator& ca, bool locked, ID 
     double strngth = getStrength();
     if (maxCoef <= static_cast<LARGE>(limitAbs<int, long long>())) {
       global.stats.NSMALL += 1;
+      assert(degree >= maxCoef);
       new (ca.alloc<Watched32>(vars.size())) Watched32(this, locked, id, strngth);
     } else if (maxCoef <= static_cast<LARGE>(limitAbs<long long, int128>())) {
       global.stats.NLARGE += 1;

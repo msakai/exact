@@ -83,8 +83,6 @@ class Solver {
   template <typename CF, typename DG>
   friend struct Watched;
   template <typename CF, typename DG>
-  friend struct WatchedUnsaturated;
-  template <typename CF, typename DG>
   friend struct WatchedSafe;
   friend class Propagator;
   friend class Equalities;

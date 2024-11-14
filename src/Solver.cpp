@@ -295,13 +295,14 @@ CeSuper Solver::runDatabasePropagation() {
       const Lit& blocking = ws[it_ws].blocking;
 
       if (isTrue(level, blocking)) {  // blocking literal check
-        if (idx >= 2 * INF || position[toVar(blocking)] < position[toVar(p)]) {
-          assert(idx < INF || dynamic_cast<Clause*>(&ca[ws[it_ws].cref]) != nullptr);
-          global.stats.NBLOCKINGSUCCESS += idx < INF;
+        if (idx >= 4 * UINF || position[toVar(blocking)] < position[toVar(p)]) {
+          assert(dynamic_cast<Clause*>(&ca[ws[it_ws].cref]) != nullptr || idx < UINF ||
+                 (idx < 3 * UINF && idx >= 2 * UINF));
+          global.stats.NBLOCKINGSUCCESS += idx < 4 * UINF;  // not a clause
           continue;
         }
       }
-      global.stats.NBLOCKINGFAILS += idx < INF;
+      global.stats.NBLOCKINGFAILS += idx < 4 * UINF && blocking != 0;  // not a clause
 
       ++global.stats.NWATCHLOOKUPS;
       Watch& w = ws[it_ws];
@@ -311,8 +312,6 @@ CeSuper Solver::runDatabasePropagation() {
         // Try to avoid the vTable indirection
         if (idx < UINF) {
           wstat = static_cast<Watched32&>(c).checkForPropagation(w, -p, *this, global.stats);
-          // } else if (idx < 2 * UINF) {
-          //   wstat = static_cast<WatchedU32&>(c).checkForPropagation(w, -p, *this, global.stats);
         } else if (idx == 4 * UINF) {
           wstat = static_cast<Clause&>(c).checkForPropagation(w, -p, *this, global.stats);
         } else if (idx >= 3 * UINF) {

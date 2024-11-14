@@ -344,11 +344,8 @@ struct Cardinality;
 template <typename CF, typename DG>
 struct Watched;
 template <typename CF, typename DG>
-struct WatchedUnsaturated;
-template <typename CF, typename DG>
 struct WatchedSafe;
 using Watched32 = Watched<int, long long>;
-using WatchedU32 = WatchedUnsaturated<int, long long>;
 using Watched64 = WatchedSafe<long long, int128>;
 using Watched96 = WatchedSafe<int128, int128>;
 using Watched128 = WatchedSafe<int128, int256>;
