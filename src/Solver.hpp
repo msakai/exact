@@ -82,7 +82,7 @@ class Solver {
   friend struct Cardinality;
   friend struct Watched32;
   template <typename CF, typename DG>
-  friend struct WatchedSafe;
+  friend struct Watched;
   friend class Propagator;
   friend class Equalities;
   friend class Implications;

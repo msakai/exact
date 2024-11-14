@@ -234,26 +234,18 @@ struct Watched32 final : Constr {
   Lit blocking;
   Lit data[0];  // Flexible Array Member - gcc complains about destruction when using the proper syntax '[]'
   // WARNING: Watched only works for int coefficients for now (they take up the same bytes as Lit)
-  // use WatchedSafe for other coefficient types
+  // use Watched for other coefficient types
 
-  static size_t getMemSize(uint32_t length) {
-    return aux::ceildiv(sizeof(Watched32) + sizeof(Lit) * length * 2, maxAlign);
-  }
-  size_t getMemSize() const { return getMemSize(size()); }
+  static size_t getMemSize(uint32_t length);
+  size_t getMemSize() const;
 
-  bigint degree() const { return degr; }
-  const int32_t& cf(uint32_t i) const { return data[sze + i]; }
-  bigint coef(uint32_t i) const { return cf(i); }
-  Lit lit(uint32_t i) const { return data[i] >> 1; }
-  uint32_t getUnsaturatedIdx() const { return unsaturatedIdx; }
-  bool isClauseOrCard() const {
-    assert(cf(0) > 1);
-    return false;
-  }
-  bool isAtMostOne() const {
-    assert(!isClauseOrCard());
-    return false;
-  }
+  bigint degree() const;
+  const int32_t& cf(uint32_t i) const;
+  bigint coef(uint32_t i) const;
+  Lit lit(uint32_t i) const;
+  uint32_t getUnsaturatedIdx() const;
+  bool isClauseOrCard() const;
+  bool isAtMostOne() const;
 
   template <typename SMALL, typename LARGE>
   Watched32(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id, double strngth)
@@ -300,7 +292,7 @@ struct Watched32 final : Constr {
 };
 
 template <typename CF, typename DG>
-struct WatchedSafe final : Constr {
+struct Watched final : Constr {
   uint32_t next_watch_idx;
   uint32_t unsaturatedIdx;
   const DG degr;
@@ -309,27 +301,19 @@ struct WatchedSafe final : Constr {
   Lit blocking;
   Lit lits[0];
 
-  static size_t getMemSize(uint32_t length) {
-    return aux::ceildiv(sizeof(WatchedSafe<CF, DG>) + sizeof(Lit) * length, maxAlign);
-  }
-  size_t getMemSize() const { return getMemSize(size()); }
+  static size_t getMemSize(uint32_t length);
+  size_t getMemSize() const;
 
-  bigint degree() const { return bigint(degr); }
-  const CF& cf(uint32_t i) const { return cfs[i]; }
-  bigint coef(uint32_t i) const { return cf(i); }
-  Lit lit(uint32_t i) const { return lits[i] >> 1; }
-  uint32_t getUnsaturatedIdx() const { return unsaturatedIdx; }
-  bool isClauseOrCard() const {
-    assert(cf(0) > 1);
-    return false;
-  }
-  bool isAtMostOne() const {
-    assert(!isClauseOrCard());
-    return false;
-  }
+  bigint degree() const;
+  const CF& cf(uint32_t i) const;
+  bigint coef(uint32_t i) const;
+  Lit lit(uint32_t i) const;
+  uint32_t getUnsaturatedIdx() const;
+  bool isClauseOrCard() const;
+  bool isAtMostOne() const;
 
   template <typename SMALL, typename LARGE>
-  WatchedSafe(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id, double strngth)
+  Watched(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id, double strngth)
       : Constr(_id, constraint->orig, locked, constraint->nVars(), strngth, constraint->global.options.dbMaxLBD.get()),
         next_watch_idx(sze),
         unsaturatedIdx(0),

@@ -426,6 +426,25 @@ bool Cardinality::canBeSimplified(const IntMap<int>& level, Equalities& equaliti
   return false;
 }
 
+size_t Watched32::getMemSize(uint32_t length) {
+  return aux::ceildiv(sizeof(Watched32) + sizeof(Lit) * length * 2, maxAlign);
+}
+size_t Watched32::getMemSize() const { return getMemSize(size()); }
+
+bigint Watched32::degree() const { return degr; }
+const int32_t& Watched32::cf(uint32_t i) const { return data[sze + i]; }
+bigint Watched32::coef(uint32_t i) const { return cf(i); }
+Lit Watched32::lit(uint32_t i) const { return data[i] >> 1; }
+uint32_t Watched32::getUnsaturatedIdx() const { return unsaturatedIdx; }
+bool Watched32::isClauseOrCard() const {
+  assert(cf(0) > 1);
+  return false;
+}
+bool Watched32::isAtMostOne() const {
+  assert(!isClauseOrCard());
+  return false;
+}
+
 bool Watched32::hasWatch(uint32_t i) const { return data[i] & 1; }
 
 void Watched32::flipWatch(uint32_t i) { data[i] = data[i] ^ 1; }
@@ -656,16 +675,56 @@ bool Watched32::canBeSimplified(const IntMap<int>& level, Equalities& equalities
 }
 
 template <typename CF, typename DG>
-bool WatchedSafe<CF, DG>::hasWatch(uint32_t i) const {
+size_t Watched<CF, DG>::getMemSize(uint32_t length) {
+  return aux::ceildiv(sizeof(Watched<CF, DG>) + sizeof(Lit) * length, maxAlign);
+}
+template <typename CF, typename DG>
+size_t Watched<CF, DG>::getMemSize() const {
+  return getMemSize(size());
+}
+
+template <typename CF, typename DG>
+bigint Watched<CF, DG>::degree() const {
+  return bigint(degr);
+}
+template <typename CF, typename DG>
+const CF& Watched<CF, DG>::cf(uint32_t i) const {
+  return cfs[i];
+}
+template <typename CF, typename DG>
+bigint Watched<CF, DG>::coef(uint32_t i) const {
+  return cf(i);
+}
+template <typename CF, typename DG>
+Lit Watched<CF, DG>::lit(uint32_t i) const {
+  return lits[i] >> 1;
+}
+template <typename CF, typename DG>
+uint32_t Watched<CF, DG>::getUnsaturatedIdx() const {
+  return unsaturatedIdx;
+}
+template <typename CF, typename DG>
+bool Watched<CF, DG>::isClauseOrCard() const {
+  assert(cf(0) > 1);
+  return false;
+}
+template <typename CF, typename DG>
+bool Watched<CF, DG>::isAtMostOne() const {
+  assert(!isClauseOrCard());
+  return false;
+}
+
+template <typename CF, typename DG>
+bool Watched<CF, DG>::hasWatch(uint32_t i) const {
   return lits[i] & 1;
 }
 template <typename CF, typename DG>
-void WatchedSafe<CF, DG>::flipWatch(uint32_t i) {
+void Watched<CF, DG>::flipWatch(uint32_t i) {
   lits[i] = lits[i] ^ 1;
 }
 
 template <typename CF, typename DG>
-void WatchedSafe<CF, DG>::initializeWatches(CRef cr, Solver& solver) {
+void Watched<CF, DG>::initializeWatches(CRef cr, Solver& solver) {
   const auto& level = solver.level;
   const auto& position = solver.position;
   auto& adj = solver.adj;
@@ -715,8 +774,7 @@ void WatchedSafe<CF, DG>::initializeWatches(CRef cr, Solver& solver) {
 }
 
 template <typename CF, typename DG>
-WatchStatus WatchedSafe<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] const Lit p, Solver& solver,
-                                                     Stats& stats) {
+WatchStatus Watched<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] const Lit p, Solver& solver, Stats& stats) {
   const auto& level = solver.level;
   const auto& position = solver.position;
   auto& adj = solver.adj;
@@ -831,7 +889,7 @@ WatchStatus WatchedSafe<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] 
 }
 
 template <typename CF, typename DG>
-void WatchedSafe<CF, DG>::undoFalsified(uint32_t i) {
+void Watched<CF, DG>::undoFalsified(uint32_t i) {
   assert(i < 3 * UINF);
   assert(i >= 2 * UINF);
   assert(hasWatch(i));
@@ -839,16 +897,16 @@ void WatchedSafe<CF, DG>::undoFalsified(uint32_t i) {
 }
 
 template <typename CF, typename DG>
-uint32_t WatchedSafe<CF, DG>::resolveWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& actSet) const {
+uint32_t Watched<CF, DG>::resolveWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& actSet) const {
   return confl->resolveWith(lits, cfs, size(), degr, id(), getOrigin(), l, solver.getLevel(), solver.getPos(), actSet);
 }
 template <typename CF, typename DG>
-uint32_t WatchedSafe<CF, DG>::subsumeWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& saturatedLits) const {
+uint32_t Watched<CF, DG>::subsumeWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& saturatedLits) const {
   return confl->subsumeWith(lits, cfs, size(), degr, id(), l, solver.getLevel(), solver.getPos(), saturatedLits);
 }
 
 template <typename CF, typename DG>
-CePtr<CF, DG> WatchedSafe<CF, DG>::expandTo(ConstrExpPools& cePools) const {
+CePtr<CF, DG> Watched<CF, DG>::expandTo(ConstrExpPools& cePools) const {
   CePtr<CF, DG> result = cePools.take<CF, DG>();
   result->addRhs(degr);
   for (uint32_t i = 0; i < size(); ++i) {
@@ -861,12 +919,12 @@ CePtr<CF, DG> WatchedSafe<CF, DG>::expandTo(ConstrExpPools& cePools) const {
 }
 
 template <typename CF, typename DG>
-CeSuper WatchedSafe<CF, DG>::toExpanded(ConstrExpPools& cePools) const {
+CeSuper Watched<CF, DG>::toExpanded(ConstrExpPools& cePools) const {
   return expandTo(cePools);
 }
 
 template <typename CF, typename DG>
-bool WatchedSafe<CF, DG>::isSatisfiedAtRoot(const IntMap<int>& level) const {
+bool Watched<CF, DG>::isSatisfiedAtRoot(const IntMap<int>& level) const {
   DG eval = -degr;
   for (uint32_t i = 0; i < size() && eval < 0; ++i) {
     if (isUnit(level, lit(i))) eval += cf(i);
@@ -875,8 +933,8 @@ bool WatchedSafe<CF, DG>::isSatisfiedAtRoot(const IntMap<int>& level) const {
 }
 
 template <typename CF, typename DG>
-bool WatchedSafe<CF, DG>::canBeSimplified(const IntMap<int>& level, Equalities& equalities, Implications& implications,
-                                          IntSetPool& isp) const {
+bool Watched<CF, DG>::canBeSimplified(const IntMap<int>& level, Equalities& equalities, Implications& implications,
+                                      IntSetPool& isp) const {
   const bool isEquality = getOrigin() == Origin::EQUALITY;
   for (uint32_t i = 0; i < size(); ++i) {
     if (const Lit l = lit(i); isUnit(level, l) || isUnit(level, -l) || (!isEquality && !equalities.isCanonical(l)))
@@ -942,7 +1000,7 @@ bool Watched32::hasCorrectSlack(const Solver& solver) {
 }
 
 template <typename CF, typename DG>
-bool WatchedSafe<CF, DG>::hasCorrectSlack(const Solver& solver) {
+bool Watched<CF, DG>::hasCorrectSlack(const Solver& solver) {
   return true;  // comment to run check
   DG slk = -degr;
   for (int i = 0; i < (int)size(); ++i) {
@@ -967,7 +1025,7 @@ bool Watched32::hasCorrectWatches(const Solver& solver) {
 }
 
 template <typename CF, typename DG>
-bool WatchedSafe<CF, DG>::hasCorrectWatches(const Solver& solver) {
+bool Watched<CF, DG>::hasCorrectWatches(const Solver& solver) {
   return true;  // comment to run check
   if (watchslack >= cf(0)) return true;
   // for (int i = 0; i < (int)watchIdx; ++i) assert(isKnown(solver.getPos(), lit(i)));
@@ -981,9 +1039,9 @@ bool WatchedSafe<CF, DG>::hasCorrectWatches(const Solver& solver) {
   return true;
 }
 
-template struct WatchedSafe<long long, int128>;
-template struct WatchedSafe<int128, int128>;
-template struct WatchedSafe<int128, int256>;
-template struct WatchedSafe<bigint, bigint>;
+template struct Watched<long long, int128>;
+template struct Watched<int128, int128>;
+template struct Watched<int128, int256>;
+template struct Watched<bigint, bigint>;
 
 }  // namespace xct

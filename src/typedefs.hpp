@@ -348,11 +348,11 @@ struct Cardinality;
 template <typename CF, typename DG>
 struct Watched;
 template <typename CF, typename DG>
-struct WatchedSafe;
-using Watched64 = WatchedSafe<long long, int128>;
-using Watched96 = WatchedSafe<int128, int128>;
-using Watched128 = WatchedSafe<int128, int256>;
-using WatchedArb = WatchedSafe<bigint, bigint>;
+struct Watched;
+using Watched64 = Watched<long long, int128>;
+using Watched96 = Watched<int128, int128>;
+using Watched128 = Watched<int128, int256>;
+using WatchedArb = Watched<bigint, bigint>;
 
 template <typename CF>
 struct Term {
