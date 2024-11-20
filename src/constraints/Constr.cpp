@@ -525,7 +525,7 @@ WatchStatus Watched32::checkForPropagation(Watch& w, [[maybe_unused]] const Lit 
     stats.NWATCHCHECKS -= next_watch_idx;
     for (; next_watch_idx < unsaturatedIdx && watchslack < lrgstCf; ++next_watch_idx) {
       if (const Lit l = lit(next_watch_idx); !isFalse(level, l)) {
-        if (next_watch_idx < unsaturatedIdx && position[toVar(l)] < p_pos) {
+        if (position[toVar(l)] < p_pos) {
           assert(isTrue(level, l));
           blocking = l;
           w.blocking = l;
@@ -553,7 +553,7 @@ WatchStatus Watched32::checkForPropagation(Watch& w, [[maybe_unused]] const Lit 
       next_watch_idx = 0;
       for (; next_watch_idx < std::min(unsaturatedIdx, start_watch_idx) && watchslack < lrgstCf; ++next_watch_idx) {
         if (const Lit l = lit(next_watch_idx); !isFalse(level, l)) {
-          if (next_watch_idx < unsaturatedIdx && position[toVar(l)] < p_pos) {
+          if (position[toVar(l)] < p_pos) {
             assert(isTrue(level, l));
             blocking = l;
             w.blocking = l;
