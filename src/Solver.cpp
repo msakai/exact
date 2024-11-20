@@ -203,15 +203,15 @@ void Solver::undoOne() {
   ++global.stats.NTRAILPOPS;
   Lit l = trail.back();
   if (qhead == (int)trail.size()) {
+    --qhead;
     for (const Watch& w : adj[-l]) {
-      if (w.idx < INF) {  // avoids the cardinality and clausal case
+      if (w.idx < 3 * UINF) {  // avoids the cardinality and clausal case
         if (Lit blocking = w.blocking; !isTrue(level, blocking) || position[toVar(blocking)] >= position[toVar(l)]) {
           ca[w.cref].undoFalsified(w.idx);
           ++global.stats.NWATCHLOOKUPSBJ;
         }
       }
     }
-    --qhead;
   }
   Var v = toVar(l);
   trail.pop_back();
@@ -328,9 +328,10 @@ CeSuper Solver::runDatabasePropagation() {
         --it_ws;
       } else if (wstat == WatchStatus::CONFLICTING) {  // clean up current level and stop propagation
         ++global.stats.NTRAILPOPS;
+        --qhead;
         for (int i = 0; i <= it_ws; ++i) {
           const Watch& wa = ws[i];
-          if (wa.idx < INF) {  // avoids the cardinality and clausal case
+          if (wa.idx < 3 * UINF) {  // avoids the cardinality and clausal case
             if (Lit blocking = wa.blocking;
                 !isTrue(level, blocking) || position[toVar(blocking)] >= position[toVar(p)]) {
               ca[wa.cref].undoFalsified(wa.idx);
@@ -338,7 +339,6 @@ CeSuper Solver::runDatabasePropagation() {
             }
           }
         }
-        --qhead;
         CeSuper result = c.toExpanded(global.cePools);
         c.decreaseLBD(result->getLBD(level));
         c.fixEncountered(global.stats);

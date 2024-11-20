@@ -92,8 +92,8 @@ struct Watch {
   CRef cref;
   /**
    * 0<=idx<INF: index of watched literal for Watched32 propagation
-   * INF<=idx<2*INF: index of watched literal for Watched propagation
-   * INF<=idx<2*INF: index of watched literal for Cardinality propagation
+   * 2*INF<=idx<3*INF: index of watched literal for Watched propagation
+   * 3*INF<=idx<4*INF: index of watched literal for Cardinality propagation
    * idx==4*INF: Clause
    * idx==4*INF+1: Binary
    **/
