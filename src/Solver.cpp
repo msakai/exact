@@ -314,10 +314,8 @@ CeSuper Solver::runDatabasePropagation() {
           wstat = static_cast<Watched32&>(c).checkForPropagation(w, -p, *this, global.stats);
         } else if (idx == 4 * UINF) {
           wstat = static_cast<Clause&>(c).checkForPropagation(w, -p, *this, global.stats);
-        } else if (idx >= 3 * UINF) {
-          wstat = static_cast<Cardinality&>(c).checkForPropagation(w, -p, *this, global.stats);
         } else {
-          assert(idx < 3 * UINF);
+          assert(idx < 4 * UINF);
           assert(idx >= 2 * UINF);
           wstat = c.checkForPropagation(w, -p, *this, global.stats);
         }
