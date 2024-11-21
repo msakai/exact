@@ -352,7 +352,7 @@ void IntProg::setAssumptions(const std::vector<std::pair<IntVar*, std::vector<bi
       addSingleAssumption(iv, dom[0]);
     } else {
       unordered_set<bigint> toCheck(dom.begin(), dom.end());
-      if (toCheck.size() == iv->getUpperBound() - iv->getLowerBound() + 1) return;
+      if (toCheck.size() == iv->getUpperBound() - iv->getLowerBound() + 1) continue;
       if (iv->getEncoding() != Encoding::ONEHOT) {
         throw InvalidArgument("Variable " + iv->getName() + " is not one-hot encoded but has " +
                               std::to_string(toCheck.size()) +
