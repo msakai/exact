@@ -628,11 +628,11 @@ CRef Solver::attachConstraint(const CeSuper& constraint, bool locked) {
   const bool learned = isLearned(orig);
   if (learned) {
     global.stats.LEARNEDLENGTHSUM.z += c.size();
-    global.stats.LEARNEDDEGREESUM.z += static_cast<double>(c.degree());
+    global.stats.LEARNEDDEGREESUM.z += static_cast<StatNum>(c.degree());
     global.stats.LEARNEDSTRENGTHSUM.z += c.strength();
   } else {
     global.stats.EXTERNLENGTHSUM.z += c.size();
-    global.stats.EXTERNDEGREESUM.z += static_cast<double>(c.degree());
+    global.stats.EXTERNDEGREESUM.z += static_cast<StatNum>(c.degree());
     global.stats.EXTERNSTRENGTHSUM.z += c.strength();
   }
   if (c.degree() == 1) {
