@@ -892,8 +892,8 @@ template <typename CF, typename DG>
 void Watched<CF, DG>::undoFalsified(uint32_t i) {
   assert(i < 3 * UINF);
   assert(i >= 2 * UINF);
-  assert(hasWatch(i));
-  watchslack += cf(i);
+  assert(hasWatch(i - 2 * UINF));
+  watchslack += cf(i - 2 * UINF);
 }
 
 template <typename CF, typename DG>
