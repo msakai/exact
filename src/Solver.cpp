@@ -173,8 +173,8 @@ void Solver::fixPhase(const std::vector<std::pair<Var, Lit>>& vls, bool bump) {
 
 void Solver::enqueueUnit([[maybe_unused]] Lit l, Var v, CRef r) {
   assert(toVar(l) == v);
-  assert(global.stats.NUNITS == trail.size());
-  ++global.stats.NUNITS;
+  assert(global.stats.NUNITS.z == trail.size());
+  ++global.stats.NUNITS.z;
   reason[v] = CRef_Undef;  // no need to keep track of reasons for unit literals
   if (global.logger.isActive()) {
     CeSuper tmp = ca[r].toExpanded(global.cePools);
@@ -200,7 +200,7 @@ void Solver::uncheckedEnqueue(Lit l, CRef r) {
 
 void Solver::undoOne() {
   assert(!trail.empty());
-  ++global.stats.NTRAILPOPS;
+  ++global.stats.NTRAILPOPS.z;
   Lit l = trail.back();
   if (qhead == (int)trail.size()) {
     --qhead;
@@ -208,7 +208,7 @@ void Solver::undoOne() {
       if (w.idx < 3 * UINF) {  // avoids the cardinality and clausal case
         if (Lit blocking = w.blocking; !isTrue(level, blocking) || position[toVar(blocking)] >= position[toVar(l)]) {
           ca[w.cref].undoFalsified(w.idx);
-          ++global.stats.NWATCHLOOKUPSBJ;
+          ++global.stats.NWATCHLOOKUPSBJ.z;
         }
       }
     }
@@ -237,27 +237,27 @@ void Solver::backjumpTo(int lvl) {
 }
 
 void Solver::decide(Lit l) {
-  ++global.stats.NDECIDE;
+  ++global.stats.NDECIDE.z;
   trail_lim.push_back(trail.size());
   uncheckedEnqueue(l, CRef_Undef);
 }
 
 void Solver::propagate(Lit l, CRef r) {
   assert(isValid(r));
-  ++global.stats.NPROP;
+  ++global.stats.NPROP.z;
   uncheckedEnqueue(l, r);
 }
 
 State Solver::probe(Lit l, bool deriveImplications) {
   assert(decisionLevel() == 0);
   assert(isUnknown(getPos(), l));
-  ++global.stats.NPROBINGS;
+  ++global.stats.NPROBINGS.z;
   while (isUnknown(getPos(), l)) {
     decide(l);
-    CeSuper confl = aux::timeCall<CeSuper>([&] { return runPropagation(); }, global.stats.PROPTIME);
+    CeSuper confl = aux::timeCall<CeSuper>([&] { return runPropagation(); }, global.stats.PROPTIME.z);
     if (confl) {
-      CeSuper analyzed = aux::timeCall<CeSuper>([&] { return analyze(confl); }, global.stats.CATIME);
-      aux::timeCallVoid([&] { learnConstraint(analyzed); }, global.stats.LEARNTIME);
+      CeSuper analyzed = aux::timeCall<CeSuper>([&] { return analyze(confl); }, global.stats.CATIME.z);
+      aux::timeCallVoid([&] { learnConstraint(analyzed); }, global.stats.LEARNTIME.z);
       return State::FAIL;
     }
     // NOTE: we may have backjumped to level 0 due to a learned constraint that did not propagate.
@@ -298,13 +298,13 @@ CeSuper Solver::runDatabasePropagation() {
         if (idx >= 4 * UINF || position[toVar(blocking)] < position[toVar(p)]) {
           assert(dynamic_cast<Clause*>(&ca[ws[it_ws].cref]) != nullptr || idx < UINF ||
                  (idx < 3 * UINF && idx >= 2 * UINF));
-          global.stats.NBLOCKINGSUCCESS += idx < 4 * UINF;  // not a clause
+          global.stats.NBLOCKINGSUCCESS.z += idx < 4 * UINF;  // not a clause
           continue;
         }
       }
-      global.stats.NBLOCKINGFAILS += idx < 4 * UINF && blocking != 0;  // not a clause
+      global.stats.NBLOCKINGFAILS.z += idx < 4 * UINF && blocking != 0;  // not a clause
 
-      ++global.stats.NWATCHLOOKUPS;
+      ++global.stats.NWATCHLOOKUPS.z;
       Watch& w = ws[it_ws];
       Constr& c = ca[w.cref];
       WatchStatus wstat = WatchStatus::DROPWATCH;
@@ -325,7 +325,7 @@ CeSuper Solver::runDatabasePropagation() {
         plf::single_reorderase(ws, ws.begin() + it_ws);
         --it_ws;
       } else if (wstat == WatchStatus::CONFLICTING) {  // clean up current level and stop propagation
-        ++global.stats.NTRAILPOPS;
+        ++global.stats.NTRAILPOPS.z;
         --qhead;
         for (int i = 0; i <= it_ws; ++i) {
           const Watch& wa = ws[i];
@@ -333,7 +333,7 @@ CeSuper Solver::runDatabasePropagation() {
             if (Lit blocking = wa.blocking;
                 !isTrue(level, blocking) || position[toVar(blocking)] >= position[toVar(p)]) {
               ca[wa.cref].undoFalsified(wa.idx);
-              ++global.stats.NWATCHLOOKUPSBJ;
+              ++global.stats.NWATCHLOOKUPSBJ.z;
             }
           }
         }
@@ -370,7 +370,7 @@ CeSuper Solver::runPropagationWithLP() {
   if (CeSuper result = runPropagation(); result) return result;
   if (lpSolver) {
     auto [state, constraint] = aux::timeCall<std::pair<LpStatus, CeSuper>>(
-        [&] { return lpSolver->checkFeasibility(false); }, global.stats.LPTOTALTIME);
+        [&] { return lpSolver->checkFeasibility(false); }, global.stats.LPTOTALTIME.z);
     // NOTE: calling LP solver may increase the propagations on the trail due to added constraints
     if (state == LpStatus::INFEASIBLE || state == LpStatus::OPTIMAL) {
       // added a Farkas/bound constraint and potentially backjumped, so we propagate again
@@ -457,7 +457,7 @@ resolve:
       [&] {
         heur.vBumpActivity(actSet.getKeysMutable(), getPos(), global.options.varWeight.get(), global.stats.NCONFL.z);
       },
-      global.stats.HEURTIME);
+      global.stats.HEURTIME.z);
   global.isPool.release(actSet);
 
   assert(confl->hasNegativeSlack(level));
@@ -497,7 +497,7 @@ void Solver::minimize(CeSuper& conflict) {
     }
     if (saturatedLits.isEmpty()) break;
   }
-  global.stats.MINTIME +=
+  global.stats.MINTIME.z +=
       std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - start).count();
   conflict->removeZeroes();  // remove weakened literals
   global.isPool.release(saturatedLits);
@@ -573,14 +573,14 @@ CeSuper Solver::extractCore(const CeSuper& conflict, Lit l_assump) {
       [&] {
         heur.vBumpActivity(actSet.getKeysMutable(), getPos(), global.options.varWeight.get(), global.stats.NCONFL.z);
       },
-      global.stats.HEURTIME);
+      global.stats.HEURTIME.z);
   global.isPool.release(actSet);
 
   // weaken non-falsifieds
   assert(core->hasNegativeSlack(assumptions.getIndex()));
   assert(!core->isTautology());
   assert(core->isSaturated());
-  aux::timeCallVoid([&] { learnConstraint(core); }, global.stats.LEARNTIME);
+  aux::timeCallVoid([&] { learnConstraint(core); }, global.stats.LEARNTIME.z);
   // NOTE: takes care of inconsistency
   backjumpTo(0);
   for (Lit l : assumptions.getKeys()) {
@@ -627,35 +627,35 @@ CRef Solver::attachConstraint(const CeSuper& constraint, bool locked) {
   const Origin orig = c.getOrigin();
   const bool learned = isLearned(orig);
   if (learned) {
-    global.stats.LEARNEDLENGTHSUM += c.size();
-    global.stats.LEARNEDDEGREESUM += c.degree();
-    global.stats.LEARNEDSTRENGTHSUM += c.strength();
+    global.stats.LEARNEDLENGTHSUM.z += c.size();
+    global.stats.LEARNEDDEGREESUM.z += static_cast<double>(c.degree());
+    global.stats.LEARNEDSTRENGTHSUM.z += c.strength();
   } else {
-    global.stats.EXTERNLENGTHSUM += c.size();
-    global.stats.EXTERNDEGREESUM += c.degree();
-    global.stats.EXTERNSTRENGTHSUM += c.strength();
+    global.stats.EXTERNLENGTHSUM.z += c.size();
+    global.stats.EXTERNDEGREESUM.z += static_cast<double>(c.degree());
+    global.stats.EXTERNSTRENGTHSUM.z += c.strength();
   }
   if (c.degree() == 1) {
-    global.stats.NCLAUSESLEARNED += learned;
-    global.stats.NCLAUSESEXTERN += !learned;
+    global.stats.NCLAUSESLEARNED.z += learned;
+    global.stats.NCLAUSESEXTERN.z += !learned;
   } else if (c.isClauseOrCard()) {
-    global.stats.NCARDINALITIESLEARNED += learned;
-    global.stats.NCARDINALITIESEXTERN += !learned;
+    global.stats.NCARDINALITIESLEARNED.z += learned;
+    global.stats.NCARDINALITIESEXTERN.z += !learned;
   } else {
-    global.stats.NGENERALSLEARNED += learned;
-    global.stats.NGENERALSEXTERN += !learned;
+    global.stats.NGENERALSLEARNED.z += learned;
+    global.stats.NGENERALSEXTERN.z += !learned;
   }
 
-  global.stats.NCONSFORMULA += orig == Origin::FORMULA;
-  global.stats.NCONSDOMBREAKER += orig == Origin::DOMBREAKER;
-  global.stats.NCONSLEARNED += orig == Origin::LEARNED;
-  global.stats.NCONSBOUND += isBound(orig) || orig == Origin::REFORMBOUND;
-  global.stats.NCONSCOREGUIDED += orig == Origin::COREGUIDED || orig == Origin::BOTTOMUP;
-  global.stats.NLPGOMORYCUTS += orig == Origin::GOMORY;
-  global.stats.NLPDUAL += orig == Origin::DUAL;
-  global.stats.NLPFARKAS += orig == Origin::FARKAS;
-  global.stats.NPURELITS += orig == Origin::PURE;
-  global.stats.NCONSREDUCED += orig == Origin::REDUCED;
+  global.stats.NCONSFORMULA.z += orig == Origin::FORMULA;
+  global.stats.NCONSDOMBREAKER.z += orig == Origin::DOMBREAKER;
+  global.stats.NCONSLEARNED.z += orig == Origin::LEARNED;
+  global.stats.NCONSBOUND.z += isBound(orig) || orig == Origin::REFORMBOUND;
+  global.stats.NCONSCOREGUIDED.z += orig == Origin::COREGUIDED || orig == Origin::BOTTOMUP;
+  global.stats.NLPGOMORYCUTS.z += orig == Origin::GOMORY;
+  global.stats.NLPDUAL.z += orig == Origin::DUAL;
+  global.stats.NLPFARKAS.z += orig == Origin::FARKAS;
+  global.stats.NPURELITS.z += orig == Origin::PURE;
+  global.stats.NCONSREDUCED.z += orig == Origin::REDUCED;
 
   // NOTE: propagation is not necessary, but do it at first level to make sure to derive as many unit lits as possible
   if (decisionLevel() == 0) {

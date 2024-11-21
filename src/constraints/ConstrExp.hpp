@@ -344,7 +344,7 @@ struct ConstrExp final : ConstrExpSuper {
 
   template <typename S, typename L>
   void addUp(const CePtr<S, L>& c, const SMALL& cmult = 1) {
-    global.stats.NADDEDLITERALS += c->nVars();
+    global.stats.NADDEDLITERALS.z += c->nVars();
     assert(cmult >= 1);
     if (global.logger.isActive()) Logger::proofMult(proofBuffer << c->proofBuffer.str(), cmult) << "+ ";
     rhs += static_cast<LARGE>(cmult) * static_cast<LARGE>(c->rhs);
@@ -550,7 +550,7 @@ struct ConstrExp final : ConstrExpSuper {
         const SMALL mult = aux::ceildiv(conflCoef, reasonCoef);
         if (reason->getSlack(level) * mult + getSlack(level) < 0) {
           fixed = true;
-          global.stats.NMULTWEAKENEDREASON += 1;
+          global.stats.NMULTWEAKENEDREASON.z += 1;
           reason->multiply(mult);
           SMALL toWeaken = reasonCoef * mult - conflCoef;
           reason->weakenCheckSaturated(toWeaken, asserting, level);
@@ -561,7 +561,7 @@ struct ConstrExp final : ConstrExpSuper {
         if (reason->getSlack(level) + mult * getSlack(level) < 0) {
           fixed = true;
           multipliedConflict = true;
-          global.stats.NMULTWEAKENEDCONFLICT += 1;
+          global.stats.NMULTWEAKENEDCONFLICT.z += 1;
           multiply(mult);
           SMALL toWeaken = reasonCoef - conflCoef * mult;
           reason->weakenCheckSaturated(toWeaken, asserting, level);
@@ -631,7 +631,7 @@ struct ConstrExp final : ConstrExpSuper {
           if (global.options.caCancelingUnkns) {
             for (Var v : reason->vars) {
               Lit l = reason->getLit(v);
-              global.stats.NUNKNOWNROUNDEDUP += isUnknown(pos, v) && getCoef(-l) >= mult;
+              global.stats.NUNKNOWNROUNDEDUP.z += isUnknown(pos, v) && getCoef(-l) >= mult;
             }
             reason->weakenDivideRoundOrderedCanceling(bestDiv, level, pos, mult, *this);
             reason->multiply(mult);
@@ -699,7 +699,7 @@ struct ConstrExp final : ConstrExpSuper {
     }
     cf = 0;
     saturatedLits.remove(-toSubsume);
-    ++global.stats.NSUBSUMESTEPS;
+    ++global.stats.NSUBSUMESTEPS.z;
 
     if (global.logger.isActive()) {
       proofBuffer << id << " ";

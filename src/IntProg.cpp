@@ -1166,7 +1166,7 @@ void IntProg::runFromCmdLine() {
   }
   if (global.options.printCsvData) global.stats.printCsvHeader();
 
-  aux::timeCallVoid([&] { parsing::file_read(*this); }, global.stats.PARSETIME);
+  aux::timeCallVoid([&] { parsing::file_read(*this); }, global.stats.PARSETIME.z);
 
   if (global.options.printOpb) printFormula();
   if (global.options.noSolve) throw EarlyTermination();

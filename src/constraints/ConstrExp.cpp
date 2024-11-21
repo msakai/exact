@@ -256,20 +256,20 @@ CRef ConstrExp<SMALL, LARGE>::toConstr(ConstraintAllocator& ca, bool locked, ID 
   } else {
     double strngth = getStrength();
     if (maxCoef <= static_cast<LARGE>(limitAbs<int, long long>())) {
-      global.stats.NSMALL += 1;
+      global.stats.NSMALL.z += 1;
       assert(degree >= maxCoef);
       new (ca.alloc<Watched32>(vars.size())) Watched32(this, locked, id, strngth);
     } else if (maxCoef <= static_cast<LARGE>(limitAbs<long long, int128>())) {
-      global.stats.NLARGE += 1;
+      global.stats.NLARGE.z += 1;
       new (ca.alloc<Watched64>(vars.size())) Watched64(this, locked, id, strngth);
     } else if (maxCoef <= static_cast<LARGE>(limitAbs<int128, int128>())) {
-      global.stats.NLARGE += 1;
+      global.stats.NLARGE.z += 1;
       new (ca.alloc<Watched96>(vars.size())) Watched96(this, locked, id, strngth);
     } else if (maxCoef <= static_cast<LARGE>(limitAbs<int128, int256>())) {
-      global.stats.NLARGE += 1;
+      global.stats.NLARGE.z += 1;
       new (ca.alloc<Watched128>(vars.size())) Watched128(this, locked, id, strngth);
     } else {
-      global.stats.NARB += 1;
+      global.stats.NARB.z += 1;
       new (ca.alloc<WatchedArb>(vars.size())) WatchedArb(this, locked, id, strngth);
     }
   }
@@ -640,7 +640,7 @@ void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit assertin
   assert(toWeaken >= 0);
   assert(toWeaken < getCoef(asserting));
   if (isSaturated(asserting)) {  // indirect weakening
-    global.stats.NMULTWEAKENEDINDIRECT += 1;
+    global.stats.NMULTWEAKENEDINDIRECT.z += 1;
     for (int64_t i = std::ssize(vars) - 1; toWeaken != 0 && i >= 0; --i) {
       Var v = vars[i];
       if (coefs[v] == 0) continue;
@@ -659,7 +659,7 @@ void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit assertin
   }
   assert(toWeaken >= 0);
   if (toWeaken > 0) {  // direct weakening
-    global.stats.NMULTWEAKENEDDIRECT += 1;
+    global.stats.NMULTWEAKENEDDIRECT.z += 1;
     weakenVar(toWeaken, toVar(asserting));
   }
   repairOrder();
@@ -753,7 +753,7 @@ void ConstrExp<SMALL, LARGE>::selfSubsumeImplications(const Implications& implic
     Lit l = getLit(v);
     for (Lit ll : implications.getImplieds(l)) {
       if (!saturateds.has(ll)) continue;
-      ++global.stats.NSUBSUMESTEPS;
+      ++global.stats.NSUBSUMESTEPS.z;
       SMALL cf = aux::abs(coefs[v]);
       if (global.logger.isActive()) Logger::proofMult(proofBuffer << global.logger.logRUP(-l, ll) << " ", cf) << "+ s ";
       addRhs(cf);
@@ -776,7 +776,7 @@ bool ConstrExp<SMALL, LARGE>::hasNoZeroes() const {
 // NOTE: other variables should already be saturated, otherwise proof logging will break
 template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::saturate(const VarVec& vs, bool check, bool sorted) {
-  global.stats.NSATURATESTEPS += vs.size();
+  global.stats.NSATURATESTEPS.z += vs.size();
   assert(check || !sorted);
   if (vars.empty() || (sorted && aux::abs(coefs[vars[0]]) <= degree) ||
       (!sorted && check && getLargestCoef() <= degree)) {
@@ -1365,7 +1365,7 @@ void ConstrExp<SMALL, LARGE>::weakenNonImplied(const IntMap<int>& level, const L
       ++weakenings;
     }
   }
-  global.stats.NWEAKENEDNONIMPLIED += weakenings;
+  global.stats.NWEAKENEDNONIMPLIED.z += weakenings;
 }
 
 // @post: preserves order after removeZeroes()
@@ -1384,7 +1384,7 @@ bool ConstrExp<SMALL, LARGE>::weakenNonImplying(const IntMap<int>& level, const 
       ++weakenings;
     }
   }
-  global.stats.NWEAKENEDNONIMPLYING += weakenings;
+  global.stats.NWEAKENEDNONIMPLYING.z += weakenings;
   return weakenings != 0;
 }
 
@@ -1630,7 +1630,7 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
     if (heur1 - cfs[i] >= degree) heur1 -= cfs[i];
     if (heur2 + cfs[i] <= degree) heur2 += cfs[i];
     if (heur1 == degree || heur2 == degree) {
-      global.stats.SUBSETSUMTIME +=
+      global.stats.SUBSETSUMTIME.z +=
           std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - start).count();
       return;
     }
