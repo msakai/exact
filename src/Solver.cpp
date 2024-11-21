@@ -319,7 +319,7 @@ CeSuper Solver::runDatabasePropagation() {
         } else {
           assert(idx < 3 * UINF);
           assert(idx >= 2 * UINF);
-          wstat = c.isMarkedForDelete() ? WatchStatus::DROPWATCH : c.checkForPropagation(w, -p, *this, global.stats);
+          wstat = c.checkForPropagation(w, -p, *this, global.stats);
         }
       }
 
