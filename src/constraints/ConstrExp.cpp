@@ -160,11 +160,10 @@ void ConstrExpSuper::postProcess(const IntMap<int>& level, const std::vector<int
     const std::vector<ActNode>& actList = heur.getActList();
     sortInDecreasingCoefOrder([&](Var v1, Var v2) { return actList[v1].activity > actList[v2].activity; });
   }
-  if (divideByGCD()) {
-    ++stats.NGCD;
-  }
+  const bool dgcd = divideByGCD();
+  stats.NGCD.z += dgcd;
   if (simplifyToCardinality(true, getCardinalityDegree())) {
-    ++stats.NCARDDETECT;
+    ++stats.NCARDDETECT.z;
     return;
   }
   liftDegree();

@@ -106,19 +106,19 @@ ID Constr::id() const { return header.id; }
 
 void Constr::fixEncountered(Stats& stats) const {  // TODO: better as method of Stats?
   const Origin o = getOrigin();
-  stats.NENCFORMULA += o == Origin::FORMULA;
-  stats.NENCDOMBREAKER += o == Origin::DOMBREAKER;
-  stats.NENCLEARNED += o == Origin::LEARNED;
-  stats.NENCBOUND += isBound(o) || o == Origin::REFORMBOUND;
-  stats.NENCCOREGUIDED += o == Origin::COREGUIDED || o == Origin::BOTTOMUP;
-  stats.NLPENCGOMORY += o == Origin::GOMORY;
-  stats.NLPENCDUAL += o == Origin::DUAL;
-  stats.NLPENCFARKAS += o == Origin::FARKAS;
-  stats.NENCDETECTEDAMO += o == Origin::DETECTEDAMO;
-  stats.NENCREDUCED += o == Origin::REDUCED;
-  stats.NENCEQ += o == Origin::EQUALITY;
-  stats.NENCIMPL += o == Origin::IMPLICATION;
-  ++stats.NRESOLVESTEPS;
+  stats.NENCFORMULA.z += o == Origin::FORMULA;
+  stats.NENCDOMBREAKER.z += o == Origin::DOMBREAKER;
+  stats.NENCLEARNED.z += o == Origin::LEARNED;
+  stats.NENCBOUND.z += isBound(o) || o == Origin::REFORMBOUND;
+  stats.NENCCOREGUIDED.z += o == Origin::COREGUIDED || o == Origin::BOTTOMUP;
+  stats.NLPENCGOMORY.z += o == Origin::GOMORY;
+  stats.NLPENCDUAL.z += o == Origin::DUAL;
+  stats.NLPENCFARKAS.z += o == Origin::FARKAS;
+  stats.NENCDETECTEDAMO.z += o == Origin::DETECTEDAMO;
+  stats.NENCREDUCED.z += o == Origin::REDUCED;
+  stats.NENCEQ.z += o == Origin::EQUALITY;
+  stats.NENCIMPL.z += o == Origin::IMPLICATION;
+  stats.NRESOLVESTEPS.z += 1;
 }
 
 size_t Clause::getMemSize(const uint32_t length) {
@@ -200,7 +200,7 @@ WatchStatus Clause::checkForPropagation(Watch& w, const Lit p, Solver& solver, S
       data[widx] = l;
       adj[l].emplace_back(w.cref, 4 * UINF, otherwatch);
       ++next_watch_idx;
-      stats.NWATCHCHECKS += next_watch_idx - start + 1;
+      stats.NWATCHCHECKS.z += next_watch_idx - start + 1;
       return WatchStatus::DROPWATCH;
     }
   }
@@ -210,12 +210,12 @@ WatchStatus Clause::checkForPropagation(Watch& w, const Lit p, Solver& solver, S
       data[next_watch_idx] = watch;
       data[widx] = l;
       adj[l].emplace_back(w.cref, 4 * UINF, otherwatch);
-      stats.NWATCHCHECKS += size() - start + next_watch_idx - 1;
+      stats.NWATCHCHECKS.z += size() - start + next_watch_idx - 1;
       ++next_watch_idx;
       return WatchStatus::DROPWATCH;
     }
   }
-  stats.NWATCHCHECKS += size() - 2;
+  stats.NWATCHCHECKS.z += size() - 2;
 
   assert(isFalse(level, watch));
   for (uint32_t i = 2; i < size(); ++i) assert(isFalse(level, data[i]));
@@ -224,10 +224,10 @@ WatchStatus Clause::checkForPropagation(Watch& w, const Lit p, Solver& solver, S
     return WatchStatus::CONFLICTING;
   }
   assert(!isTrue(level, otherwatch));
-  ++stats.NPROPCLAUSE;
+  ++stats.NPROPCLAUSE.z;
   assert(isCorrectlyPropagating(solver, otherwatch == data[1]));
   solver.propagate(otherwatch, w.cref);
-  ++stats.NPROPCHECKS;
+  ++stats.NPROPCHECKS.z;
   return WatchStatus::KEEPWATCH;
 }
 
@@ -352,7 +352,7 @@ WatchStatus Cardinality::checkForPropagation(Watch& w, [[maybe_unused]] const Li
       data[next_watch_idx] = data[widx];
       data[widx] = l;
       adj[l].emplace_back(w);
-      stats.NWATCHCHECKS += next_watch_idx - start + 1;
+      stats.NWATCHCHECKS.z += next_watch_idx - start + 1;
       return WatchStatus::DROPWATCH;
     }
   }
@@ -362,11 +362,11 @@ WatchStatus Cardinality::checkForPropagation(Watch& w, [[maybe_unused]] const Li
       data[next_watch_idx] = data[widx];
       data[widx] = l;
       adj[l].emplace_back(w);
-      stats.NWATCHCHECKS += size() - start + next_watch_idx - degr + 1;
+      stats.NWATCHCHECKS.z += size() - start + next_watch_idx - degr + 1;
       return WatchStatus::DROPWATCH;
     }
   }
-  stats.NWATCHCHECKS += size() - degr - 1;
+  stats.NWATCHCHECKS.z += size() - degr - 1;
 
   assert(isFalse(level, data[widx]));
   for (uint32_t i = degr + 1; i < size(); ++i) assert(isFalse(level, data[i]));
@@ -384,8 +384,8 @@ WatchStatus Cardinality::checkForPropagation(Watch& w, [[maybe_unused]] const Li
       solver.propagate(l, w.cref);
     }
   }
-  stats.NPROPCHECKS += degr + 1;
-  stats.NPROPCARD += cardprops;
+  stats.NPROPCHECKS.z += degr + 1;
+  stats.NPROPCARD.z += cardprops;
   return WatchStatus::KEEPWATCH;
 }
 
@@ -522,7 +522,7 @@ WatchStatus Watched32::checkForPropagation(Watch& w, [[maybe_unused]] const Lit 
 
   if (lookForWatches) {
     uint32_t start_watch_idx = next_watch_idx;
-    stats.NWATCHCHECKS -= next_watch_idx;
+    stats.NWATCHCHECKS.z -= next_watch_idx;
     for (; next_watch_idx < unsaturatedIdx && watchslack < lrgstCf; ++next_watch_idx) {
       if (const Lit l = lit(next_watch_idx); !isFalse(level, l)) {
         if (position[toVar(l)] < p_pos) {
@@ -530,7 +530,7 @@ WatchStatus Watched32::checkForPropagation(Watch& w, [[maybe_unused]] const Lit 
           blocking = l;
           w.blocking = l;
           watchslack += cf(widx);
-          stats.NWATCHCHECKS += next_watch_idx;
+          stats.NWATCHCHECKS.z += next_watch_idx;
           return WatchStatus::KEEPWATCH;
         }
         if (!hasWatch(next_watch_idx)) {
@@ -547,7 +547,7 @@ WatchStatus Watched32::checkForPropagation(Watch& w, [[maybe_unused]] const Lit 
         adj[l].emplace_back(w.cref, next_watch_idx, blocking);
       }
     }  // NOTE: second innermost loop
-    stats.NWATCHCHECKS += next_watch_idx;
+    stats.NWATCHCHECKS.z += next_watch_idx;
 
     if (watchslack < lrgstCf) {
       next_watch_idx = 0;
@@ -558,7 +558,7 @@ WatchStatus Watched32::checkForPropagation(Watch& w, [[maybe_unused]] const Lit 
             blocking = l;
             w.blocking = l;
             watchslack += cf(widx);
-            stats.NWATCHCHECKS += next_watch_idx;
+            stats.NWATCHCHECKS.z += next_watch_idx;
             return WatchStatus::KEEPWATCH;
           }
           if (!hasWatch(next_watch_idx)) {
@@ -575,7 +575,7 @@ WatchStatus Watched32::checkForPropagation(Watch& w, [[maybe_unused]] const Lit 
           adj[l].emplace_back(w.cref, next_watch_idx, blocking);
         }
       }  // NOTE: second innermost loop
-      stats.NWATCHCHECKS += next_watch_idx;
+      stats.NWATCHCHECKS.z += next_watch_idx;
     }
     assert(watchslack >= lrgstCf || next_watch_idx == start_watch_idx);
   }
@@ -600,12 +600,12 @@ WatchStatus Watched32::checkForPropagation(Watch& w, [[maybe_unused]] const Lit 
       true_sum += cf(prop_idx);
     } else if (isUnknown(position, l)) {
       true_sum += cf(prop_idx);
-      ++stats.NPROPWATCH;
+      ++stats.NPROPWATCH.z;
       assert(isCorrectlyPropagating(solver, prop_idx));
       solver.propagate(l, w.cref);
     }  // NOTE: third innermost loop
   }
-  stats.NPROPCHECKS += prop_idx;
+  stats.NPROPCHECKS.z += prop_idx;
 
   // NOTE: when skipping the watch calculation in subsequent propagation phases, it can happen that the constraint
   // became conflicting.
@@ -797,7 +797,7 @@ WatchStatus Watched<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] cons
   // else we did not find enough watches last time, so we can skip looking for them now
   if (lookForWatches) {
     uint32_t start_watch_idx = next_watch_idx;
-    stats.NWATCHCHECKS -= next_watch_idx;
+    stats.NWATCHCHECKS.z -= next_watch_idx;
     for (; next_watch_idx < unsaturatedIdx && watchslack < lrgstCf; ++next_watch_idx) {
       if (const Lit l = lit(next_watch_idx); !isFalse(level, l)) {
         if (position[toVar(l)] < p_pos) {
@@ -805,7 +805,7 @@ WatchStatus Watched<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] cons
           blocking = l;
           w.blocking = l;
           watchslack += cf(widx);
-          stats.NWATCHCHECKS += next_watch_idx;
+          stats.NWATCHCHECKS.z += next_watch_idx;
           return WatchStatus::KEEPWATCH;
         }
         if (!hasWatch(next_watch_idx)) {
@@ -822,7 +822,7 @@ WatchStatus Watched<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] cons
         adj[l].emplace_back(w.cref, next_watch_idx + 2 * UINF, blocking);
       }
     }  // NOTE: second innermost loop
-    stats.NWATCHCHECKS += next_watch_idx;
+    stats.NWATCHCHECKS.z += next_watch_idx;
 
     if (watchslack < lrgstCf) {
       next_watch_idx = 0;
@@ -833,7 +833,7 @@ WatchStatus Watched<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] cons
             blocking = l;
             w.blocking = l;
             watchslack += cf(widx);
-            stats.NWATCHCHECKS += next_watch_idx;
+            stats.NWATCHCHECKS.z += next_watch_idx;
             return WatchStatus::KEEPWATCH;
           }
           if (!hasWatch(next_watch_idx)) {
@@ -850,7 +850,7 @@ WatchStatus Watched<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] cons
           adj[l].emplace_back(w.cref, next_watch_idx + 2 * UINF, blocking);
         }
       }  // NOTE: second innermost loop
-      stats.NWATCHCHECKS += next_watch_idx;
+      stats.NWATCHCHECKS.z += next_watch_idx;
     }
     assert(watchslack >= lrgstCf || next_watch_idx == start_watch_idx);
   }
@@ -876,12 +876,12 @@ WatchStatus Watched<CF, DG>::checkForPropagation(Watch& w, [[maybe_unused]] cons
       true_sum += cf(prop_idx);
     } else if (isUnknown(position, l)) {
       true_sum += cf(prop_idx);
-      ++stats.NPROPWATCH;
+      ++stats.NPROPWATCH.z;
       assert(isCorrectlyPropagating(solver, prop_idx));
       solver.propagate(l, w.cref);
     }  // NOTE: third innermost loop
   }
-  stats.NPROPCHECKS += prop_idx;
+  stats.NPROPCHECKS.z += prop_idx;
 
   // NOTE: when skipping the watch calculation in subsequent propagation phases, it can happen that the constraint
   // became conflicting.
