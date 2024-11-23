@@ -305,20 +305,34 @@ CeSuper Solver::runDatabasePropagation() {
       }
       global.stats.NBLOCKINGFAILS.z += idx < CLAUSE_IDX && blocking != 0;  // not a clause or binary
 
-      ++global.stats.NWATCHLOOKUPS.z;
       Watch& w = ws[it_ws];
-      Constr& c = ca[w.cref];
       WatchStatus wstat = WatchStatus::DROPWATCH;
-      if (!c.isMarkedForDelete()) {
-        // Try to avoid the vTable indirection
-        if (idx < UINF) {
-          wstat = static_cast<Watched32&>(c).checkForPropagation(w, -p, *this, global.stats);
-        } else if (idx == CLAUSE_IDX) {
-          wstat = static_cast<Clause&>(c).checkForPropagation(w, -p, *this, global.stats);
+      cPrio = 1.5;  // priority of Binary
+      if (idx == BINARY_IDX) {
+        assert(!isTrue(level, blocking));  // already checked for blocking literal
+        if (isFalse(level, blocking)) {
+          wstat = WatchStatus::CONFLICTING;
         } else {
-          assert(idx < CLAUSE_IDX);  // not a clause or binary
-          assert(idx >= 2 * UINF);   // not a Watched32
-          wstat = c.checkForPropagation(w, -p, *this, global.stats);
+          propagate(blocking, w.cref);
+          wstat = WatchStatus::KEEPWATCH;
+        }
+      } else {
+        ++global.stats.NWATCHLOOKUPS.z;
+        Constr& c = ca[w.cref];
+        if (!c.isMarkedForDelete()) {
+          // Try to avoid the vTable indirection
+          if (idx < UINF) {
+            wstat = static_cast<Watched32&>(c).checkForPropagation(w, -p, *this, global.stats);
+          } else if (idx == CLAUSE_IDX) {
+            wstat = static_cast<Clause&>(c).checkForPropagation(w, -p, *this, global.stats);
+          } else {
+            assert(idx < CLAUSE_IDX);  // not a clause or binary
+            assert(idx >= 2 * UINF);   // not a Watched32
+            wstat = c.checkForPropagation(w, -p, *this, global.stats);
+          }
+        }
+        if (wstat == WatchStatus::KEEPWATCH) {
+          cPrio = c.priority;
         }
       }
 
@@ -326,6 +340,7 @@ CeSuper Solver::runDatabasePropagation() {
         plf::single_reorderase(ws, ws.begin() + it_ws);
         --it_ws;
       } else if (wstat == WatchStatus::CONFLICTING) {  // clean up current level and stop propagation
+        Constr& c = ca[w.cref];
         ++global.stats.NTRAILPOPS.z;
         --qhead;
         for (int i = 0; i <= it_ws; ++i) {
@@ -345,7 +360,6 @@ CeSuper Solver::runDatabasePropagation() {
         return result;
       } else {
         assert(wstat == WatchStatus::KEEPWATCH);
-        cPrio = c.priority;
         if (cPrio < prevPrio) {
           assert(it_ws > 0);
           std::swap(ws[it_ws], ws[it_ws - 1]);

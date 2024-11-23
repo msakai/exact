@@ -428,6 +428,8 @@ struct ConstrExp final : ConstrExpSuper {
 
   unsigned int resolveWith(const Lit* data, unsigned int size, unsigned int deg, ID id, Lit l, const IntMap<int>& level,
                            const std::vector<int>& pos, IntSet& actSet);
+  unsigned int resolveWith(const std::array<Lit, 2>& binary, ID id, const IntMap<int>& level,
+                           const std::vector<int>& pos, IntSet& actSet);
   unsigned int resolveWith(const Lit* lits, const int* coefs, unsigned int size, const long long& degr, ID id, Origin o,
                            Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet);
   unsigned int resolveWith(const Lit* lits, const long long* coefs, unsigned int size, const int128& degr, ID id,
@@ -440,6 +442,8 @@ struct ConstrExp final : ConstrExpSuper {
                            Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet);
   unsigned int subsumeWith(const Lit* data, unsigned int size, unsigned int deg, ID id, Lit l, const IntMap<int>& level,
                            const std::vector<int>& pos, IntSet& saturatedLits);
+  unsigned int subsumeWith(const std::array<Lit, 2>& binary, ID id, const IntMap<int>& level,
+                           const std::vector<int>& pos, IntSet& actSet);
   unsigned int subsumeWith(const Lit* lits, const int* coefs, unsigned int size, const long long& degr, ID id, Lit l,
                            const IntMap<int>& level, const std::vector<int>& pos, IntSet& saturatedLits);
   unsigned int subsumeWith(const Lit* lits, const long long* coefs, unsigned int size, const int128& degr, ID id, Lit l,

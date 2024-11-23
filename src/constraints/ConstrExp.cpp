@@ -250,8 +250,7 @@ CRef ConstrExp<SMALL, LARGE>::toConstr(ConstraintAllocator& ca, bool locked, ID 
   SMALL maxCoef = aux::abs(coefs[vars[0]]);
   if (isClause()) {
     if (vars.size() == 2) {
-      new (ca.alloc<Clause>(vars.size())) Clause(this, locked, id);
-      // TODO: binary
+      new (ca.alloc<Binary>(vars.size())) Binary(this, locked, id);
     } else {
       new (ca.alloc<Clause>(vars.size())) Clause(this, locked, id);
     }
@@ -1804,7 +1803,7 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* data, unsigned int 
   assert(hasNegativeSlack(level));
 
   IntSet& lbdSet = global.isPool.take();
-  for (int i = 0; i < (int)size; ++i) {
+  for (uint32_t i = 0; i < size; ++i) {
     lbdSet.add(level[-data[i]] % INF);
   }
   lbdSet.remove(0);  // unit literals and non-falsifieds should not be counted
@@ -1824,7 +1823,7 @@ unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const Lit* data, unsigned int 
 
   int weakenedDeg = deg;
   assert(weakenedDeg > 0);
-  for (int i = 0; i < (int)size; ++i) {
+  for (uint32_t i = 0; i < size; ++i) {
     Lit l = data[i];
     if (l != toSubsume && !isUnit(level, -l) && !saturatedLits.has(l)) {
       --weakenedDeg;
@@ -1853,7 +1852,7 @@ unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const Lit* data, unsigned int 
         Logger::proofWeakenFalseUnit(proofBuffer, global.logger.getUnitID(l, pos), -1);
       }
     }
-    for (int i = 0; i < (int)size; ++i) {
+    for (uint32_t i = 0; i < size; ++i) {
       Lit l = data[i];
       if (l != toSubsume && !isUnit(level, -l) && !isUnit(level, l) && !saturatedLits.has(l)) {
         Logger::proofWeaken(proofBuffer, l, -1);
@@ -1864,7 +1863,7 @@ unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const Lit* data, unsigned int 
   }
 
   IntSet& lbdSet = global.isPool.take();
-  for (int i = 0; i < (int)size; ++i) {
+  for (uint32_t i = 0; i < size; ++i) {
     Lit l = data[i];
     if (l == toSubsume || saturatedLits.has(l)) {
       lbdSet.add(level[-l] % INF);
@@ -1875,6 +1874,122 @@ unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const Lit* data, unsigned int 
   assert(lbd > 0);
   global.isPool.release(lbdSet);
   return lbd;
+}
+
+template <typename SMALL, typename LARGE>
+unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::array<Lit, 2>& binary, ID id, const IntMap<int>& level,
+                                                  const std::vector<int>& pos, IntSet& actSet) {
+  assert(getCoef(-binary[0]) > 0);
+  assert(hasNoZeroes());
+  global.stats.NADDEDLITERALS += 2;
+
+  for (Lit ll : binary) {
+    if (isFalse(level, ll)) {
+      actSet.add(toVar(ll));
+    }
+  }
+
+  LARGE oldDegree = getDegree();
+  SMALL largestCF = 0;
+  SMALL cmult = getCoef(-binary[0]);
+  assert(cmult >= 1);
+  if (global.logger.isActive()) {
+    Logger::proofMult(proofBuffer << id << " ", cmult) << "+ ";
+    for (Lit ll : binary) {
+      if (isUnit(level, ll)) {
+        Logger::proofWeaken(proofBuffer, ll, -cmult);
+      } else if (isUnit(level, -ll)) {
+        Logger::proofWeakenFalseUnit(proofBuffer, global.logger.getUnitID(ll, pos), -cmult);
+      }
+    }
+  }
+  addRhs(cmult);
+  for (Lit ll : binary) {
+    if (isUnit(level, -ll)) {
+      continue;
+    }
+    if (isUnit(level, ll)) {
+      addRhs(-cmult);
+      continue;
+    }
+    Var v = toVar(ll);
+    SMALL cf = cmult;
+    if (ll < 0) {
+      rhs -= cmult;
+      cf = -cmult;
+    }
+    add(v, cf, true);
+    largestCF = std::max(largestCF, aux::abs(coefs[v]));
+  }
+
+  assert(getDegree() > 0);
+  if (oldDegree <= getDegree()) {
+    if (largestCF > getDegree()) {
+      global.stats.NSATURATESTEPS += 2;
+      if (global.logger.isActive()) proofBuffer << "s ";
+      largestCF = static_cast<SMALL>(degree);
+      for (Lit ll : binary) {
+        Var v = toVar(ll);
+        if (coefs[v] < -largestCF) {
+          rhs -= coefs[v] + largestCF;
+          coefs[v] = -largestCF;
+        } else {
+          coefs[v] = std::min(coefs[v], largestCF);
+        }
+      }
+    }
+    fixOverflow(level, global.options.bitsOverflow.get(), global.options.bitsReduced.get(), largestCF, 0);
+  } else {
+    saturateAndFixOverflow(level, global.options.bitsOverflow.get(), global.options.bitsReduced.get(), 0, false);
+  }
+  assert(getCoef(-binary[0]) == 0);
+  assert(hasNegativeSlack(level));
+
+  assert(level[binary[0]] == level[binary[1]]);  // should hold for propagating literal
+  return 1;
+}
+
+template <typename SMALL, typename LARGE>
+unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const std::array<Lit, 2>& binary, ID id, const IntMap<int>& level,
+                                                  const std::vector<int>& pos, IntSet& saturatedLits) {
+  const Lit& toSubsume = binary[0];
+  assert(isSaturated());
+  assert(getCoef(-toSubsume) > 0);
+  global.stats.NADDEDLITERALS += 2;
+
+  const Lit& l = binary[1];
+  if (!isUnit(level, -l) && !saturatedLits.has(l)) {
+    return 0;
+  }
+  SMALL& cf = coefs[toVar(toSubsume)];
+  const SMALL mult = aux::abs(cf);
+  if (cf < 0) {
+    rhs -= cf;
+  }
+  cf = 0;
+  saturatedLits.remove(-toSubsume);
+  ++global.stats.NSUBSUMESTEPS;
+
+  if (global.logger.isActive()) {
+    proofBuffer << id << " ";
+    for (Lit l : binary) {
+      if (isUnit(level, l)) {
+        Logger::proofWeaken(proofBuffer, l, -1);
+      } else if (isUnit(level, -l)) {
+        Logger::proofWeakenFalseUnit(proofBuffer, global.logger.getUnitID(l, pos), -1);
+      }
+    }
+    for (Lit l : binary) {
+      if (l != toSubsume && !isUnit(level, -l) && !isUnit(level, l) && !saturatedLits.has(l)) {
+        Logger::proofWeaken(proofBuffer, l, -1);
+      }
+    }
+    // saturate, multiply, divide, add, saturate
+    Logger::proofMult(proofBuffer, mult) << "+ s ";
+  }
+
+  assert(level[binary[0]] == level[binary[1]]);  // should hold for propagating literal
+  return 1;
 }
 
 template <typename SMALL, typename LARGE>
