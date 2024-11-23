@@ -131,6 +131,49 @@ struct Constr {  // internal solver constraint optimized for fast propagation
 };
 std::ostream& operator<<(std::ostream& o, const Constr& c);
 
+struct Binary final : Constr {
+  const Lit data1;
+  const Lit data2;
+
+  static size_t getMemSize(uint32_t length);
+  size_t getMemSize() const;
+
+  bigint degree() const;
+  bigint coef(uint32_t) const;
+  Lit lit(uint32_t i) const;
+  bool hasWatch(uint32_t i) const;
+  uint32_t getUnsaturatedIdx() const;
+  bool isClauseOrCard() const;
+  bool isAtMostOne() const;
+
+  template <typename SMALL, typename LARGE>
+  Binary(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id)
+      : Constr(_id, constraint->orig, locked, 2, 1 / static_cast<float>(2), constraint->global.options.dbMaxLBD.get()),
+        data1(constraint->getLit(constraint->getVars()[0])),
+        data2(constraint->getLit(constraint->getVars()[1])) {
+    assert(_id > ID_Trivial);
+    assert(constraint->nVars() == 2);
+    assert(constraint->getDegree() == 1);
+
+    for (uint32_t i = 0; i < 2; ++i) {
+      assert(constraint->getLit(constraint->getVars()[i]) != 0);
+    }
+  }
+
+  void cleanup() {}
+
+  void initializeWatches(CRef cr, Solver& solver);
+  WatchStatus checkForPropagation(Watch& w, Lit p, Solver& solver, Stats& stats);
+  void undoFalsified([[maybe_unused]] uint32_t i) { assert(false); }
+  uint32_t resolveWith(CeSuper& confl, Lit l, Solver& solver, IntSet& actSet) const;
+  uint32_t subsumeWith(CeSuper& confl, Lit l, Solver& solver, IntSet& saturatedLits) const;
+
+  CeSuper toExpanded(ConstrExpPools& cePools) const;
+  bool isSatisfiedAtRoot(const IntMap<int>& level) const;
+  bool canBeSimplified(const IntMap<int>& level, Equalities& equalities, Implications& implications,
+                       IntSetPool& isp) const;
+};
+
 struct Clause final : Constr {
   uint32_t next_watch_idx;
   Lit data[];  // Flexible Array Member

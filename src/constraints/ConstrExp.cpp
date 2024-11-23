@@ -249,7 +249,12 @@ CRef ConstrExp<SMALL, LARGE>::toConstr(ConstraintAllocator& ca, bool locked, ID 
   CRef result = CRef{ca.at};
   SMALL maxCoef = aux::abs(coefs[vars[0]]);
   if (isClause()) {
-    new (ca.alloc<Clause>(vars.size())) Clause(this, locked, id);
+    if (vars.size() == 2) {
+      new (ca.alloc<Clause>(vars.size())) Clause(this, locked, id);
+      // TODO: binary
+    } else {
+      new (ca.alloc<Clause>(vars.size())) Clause(this, locked, id);
+    }
   } else if (maxCoef == 1) {
     new (ca.alloc<Cardinality>(vars.size())) Cardinality(this, locked, id);
   } else {

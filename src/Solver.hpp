@@ -78,6 +78,7 @@ namespace xct {
 class Solver {
   friend class LpSolver;
   friend struct Constr;
+  friend struct Binary;
   friend struct Clause;
   friend struct Cardinality;
   friend struct Watched32;

@@ -121,6 +121,71 @@ void Constr::fixEncountered(Stats& stats) const {  // TODO: better as method of 
   stats.NRESOLVESTEPS.z += 1;
 }
 
+size_t Binary::getMemSize(const uint32_t) { return aux::ceildiv(sizeof(Binary), maxAlign); }
+size_t Binary::getMemSize() const { return getMemSize(2); }
+
+bigint Binary::degree() const { return 1; }
+bigint Binary::coef(uint32_t) const { return 1; }
+Lit Binary::lit(const uint32_t i) const { return (&data1)[i]; }
+bool Binary::hasWatch(uint32_t i) const { return i < 2; }
+uint32_t Binary::getUnsaturatedIdx() const { return 2; }
+bool Binary::isClauseOrCard() const { return true; }
+bool Binary::isAtMostOne() const { return true; }
+
+void Binary::initializeWatches(CRef cr, Solver& solver) {
+  const auto& level = solver.level;
+  auto& adj = solver.adj;
+
+  assert(!isFalse(level, data1) || !isFalse(level, data2));  // no conflict during initialization
+  if (isFalse(level, data1) && !isTrue(level, data2)) {
+    solver.propagate(data2, cr);
+  }
+  if (isFalse(level, data2) && !isTrue(level, data1)) {
+    solver.propagate(data1, cr);
+  }
+  adj[data1].emplace_back(cr, BINARY_IDX, data2);
+  adj[data2].emplace_back(cr, BINARY_IDX, data1);
+}
+
+WatchStatus Binary::checkForPropagation(Watch&, const Lit, Solver&, Stats&) {
+  assert(false);  // internal propagation check should never happen for binary clauses
+  return WatchStatus::KEEPWATCH;
+}
+
+uint32_t Binary::resolveWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& actSet) const {
+  // TODO: assert false, should never happen
+  return confl->resolveWith(&data1, 2, 1, id(), l, solver.getLevel(), solver.getPos(), actSet);
+}
+uint32_t Binary::subsumeWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& saturatedLits) const {
+  // TODO: assert false, should never happen
+  return confl->subsumeWith(&data1, 2, 1, id(), l, solver.getLevel(), solver.getPos(), saturatedLits);
+}
+
+CeSuper Binary::toExpanded(ConstrExpPools& cePools) const {
+  Ce32 result = cePools.take32();
+  result->addRhs(1);
+  result->addLhs(1, data1);
+  result->addLhs(1, data2);
+  result->orig = getOrigin();
+  result->resetBuffer(id());
+  return result;
+}
+
+bool Binary::isSatisfiedAtRoot(const IntMap<int>& level) const {
+  if (isUnit(level, data1)) return true;
+  if (isUnit(level, data2)) return true;
+  return false;
+}
+
+bool Binary::canBeSimplified(const IntMap<int>& level, Equalities& equalities, Implications& implications,
+                             IntSetPool&) const {
+  const bool isEquality = getOrigin() == Origin::EQUALITY;
+  return isUnit(level, data1) || isUnit(level, -data1) || isUnit(level, data2) || isUnit(level, -data2) ||
+         (!isEquality &&
+          (!equalities.isCanonical(data1) || !equalities.isCanonical(data2) ||
+           implications.getImplieds(data1).contains(-data2) || implications.getImplieds(data2).contains(-data1)));
+}
+
 size_t Clause::getMemSize(const uint32_t length) {
   return aux::ceildiv(sizeof(Clause) + sizeof(Lit) * length, maxAlign);
 }
@@ -169,7 +234,7 @@ void Clause::initializeWatches(CRef cr, Solver& solver) {
       }
     }
   }
-  for (uint32_t i = 0; i < 2; ++i) adj[data[i]].emplace_back(cr, 4 * UINF, data[1 - i]);  // add blocking literal
+  for (uint32_t i = 0; i < 2; ++i) adj[data[i]].emplace_back(cr, CLAUSE_IDX, data[1 - i]);  // add blocking literal
 }
 
 WatchStatus Clause::checkForPropagation(Watch& w, const Lit p, Solver& solver, Stats& stats) {
@@ -198,7 +263,7 @@ WatchStatus Clause::checkForPropagation(Watch& w, const Lit p, Solver& solver, S
     if (const Lit l = data[next_watch_idx]; !isFalse(level, l)) {
       data[next_watch_idx] = watch;
       data[widx] = l;
-      adj[l].emplace_back(w.cref, 4 * UINF, otherwatch);
+      adj[l].emplace_back(w.cref, CLAUSE_IDX, otherwatch);
       ++next_watch_idx;
       stats.NWATCHCHECKS.z += next_watch_idx - start + 1;
       return WatchStatus::DROPWATCH;
@@ -209,7 +274,7 @@ WatchStatus Clause::checkForPropagation(Watch& w, const Lit p, Solver& solver, S
     if (const Lit l = data[next_watch_idx]; !isFalse(level, l)) {
       data[next_watch_idx] = watch;
       data[widx] = l;
-      adj[l].emplace_back(w.cref, 4 * UINF, otherwatch);
+      adj[l].emplace_back(w.cref, CLAUSE_IDX, otherwatch);
       stats.NWATCHCHECKS.z += size() - start + next_watch_idx - 1;
       ++next_watch_idx;
       return WatchStatus::DROPWATCH;
@@ -267,10 +332,12 @@ bool Clause::canBeSimplified(const IntMap<int>& level, Equalities& equalities, I
   if (!isEquality) {
     IntSet& hasImplieds = isp.take();
     for (uint32_t i = 0; i < getUnsaturatedIdx(); ++i) {
-      if (const Lit l = data[i]; implications.hasImplieds(l)) hasImplieds.add(-l);
+      for (Lit l : implications.getImplieds(data[i])) {
+        hasImplieds.add(-l);
+      }
     }
     if (!hasImplieds.isEmpty()) {
-      for (uint32_t i = 0; i < getUnsaturatedIdx(); ++i) {
+      for (uint32_t i = 0; i < size(); ++i) {
         if (hasImplieds.has(data[i])) {
           isp.release(hasImplieds);
           return true;
