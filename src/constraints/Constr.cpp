@@ -329,22 +329,20 @@ bool Clause::canBeSimplified(const IntMap<int>& level, Equalities& equalities, I
       return true;
     }
   }
-  if (!isEquality) {
-    IntSet& hasImplieds = isp.take();
+  if (!isEquality && getUnsaturatedIdx() > 0) {
+    IntSet& saturateds = isp.take();
     for (uint32_t i = 0; i < getUnsaturatedIdx(); ++i) {
-      for (Lit l : implications.getImplieds(data[i])) {
-        hasImplieds.add(-l);
-      }
+      saturateds.add(data[i]);
     }
-    if (!hasImplieds.isEmpty()) {
-      for (uint32_t i = 0; i < size(); ++i) {
-        if (hasImplieds.has(data[i])) {
-          isp.release(hasImplieds);
+    for (uint32_t i = 0; i < size(); ++i) {
+      for (Lit l : implications.getImplieds(data[i])) {
+        if (saturateds.has(l)) {
+          isp.release(saturateds);
           return true;
         }
       }
     }
-    isp.release(hasImplieds);
+    isp.release(saturateds);
   }
   return false;
 }
@@ -723,20 +721,20 @@ bool Watched32::canBeSimplified(const IntMap<int>& level, Equalities& equalities
     if (const Lit l = lit(i); isUnit(level, l) || isUnit(level, -l) || (!isEquality && !equalities.isCanonical(l)))
       return true;
   }
-  if (!isEquality) {
-    IntSet& hasImplieds = isp.take();
+  if (!isEquality && getUnsaturatedIdx() > 0) {
+    IntSet& saturateds = isp.take();
     for (uint32_t i = 0; i < getUnsaturatedIdx(); ++i) {
-      if (const Lit l = lit(i); implications.hasImplieds(l)) hasImplieds.add(-l);
+      saturateds.add(lit(i));
     }
-    if (!hasImplieds.isEmpty()) {
-      for (uint32_t i = 0; i < getUnsaturatedIdx(); ++i) {
-        if (hasImplieds.has(lit(i))) {
-          isp.release(hasImplieds);
+    for (uint32_t i = 0; i < size(); ++i) {
+      for (Lit l : implications.getImplieds(lit(i))) {
+        if (saturateds.has(l)) {
+          isp.release(saturateds);
           return true;
         }
       }
     }
-    isp.release(hasImplieds);
+    isp.release(saturateds);
   }
   return false;
 }
@@ -1007,20 +1005,20 @@ bool Watched<CF, DG>::canBeSimplified(const IntMap<int>& level, Equalities& equa
     if (const Lit l = lit(i); isUnit(level, l) || isUnit(level, -l) || (!isEquality && !equalities.isCanonical(l)))
       return true;
   }
-  if (!isEquality) {
-    IntSet& hasImplieds = isp.take();
+  if (!isEquality && getUnsaturatedIdx() > 0) {
+    IntSet& saturateds = isp.take();
     for (uint32_t i = 0; i < getUnsaturatedIdx(); ++i) {
-      if (const Lit l = lit(i); implications.hasImplieds(l)) hasImplieds.add(-l);
+      saturateds.add(lit(i));
     }
-    if (!hasImplieds.isEmpty()) {
-      for (uint32_t i = 0; i < getUnsaturatedIdx(); ++i) {
-        if (hasImplieds.has(lit(i))) {
-          isp.release(hasImplieds);
+    for (uint32_t i = 0; i < size(); ++i) {
+      for (Lit l : implications.getImplieds(lit(i))) {
+        if (saturateds.has(l)) {
+          isp.release(saturateds);
           return true;
         }
       }
     }
-    isp.release(hasImplieds);
+    isp.release(saturateds);
   }
   return false;
 }
