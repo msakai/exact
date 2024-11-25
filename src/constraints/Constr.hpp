@@ -132,8 +132,7 @@ struct Constr {  // internal solver constraint optimized for fast propagation
 std::ostream& operator<<(std::ostream& o, const Constr& c);
 
 struct Binary final : Constr {
-  const Lit data1;
-  const Lit data2;
+  const std::array<Lit, 2> data;
 
   static size_t getMemSize(uint32_t length);
   size_t getMemSize() const;
@@ -149,8 +148,7 @@ struct Binary final : Constr {
   template <typename SMALL, typename LARGE>
   Binary(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id)
       : Constr(_id, constraint->orig, locked, 2, 1 / static_cast<float>(2), constraint->global.options.dbMaxLBD.get()),
-        data1(constraint->getLit(constraint->getVars()[0])),
-        data2(constraint->getLit(constraint->getVars()[1])) {
+        data({constraint->getLit(constraint->getVars()[0]), constraint->getLit(constraint->getVars()[1])}) {
     assert(_id > ID_Trivial);
     assert(constraint->nVars() == 2);
     assert(constraint->getDegree() == 1);

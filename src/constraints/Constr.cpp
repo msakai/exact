@@ -126,7 +126,7 @@ size_t Binary::getMemSize() const { return getMemSize(2); }
 
 bigint Binary::degree() const { return 1; }
 bigint Binary::coef(uint32_t) const { return 1; }
-Lit Binary::lit(const uint32_t i) const { return (&data1)[i]; }
+Lit Binary::lit(const uint32_t i) const { return data[i]; }
 bool Binary::hasWatch(uint32_t i) const { return i < 2; }
 uint32_t Binary::getUnsaturatedIdx() const { return 2; }
 bool Binary::isClauseOrCard() const { return true; }
@@ -136,15 +136,15 @@ void Binary::initializeWatches(CRef cr, Solver& solver) {
   const auto& level = solver.level;
   auto& adj = solver.adj;
 
-  assert(!isFalse(level, data1) || !isFalse(level, data2));  // no conflict during initialization
-  if (isFalse(level, data1) && !isTrue(level, data2)) {
-    solver.propagate(data2, cr);
+  assert(!isFalse(level, data[0]) || !isFalse(level, data[1]));  // no conflict during initialization
+  if (isFalse(level, data[0]) && !isTrue(level, data[1])) {
+    solver.propagate(data[1], cr);
   }
-  if (isFalse(level, data2) && !isTrue(level, data1)) {
-    solver.propagate(data1, cr);
+  if (isFalse(level, data[1]) && !isTrue(level, data[0])) {
+    solver.propagate(data[0], cr);
   }
-  adj[data1].emplace_back(cr, BINARY_IDX, data2);
-  adj[data2].emplace_back(cr, BINARY_IDX, data1);
+  adj[data[0]].emplace_back(cr, BINARY_IDX, data[1]);
+  adj[data[1]].emplace_back(cr, BINARY_IDX, data[0]);
 }
 
 WatchStatus Binary::checkForPropagation(Watch&, const Lit, Solver&, Stats&) {
@@ -154,36 +154,36 @@ WatchStatus Binary::checkForPropagation(Watch&, const Lit, Solver&, Stats&) {
 
 uint32_t Binary::resolveWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& actSet) const {
   // TODO: assert false, should never happen
-  return confl->resolveWith(&data1, 2, 1, id(), l, solver.getLevel(), solver.getPos(), actSet);
+  return confl->resolveWith(data, 1, id(), l, solver.getLevel(), solver.getPos(), actSet);
 }
 uint32_t Binary::subsumeWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& saturatedLits) const {
   // TODO: assert false, should never happen
-  return confl->subsumeWith(&data1, 2, 1, id(), l, solver.getLevel(), solver.getPos(), saturatedLits);
+  return confl->subsumeWith(data, 1, id(), l, solver.getLevel(), solver.getPos(), saturatedLits);
 }
 
 CeSuper Binary::toExpanded(ConstrExpPools& cePools) const {
   Ce32 result = cePools.take32();
   result->addRhs(1);
-  result->addLhs(1, data1);
-  result->addLhs(1, data2);
+  result->addLhs(1, data[0]);
+  result->addLhs(1, data[1]);
   result->orig = getOrigin();
   result->resetBuffer(id());
   return result;
 }
 
 bool Binary::isSatisfiedAtRoot(const IntMap<int>& level) const {
-  if (isUnit(level, data1)) return true;
-  if (isUnit(level, data2)) return true;
+  if (isUnit(level, data[0])) return true;
+  if (isUnit(level, data[1])) return true;
   return false;
 }
 
 bool Binary::canBeSimplified(const IntMap<int>& level, Equalities& equalities, Implications& implications,
                              IntSetPool&) const {
   const bool isEquality = getOrigin() == Origin::EQUALITY;
-  return isUnit(level, data1) || isUnit(level, -data1) || isUnit(level, data2) || isUnit(level, -data2) ||
-         (!isEquality &&
-          (!equalities.isCanonical(data1) || !equalities.isCanonical(data2) ||
-           implications.getImplieds(data1).contains(-data2) || implications.getImplieds(data2).contains(-data1)));
+  return isUnit(level, data[0]) || isUnit(level, -data[0]) || isUnit(level, data[1]) || isUnit(level, -data[1]) ||
+         (!isEquality && (!equalities.isCanonical(data[0]) || !equalities.isCanonical(data[1]) ||
+                          implications.getImplieds(data[0]).contains(-data[1]) ||
+                          implications.getImplieds(data[1]).contains(-data[0])));
 }
 
 size_t Clause::getMemSize(const uint32_t length) {
@@ -297,10 +297,10 @@ WatchStatus Clause::checkForPropagation(Watch& w, const Lit p, Solver& solver, S
 }
 
 uint32_t Clause::resolveWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& actSet) const {
-  return confl->resolveWith(data, size(), 1, id(), l, solver.getLevel(), solver.getPos(), actSet);
+  return confl->resolveWith({data, size()}, 1, id(), l, solver.getLevel(), solver.getPos(), actSet);
 }
 uint32_t Clause::subsumeWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& saturatedLits) const {
-  return confl->subsumeWith(data, size(), 1, id(), l, solver.getLevel(), solver.getPos(), saturatedLits);
+  return confl->subsumeWith({data, size()}, 1, id(), l, solver.getLevel(), solver.getPos(), saturatedLits);
 }
 
 CeSuper Clause::toExpanded(ConstrExpPools& cePools) const {
@@ -455,10 +455,10 @@ WatchStatus Cardinality::checkForPropagation(Watch& w, [[maybe_unused]] const Li
 }
 
 uint32_t Cardinality::resolveWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& actSet) const {
-  return confl->resolveWith(data, size(), degr, id(), l, solver.getLevel(), solver.getPos(), actSet);
+  return confl->resolveWith({data, size()}, degr, id(), l, solver.getLevel(), solver.getPos(), actSet);
 }
 uint32_t Cardinality::subsumeWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& saturatedLits) const {
-  return confl->subsumeWith(data, size(), degr, id(), l, solver.getLevel(), solver.getPos(), saturatedLits);
+  return confl->subsumeWith({data, size()}, degr, id(), l, solver.getLevel(), solver.getPos(), saturatedLits);
 }
 
 CeSuper Cardinality::toExpanded(ConstrExpPools& cePools) const {
