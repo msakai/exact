@@ -82,7 +82,7 @@ struct Constr {  // internal solver constraint optimized for fast propagation
     const unsigned origin : 5;
     const unsigned long long id : 56;  // plenty of bits to store ID
   } header;
-  float priority;  // Integer part is LBD (0 to 1e5), fractional part is 1-strength. Lower is better.
+  float priority;  // Integer part is LBD (0 to 1e3), fractional part is 1-strength. Lower is better.
   const uint32_t sze;
 
   Constr(ID i, Origin o, bool lkd, uint32_t lngth, float strngth, uint32_t maxLBD);

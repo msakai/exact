@@ -221,7 +221,7 @@ struct Options {
   ValOption<int32_t> dbSafeLBD{"db-safelbd", "Learned constraints with this LBD or less are safe from database cleanup",
                                1, "0 (nobody is safe) =< int", [](const int32_t& x) -> bool { return 0 <= x; }};
   ValOption<int32_t> dbMaxLBD{"db-maxlbd", "Constraints with an LBD larger than this are considered to have this LBD",
-                              static_cast<int32_t>(1e5), "1 =< int =< 1e5",
+                              60, "1 =< int =< 1e3",
                               [](const int32_t& x) -> bool { return 1 <= x && x <= static_cast<int32_t>(MAXLBD); }};
   ValOption<double> lpTimeRatio{
       "lp", "Ratio of time spent in LP calls (0 means no LP solving, 1 means no limit on LP solver)",

@@ -287,8 +287,6 @@ CeSuper Solver::runDatabasePropagation() {
   while (qhead < (int)trail.size()) {
     Lit p = trail[qhead++];
     assert(isTrue(level, p));
-    float prevPrio = std::numeric_limits<float>::lowest();
-    float cPrio = 0;
     std::vector<Watch>& ws = adj[-p];
     for (int it_ws = 0; it_ws < std::ssize(ws); ++it_ws) {
       const uint32_t& idx = ws[it_ws].idx;
@@ -307,7 +305,6 @@ CeSuper Solver::runDatabasePropagation() {
 
       Watch& w = ws[it_ws];
       WatchStatus wstat = WatchStatus::DROPWATCH;
-      cPrio = 1.5;  // priority of Binary
       if (idx == BINARY_IDX) {
         assert(!isTrue(level, blocking));  // already checked for blocking literal
         if (isFalse(level, blocking)) {
@@ -330,9 +327,6 @@ CeSuper Solver::runDatabasePropagation() {
             assert(idx >= 2 * UINF);   // not a Watched32
             wstat = c.checkForPropagation(w, -p, *this, global.stats);
           }
-        }
-        if (wstat == WatchStatus::KEEPWATCH) {
-          cPrio = c.priority;
         }
       }
 
@@ -360,11 +354,6 @@ CeSuper Solver::runDatabasePropagation() {
         return result;
       } else {
         assert(wstat == WatchStatus::KEEPWATCH);
-        if (cPrio < prevPrio) {
-          assert(it_ws > 0);
-          std::swap(ws[it_ws], ws[it_ws - 1]);
-        }
-        prevPrio = cPrio;
       }
     }
   }
