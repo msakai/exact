@@ -147,7 +147,7 @@ struct Binary final : Constr {
 
   template <typename SMALL, typename LARGE>
   Binary(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id)
-      : Constr(_id, constraint->orig, locked, 2, 1 / static_cast<float>(2), constraint->global.options.dbMaxLBD.get()),
+      : Constr(_id, constraint->orig, locked, 2, 0.5, constraint->global.options.dbMaxLBD.get()),
         data({constraint->getLit(constraint->getVars()[0]), constraint->getLit(constraint->getVars()[1])}) {
     assert(_id > ID_Trivial);
     assert(constraint->nVars() == 2);
@@ -189,7 +189,7 @@ struct Clause final : Constr {
 
   template <typename SMALL, typename LARGE>
   Clause(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id)
-      : Constr(_id, constraint->orig, locked, constraint->nVars(), 1 / static_cast<float>(constraint->nVars()),
+      : Constr(_id, constraint->orig, locked, constraint->nVars(), 2.0 / constraint->nVars() / constraint->nVars(),
                constraint->global.options.dbMaxLBD.get()),
         next_watch_idx(sze) {
     assert(_id > ID_Trivial);
@@ -236,10 +236,11 @@ struct Cardinality final : Constr {
   template <typename SMALL, typename LARGE>
   Cardinality(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id)
       : Constr(_id, constraint->orig, locked, constraint->nVars(),
-               static_cast<float>(constraint->getDegree()) / constraint->nVars(),
+               static_cast<double>(constraint->getDegree()) * (static_cast<double>(constraint->getDegree()) + 1) /
+                   constraint->nVars() / constraint->nVars(),
                constraint->global.options.dbMaxLBD.get()),
         degr(static_cast<uint32_t>(constraint->getDegree())),
-        next_watch_idx(sze) {
+        next_watch_idx(constraint->nVars()) {
     assert(degr > 1);  // otherwise should be a clause
     assert(_id > ID_Trivial);
     assert(constraint->nVars() < INF);

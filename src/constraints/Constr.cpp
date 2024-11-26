@@ -66,6 +66,9 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 namespace xct {
 Constr::Constr(ID i, const Origin o, bool lkd, uint32_t lngth, float strngth, uint32_t maxLBD)
     : header{0, 0, lkd, static_cast<uint32_t>(o), i}, priority(static_cast<float>(maxLBD + 1) - strngth), sze(lngth) {
+  if (strngth > 1) {
+    aux::cout << "TIENS " << strngth << std::endl;
+  }
   assert(strngth <= 1);
   assert(strngth > 0);  // so we know that 1-strngth < 1 and it will not interfere with the LBD when stored together
   assert(maxLBD <= MAXLBD);

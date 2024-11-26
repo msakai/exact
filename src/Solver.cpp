@@ -957,8 +957,7 @@ void Solver::rebuildLit2Cons() {
 
 void updatePtr(const unordered_map<uint32_t, CRef>& crefmap, CRef& cr) { cr = crefmap.at(cr.ofs); }
 
-// We assume in the garbage collection method that reduceDB() is the
-// only place where constraints are deleted.
+// We assume in the garbage collection method that reduceDB() is the only place where constraints are deleted.
 void Solver::garbage_collect() {
   assert(decisionLevel() == 0);  // otherwise reason CRefs need to be taken care of
   if (global.options.verbosity.get() > 1) std::cout << "c GARBAGE COLLECT" << std::endl;
@@ -1043,11 +1042,6 @@ void Solver::reduceDB() {
     removeConstraint(cr, true);  // NOTE: remove after attaching a stronger version
   }
 
-  for (Lit l = -n; l <= n; ++l) {
-    plf::reorderase_all_if(adj[l], adj[l].begin(), adj[l].end(),
-                           [&](const Watch& w) { return ca[w.cref].isMarkedForDelete(); });
-  }
-
   std::vector<int> cardPoints;
   for (size_t i = limit; i < db_learnts.size(); ++i) {
     Constr& c = ca[db_learnts[i]];
@@ -1073,6 +1067,26 @@ void Solver::reduceDB() {
     }
   }
   constraints.resize(j);
+
+  // sort watches
+  std::vector<std::pair<float, Watch>> watches;
+  for (Lit l = -n; l <= n; ++l) {
+    watches.reserve(adj[l].size());
+    watches.clear();
+    for (const Watch& w : adj[l]) {
+      const Constr& constr = ca[w.cref];
+      if (!constr.isMarkedForDelete()) watches.emplace_back(constr.strength(), w);
+    }
+    sort(watches.begin(), watches.end(),
+         [&](const std::pair<float, Watch>& w1, const std::pair<float, Watch>& w2) -> bool {
+           return w1.first < w2.first;
+         });
+    adj[l].resize(watches.size());
+    for (uint64_t i = 0; i > watches.size(); ++i) {
+      adj[l][i] = watches[i].second;
+    }
+  }
+
   if (static_cast<double>(ca.wasted) / static_cast<double>(ca.at) > 0.2) {
     aux::timeCallVoid([&] { garbage_collect(); }, global.stats.GCTIME);
   }
@@ -1120,19 +1134,6 @@ void Solver::inProcess() {
     if (bound) lastGlobalDual = bound;
   }
 #endif  // WITHSOPLEX
-}
-
-void Solver::sortWatchlists() {
-  Var first = getHeuristic().firstInActOrder();
-  sort(adj[first].begin(), adj[first].end(),
-       [&](const Watch& w1, const Watch& w2) -> bool { return ca[w1.cref].priority < ca[w2.cref].priority; });
-  if (getNbVars() == 0) return;
-  nextToSort = (nextToSort % getNbVars()) + 1;
-  if (nextToSort == first) nextToSort = (nextToSort % getNbVars()) + 1;
-  assert(nextToSort > 0);
-  assert(nextToSort <= getNbVars());
-  sort(adj[nextToSort].begin(), adj[nextToSort].end(),
-       [&](const Watch& w1, const Watch& w2) -> bool { return ca[w1.cref].priority < ca[w2.cref].priority; });
 }
 
 void Solver::presolve() {
@@ -1338,7 +1339,6 @@ SolveState Solver::solve() {
         ++global.stats.NRESTARTS;
         double rest_base = luby(global.options.lubyBase.get(), static_cast<int>(global.stats.NRESTARTS.z));
         nconfl_to_restart = (long long)rest_base * global.options.lubyMult.get();
-        sortWatchlists();
       }
       if (global.stats.NCONFL >= nconfl_to_reduce) {
         ++global.stats.NCLEANUP;

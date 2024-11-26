@@ -249,12 +249,18 @@ CRef ConstrExp<SMALL, LARGE>::toConstr(ConstraintAllocator& ca, bool locked, ID 
   CRef result = CRef{ca.at};
   SMALL maxCoef = aux::abs(coefs[vars[0]]);
   if (isClause()) {
+    assert(getStrength() >= 1.8 / vars.size() / vars.size());
+    assert(getStrength() <= 2.2 / vars.size() / vars.size());
     // if (vars.size() == 2) {
     //   new (ca.alloc<Binary>(vars.size())) Binary(this, locked, id);
     // } else {
     new (ca.alloc<Clause>(vars.size())) Clause(this, locked, id);
     // }
   } else if (maxCoef == 1) {
+    assert(getStrength() >=
+           0.9 * static_cast<double>(degree) * (static_cast<double>(degree) + 1) / vars.size() / vars.size());
+    assert(getStrength() <=
+           1.1 * static_cast<double>(degree) * (static_cast<double>(degree) + 1) / vars.size() / vars.size());
     new (ca.alloc<Cardinality>(vars.size())) Cardinality(this, locked, id);
   } else {
     double strngth = getStrength();
@@ -404,11 +410,20 @@ LARGE ConstrExp<SMALL, LARGE>::getDegree() const {
 
 template <typename SMALL, typename LARGE>
 double ConstrExp<SMALL, LARGE>::getStrength() const {
+  assert(isSortedInDecreasingCoefOrder());
   LARGE coefsum = 0;
+  LARGE deg_plus_cf = degree + getLargestCoef();
+  uint32_t min_watches = 1;
+  uint32_t nonzeroes = 0;
   for (Var v : vars) {
-    coefsum += aux::abs(coefs[v]);
+    const SMALL& cf = coefs[v];
+    if (cf == 0) break;
+    coefsum += aux::abs(cf);
+    min_watches += coefsum < deg_plus_cf;
+    ++nonzeroes;
   }
-  return aux::divToDouble(degree, coefsum);
+  assert(nonzeroes > 0);
+  return aux::divToDouble(degree, coefsum) * aux::divToDouble(min_watches, nonzeroes);
 }
 
 template <typename SMALL, typename LARGE>

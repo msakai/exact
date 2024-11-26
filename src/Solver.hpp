@@ -138,7 +138,6 @@ class Solver {
 
   int64_t nconfl_to_reduce;
   int64_t nconfl_to_restart;
-  Var nextToSort = 0;
 
   // vectors used in subroutines that should not be reallocated over and over
   LitVec assertionStateMem;
@@ -270,7 +269,6 @@ class Solver {
 
  private:
   void inProcess();
-  void sortWatchlists();
   void removeSatisfiedNonImpliedsAtRoot();
   void derivePureLits();
   void dominanceBreaking();
