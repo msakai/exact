@@ -1079,10 +1079,10 @@ void Solver::reduceDB() {
     }
     sort(watches.begin(), watches.end(),
          [&](const std::pair<float, Watch>& w1, const std::pair<float, Watch>& w2) -> bool {
-           return w1.first < w2.first;
+           return w1.first > w2.first;
          });
     adj[l].resize(watches.size());
-    for (uint64_t i = 0; i > watches.size(); ++i) {
+    for (uint64_t i = 0; i < watches.size(); ++i) {
       adj[l][i] = watches[i].second;
     }
   }

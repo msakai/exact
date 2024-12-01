@@ -189,7 +189,8 @@ struct Clause final : Constr {
 
   template <typename SMALL, typename LARGE>
   Clause(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id)
-      : Constr(_id, constraint->orig, locked, constraint->nVars(), 2.0 / constraint->nVars() / constraint->nVars(),
+      : Constr(_id, constraint->orig, locked, constraint->nVars(),
+               constraint->nVars() == 1 ? 1 : (std::sqrt(2.0) / static_cast<double>(constraint->nVars())),
                constraint->global.options.dbMaxLBD.get()),
         next_watch_idx(sze) {
     assert(_id > ID_Trivial);
@@ -235,9 +236,7 @@ struct Cardinality final : Constr {
 
   template <typename SMALL, typename LARGE>
   Cardinality(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id)
-      : Constr(_id, constraint->orig, locked, constraint->nVars(),
-               static_cast<double>(constraint->getDegree()) * (static_cast<double>(constraint->getDegree()) + 1) /
-                   constraint->nVars() / constraint->nVars(),
+      : Constr(_id, constraint->orig, locked, constraint->nVars(), constraint->getStrength(),
                constraint->global.options.dbMaxLBD.get()),
         degr(static_cast<uint32_t>(constraint->getDegree())),
         next_watch_idx(constraint->nVars()) {
