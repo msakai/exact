@@ -743,6 +743,9 @@ void Solver::learnClause(Lit l1, Lit l2, Origin orig, ID id) {
 std::pair<ID, ID> Solver::addInputConstraint(const CeSuper& ce) {  // NOTE: should not throw UnsatEncounter
   if (unsatReached) return {ID_Undef, ID_Undef};
   //  std::cout << "ADD INPUT CONSTRAINT " << ce->orig << " " << ce << std::endl;
+  // ce->sortInDecreasingCoefOrder([](Var, Var) { return false; });
+  // ce->saturate(true, true);
+  // aux::cout << "STRENGTH " << ce->getStrength() << std::endl;
 
   assert(isInput(ce->orig));
   assert(decisionLevel() == 0);
@@ -1071,18 +1074,36 @@ void Solver::reduceDB() {
   // sort watches
   std::vector<std::pair<float, Watch>> watches;
   for (Lit l = -n; l <= n; ++l) {
-    watches.reserve(adj[l].size());
     watches.clear();
+    watches.reserve(adj[l].size());
     for (const Watch& w : adj[l]) {
       const Constr& constr = ca[w.cref];
       if (!constr.isMarkedForDelete()) watches.emplace_back(constr.strength(), w);
     }
-    sort(watches.begin(), watches.end(),
-         [&](const std::pair<float, Watch>& w1, const std::pair<float, Watch>& w2) -> bool {
-           return w1.first > w2.first;
-         });
     adj[l].resize(watches.size());
-    for (uint64_t i = 0; i < watches.size(); ++i) {
+    int64_t idx = watches.size() - 1;
+    for (int64_t i = 0; i < std::ssize(watches); ++i) {
+      if (watches[i].first < std::sqrt(0.5)) {  // copy all constraints weaker than a binary
+        adj[l][idx] = watches[i].second;
+        --idx;
+        plf::single_reorderase(watches, watches.begin() + i);
+        --i;
+      }
+    }
+    assert(std::ssize(watches) == idx + 1);
+    for (int64_t i = 0; i < std::ssize(watches); ++i) {
+      if (watches[i].first <= std::sqrt(0.5)) {  // copy all binary constraints
+        adj[l][idx] = watches[i].second;
+        --idx;
+        plf::single_reorderase(watches, watches.begin() + i);
+        --i;
+      }
+    }
+    assert(std::ssize(watches) == idx + 1);
+    std::ranges::sort(watches, [&](const std::pair<float, Watch>& w1, const std::pair<float, Watch>& w2) -> bool {
+      return w1.first > w2.first;
+    });
+    for (uint64_t i = 0; i < watches.size(); ++i) {  // copy all constraints stronger than a binary
       adj[l][i] = watches[i].second;
     }
   }
