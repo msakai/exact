@@ -284,11 +284,18 @@ State Solver::probe(Lit l, bool deriveImplications) {
  * @return: a CeNull when no conflict is detected, otherwise the conflicting constraint
  */
 CeSuper Solver::runDatabasePropagation() {
+  Lit p;
+  uint32_t it_last;
+  float previousStrength;
+  float currentStrength;
   while (qhead < (int)trail.size()) {
-    Lit p = trail[qhead++];
+    p = trail[qhead++];
     assert(isTrue(level, p));
     std::vector<Watch>& ws = adj[-p];
-    for (int it_ws = 0; it_ws < std::ssize(ws); ++it_ws) {
+    it_last = 0;
+    previousStrength = std::numeric_limits<float>::max();
+    currentStrength = 0;
+    for (uint32_t it_ws = 0; it_ws < std::size(ws); ++it_ws) {
       const uint32_t& idx = ws[it_ws].idx;
       const Lit& blocking = ws[it_ws].blocking;
 
@@ -298,6 +305,9 @@ CeSuper Solver::runDatabasePropagation() {
                  dynamic_cast<Binary*>(&ca[ws[it_ws].cref]) != nullptr || idx < UINF ||
                  (idx < 3 * UINF && idx >= 2 * UINF));
           global.stats.NBLOCKINGSUCCESS.z += idx < CLAUSE_IDX;  // not a clause or binary
+          ws[it_last] = ws[it_ws];
+          ++it_last;
+          previousStrength = std::numeric_limits<float>::max();
           continue;
         }
       }
@@ -313,6 +323,7 @@ CeSuper Solver::runDatabasePropagation() {
           propagate(blocking, w.cref);
           wstat = WatchStatus::KEEPWATCH;
         }
+        currentStrength = std::sqrt(0.5f);
       } else {
         ++global.stats.NWATCHLOOKUPS.z;
         Constr& c = ca[w.cref];
@@ -328,16 +339,22 @@ CeSuper Solver::runDatabasePropagation() {
             wstat = c.checkForPropagation(w, -p, *this, global.stats);
           }
         }
+        currentStrength = c.strength();
       }
 
-      if (wstat == WatchStatus::DROPWATCH) {
-        plf::single_reorderase(ws, ws.begin() + it_ws);
-        --it_ws;
+      if (wstat == WatchStatus::KEEPWATCH) {
+        ws[it_last] = ws[it_ws];
+        if (previousStrength < currentStrength) {
+          std::swap(ws[it_last], ws[it_last - 1]);
+        }
+        previousStrength = currentStrength;
+        ++it_last;
       } else if (wstat == WatchStatus::CONFLICTING) {  // clean up current level and stop propagation
         Constr& c = ca[w.cref];
         ++global.stats.NTRAILPOPS.z;
         --qhead;
-        for (int i = 0; i <= it_ws; ++i) {
+        ws[it_last] = ws[it_ws];
+        for (uint32_t i = 0; i <= it_last; ++i) {
           const Watch& wa = ws[i];
           if (wa.idx < 3 * UINF) {  // avoids the cardinality and clausal case
             if (Lit blocking = wa.blocking;
@@ -347,15 +364,26 @@ CeSuper Solver::runDatabasePropagation() {
             }
           }
         }
+        if (previousStrength < currentStrength) {
+          std::swap(ws[it_last], ws[it_last - 1]);
+        }
+        previousStrength = currentStrength;
+        ++it_ws;
+        ++it_last;
+        for (; it_ws < std::ssize(ws); ++it_ws, ++it_last) {
+          ws[it_last] = ws[it_ws];
+        }
+        ws.resize(it_last);
         CeSuper result = c.toExpanded(global.cePools);
         c.decreaseLBD(result->getLBD(level));
         c.fixEncountered(global.stats);
         assert(result);
         return result;
       } else {
-        assert(wstat == WatchStatus::KEEPWATCH);
+        assert(wstat == WatchStatus::DROPWATCH);
       }
     }
+    ws.resize(it_last);
   }
   return CeNull();
 }
@@ -1071,41 +1099,11 @@ void Solver::reduceDB() {
   }
   constraints.resize(j);
 
-  // sort watches
-  std::vector<std::pair<float, Watch>> watches;
+  // shorten watches
   for (Lit l = -n; l <= n; ++l) {
-    watches.clear();
-    watches.reserve(adj[l].size());
-    for (const Watch& w : adj[l]) {
-      const Constr& constr = ca[w.cref];
-      if (!constr.isMarkedForDelete()) watches.emplace_back(constr.strength(), w);
-    }
-    adj[l].resize(watches.size());
-    int64_t idx = watches.size() - 1;
-    for (int64_t i = 0; i < std::ssize(watches); ++i) {
-      if (watches[i].first < std::sqrt(0.5)) {  // copy all constraints weaker than a binary
-        adj[l][idx] = watches[i].second;
-        --idx;
-        plf::single_reorderase(watches, watches.begin() + i);
-        --i;
-      }
-    }
-    assert(std::ssize(watches) == idx + 1);
-    for (int64_t i = 0; i < std::ssize(watches); ++i) {
-      if (watches[i].first <= std::sqrt(0.5)) {  // copy all binary constraints
-        adj[l][idx] = watches[i].second;
-        --idx;
-        plf::single_reorderase(watches, watches.begin() + i);
-        --i;
-      }
-    }
-    assert(std::ssize(watches) == idx + 1);
-    std::ranges::sort(watches, [&](const std::pair<float, Watch>& w1, const std::pair<float, Watch>& w2) -> bool {
-      return w1.first > w2.first;
-    });
-    for (uint64_t i = 0; i < watches.size(); ++i) {  // copy all constraints stronger than a binary
-      adj[l][i] = watches[i].second;
-    }
+    adj[l].erase(
+        std::remove_if(adj[l].begin(), adj[l].end(), [&](const Watch& w) { return ca[w.cref].isMarkedForDelete(); }),
+        adj[l].end());
   }
 
   if (static_cast<double>(ca.wasted) / static_cast<double>(ca.at) > 0.2) {

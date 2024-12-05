@@ -147,7 +147,7 @@ struct Binary final : Constr {
 
   template <typename SMALL, typename LARGE>
   Binary(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id)
-      : Constr(_id, constraint->orig, locked, 2, 0.5, constraint->global.options.dbMaxLBD.get()),
+      : Constr(_id, constraint->orig, locked, 2, std::sqrt(0.5f), constraint->global.options.dbMaxLBD.get()),
         data({constraint->getLit(constraint->getVars()[0]), constraint->getLit(constraint->getVars()[1])}) {
     assert(_id > ID_Trivial);
     assert(constraint->nVars() == 2);
