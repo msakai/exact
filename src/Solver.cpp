@@ -286,14 +286,14 @@ State Solver::probe(Lit l, bool deriveImplications) {
 CeSuper Solver::runDatabasePropagation() {
   Lit p;
   uint32_t it_last;
-  float previousStrength;
-  float currentStrength;
+  int32_t previousStrength;
+  int32_t currentStrength;
   while (qhead < (int)trail.size()) {
     p = trail[qhead++];
     assert(isTrue(level, p));
     std::vector<Watch>& ws = adj[-p];
     it_last = 0;
-    previousStrength = std::numeric_limits<float>::max();
+    previousStrength = std::numeric_limits<int32_t>::min();
     currentStrength = 0;
     for (uint32_t it_ws = 0; it_ws < std::size(ws); ++it_ws) {
       const uint32_t& idx = ws[it_ws].idx;
@@ -307,7 +307,7 @@ CeSuper Solver::runDatabasePropagation() {
           global.stats.NBLOCKINGSUCCESS.z += idx < CLAUSE_IDX;  // not a clause or binary
           ws[it_last] = ws[it_ws];
           ++it_last;
-          previousStrength = std::numeric_limits<float>::max();
+          previousStrength = std::numeric_limits<int32_t>::min();
           continue;
         }
       }
@@ -323,7 +323,7 @@ CeSuper Solver::runDatabasePropagation() {
           propagate(blocking, w.cref);
           wstat = WatchStatus::KEEPWATCH;
         }
-        currentStrength = std::sqrt(0.5f);
+        currentStrength = 1;
       } else {
         ++global.stats.NWATCHLOOKUPS.z;
         Constr& c = ca[w.cref];
@@ -339,12 +339,12 @@ CeSuper Solver::runDatabasePropagation() {
             wstat = c.checkForPropagation(w, -p, *this, global.stats);
           }
         }
-        currentStrength = c.strength();
+        currentStrength = c.lbd();
       }
 
       if (wstat == WatchStatus::KEEPWATCH) {
         ws[it_last] = ws[it_ws];
-        if (previousStrength < currentStrength) {
+        if (previousStrength > currentStrength) {
           std::swap(ws[it_last], ws[it_last - 1]);
         }
         previousStrength = currentStrength;
@@ -364,7 +364,7 @@ CeSuper Solver::runDatabasePropagation() {
             }
           }
         }
-        if (previousStrength < currentStrength) {
+        if (previousStrength > currentStrength) {
           std::swap(ws[it_last], ws[it_last - 1]);
         }
         previousStrength = currentStrength;
