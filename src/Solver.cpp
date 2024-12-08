@@ -285,17 +285,11 @@ State Solver::probe(Lit l, bool deriveImplications) {
  */
 CeSuper Solver::runDatabasePropagation() {
   Lit p;
-  uint32_t it_last;
-  int32_t previousStrength;
-  int32_t currentStrength;
   while (qhead < (int)trail.size()) {
     p = trail[qhead++];
     assert(isTrue(level, p));
     std::vector<Watch>& ws = adj[-p];
-    it_last = 0;
-    previousStrength = std::numeric_limits<int32_t>::min();
-    currentStrength = 0;
-    for (uint32_t it_ws = 0; it_ws < std::size(ws); ++it_ws) {
+    for (int32_t it_ws = 0; it_ws < std::ssize(ws); ++it_ws) {
       const uint32_t& idx = ws[it_ws].idx;
       const Lit& blocking = ws[it_ws].blocking;
 
@@ -305,9 +299,6 @@ CeSuper Solver::runDatabasePropagation() {
                  dynamic_cast<Binary*>(&ca[ws[it_ws].cref]) != nullptr || idx < UINF ||
                  (idx < 3 * UINF && idx >= 2 * UINF));
           global.stats.NBLOCKINGSUCCESS.z += idx < CLAUSE_IDX;  // not a clause or binary
-          ws[it_last] = ws[it_ws];
-          ++it_last;
-          previousStrength = std::numeric_limits<int32_t>::min();
           continue;
         }
       }
@@ -323,7 +314,6 @@ CeSuper Solver::runDatabasePropagation() {
           propagate(blocking, w.cref);
           wstat = WatchStatus::KEEPWATCH;
         }
-        currentStrength = 1;
       } else {
         ++global.stats.NWATCHLOOKUPS.z;
         Constr& c = ca[w.cref];
@@ -339,22 +329,16 @@ CeSuper Solver::runDatabasePropagation() {
             wstat = c.checkForPropagation(w, -p, *this, global.stats);
           }
         }
-        currentStrength = c.lbd();
       }
 
-      if (wstat == WatchStatus::KEEPWATCH) {
-        ws[it_last] = ws[it_ws];
-        if (previousStrength > currentStrength) {
-          std::swap(ws[it_last], ws[it_last - 1]);
-        }
-        previousStrength = currentStrength;
-        ++it_last;
+      if (wstat == WatchStatus::DROPWATCH) {
+        plf::single_reorderase(ws, ws.begin() + it_ws);
+        --it_ws;
       } else if (wstat == WatchStatus::CONFLICTING) {  // clean up current level and stop propagation
         Constr& c = ca[w.cref];
         ++global.stats.NTRAILPOPS.z;
         --qhead;
-        ws[it_last] = ws[it_ws];
-        for (uint32_t i = 0; i <= it_last; ++i) {
+        for (uint32_t i = 0; i <= static_cast<uint32_t>(it_ws); ++i) {
           const Watch& wa = ws[i];
           if (wa.idx < 3 * UINF) {  // avoids the cardinality and clausal case
             if (Lit blocking = wa.blocking;
@@ -364,26 +348,15 @@ CeSuper Solver::runDatabasePropagation() {
             }
           }
         }
-        if (previousStrength > currentStrength) {
-          std::swap(ws[it_last], ws[it_last - 1]);
-        }
-        previousStrength = currentStrength;
-        ++it_ws;
-        ++it_last;
-        for (; it_ws < std::ssize(ws); ++it_ws, ++it_last) {
-          ws[it_last] = ws[it_ws];
-        }
-        ws.resize(it_last);
         CeSuper result = c.toExpanded(global.cePools);
         c.decreaseLBD(result->getLBD(level));
         c.fixEncountered(global.stats);
         assert(result);
         return result;
       } else {
-        assert(wstat == WatchStatus::DROPWATCH);
+        assert(wstat == WatchStatus::KEEPWATCH);
       }
     }
-    ws.resize(it_last);
   }
   return CeNull();
 }
