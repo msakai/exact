@@ -127,7 +127,10 @@ size_t Binary::getMemSize() const { return getMemSize(2); }
 bigint Binary::degree() const { return 1; }
 bigint Binary::coef(uint32_t) const { return 1; }
 Lit Binary::lit(const uint32_t i) const { return data[i]; }
-bool Binary::hasWatch(uint32_t i) const { return i < 2; }
+bool Binary::hasWatch([[maybe_unused]] uint32_t i) const {
+  assert(i < 2);
+  return true;
+}
 uint32_t Binary::getUnsaturatedIdx() const { return 2; }
 bool Binary::isClauseOrCard() const { return true; }
 bool Binary::isAtMostOne() const { return true; }
@@ -153,11 +156,11 @@ WatchStatus Binary::checkForPropagation(Watch&, const Lit, Solver&, Stats&) {
 }
 
 uint32_t Binary::resolveWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& actSet) const {
-  // TODO: assert false, should never happen
+  // TODO: simplify resolving with Binary
   return confl->resolveWith(data, 1, id(), l, solver.getLevel(), solver.getPos(), actSet);
 }
 uint32_t Binary::subsumeWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& saturatedLits) const {
-  // TODO: assert false, should never happen
+  // TODO: simplify resolving with Binary
   return confl->subsumeWith(data, 1, id(), l, solver.getLevel(), solver.getPos(), saturatedLits);
 }
 
