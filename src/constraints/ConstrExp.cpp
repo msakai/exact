@@ -249,16 +249,16 @@ CRef ConstrExp<SMALL, LARGE>::toConstr(ConstraintAllocator& ca, bool locked, ID 
   CRef result = CRef{ca.at};
   SMALL maxCoef = aux::abs(coefs[vars[0]]);
   if (isClause()) {
-    assert((nNonZeroVars() < 2 || getStrength() >= std::sqrt(1.8) / vars.size()));
-    assert(getStrength() <= std::sqrt(2.2) / vars.size());
-    if (vars.size() == 2) {
-      new (ca.alloc<Binary>(vars.size())) Binary(this, locked, id);
-    } else {
-      new (ca.alloc<Clause>(vars.size())) Clause(this, locked, id);
-    }
+    // assert((nNonZeroVars() < 2 || getStrength() >= std::sqrt(1.8) / vars.size()));
+    // assert(getStrength() <= std::sqrt(2.2) / vars.size());
+    // if (vars.size() == 2) {
+    //   new (ca.alloc<Binary>(vars.size())) Binary(this, locked, id);
+    // } else {
+    new (ca.alloc<Clause>(vars.size())) Clause(this, locked, id);
+    // }
   } else if (maxCoef == 1) {
-    assert(getStrength() >= 0.9 * static_cast<double>(degree) / vars.size());
-    assert(getStrength() <= 1.1 * (static_cast<double>(degree) + 1) / vars.size());
+    // assert(getStrength() >= 0.9 * static_cast<double>(degree) / vars.size());
+    // assert(getStrength() <= 1.1 * (static_cast<double>(degree) + 1) / vars.size());
     new (ca.alloc<Cardinality>(vars.size())) Cardinality(this, locked, id);
   } else {
     double strngth = getStrength();
@@ -406,22 +406,34 @@ LARGE ConstrExp<SMALL, LARGE>::getDegree() const {
   return degree;
 }
 
+// template <typename SMALL, typename LARGE>
+// double ConstrExp<SMALL, LARGE>::getStrength() const {
+//   assert(isSortedInDecreasingCoefOrder());
+//   LARGE coefsum = 0;
+//   LARGE deg_plus_cf = degree + getLargestCoef();
+//   uint32_t min_watches = 0;
+//   uint32_t nonzeroes = 0;
+//   for (Var v : vars) {
+//     const SMALL& cf = coefs[v];
+//     if (cf == 0) break;
+//     min_watches += coefsum < deg_plus_cf;
+//     coefsum += aux::abs(cf);
+//     ++nonzeroes;
+//   }
+//   assert(nonzeroes > 0);
+//   return std::sqrt(aux::divToDouble(degree, coefsum) * aux::divToDouble(min_watches, nonzeroes));
+// }
+
 template <typename SMALL, typename LARGE>
 double ConstrExp<SMALL, LARGE>::getStrength() const {
   assert(isSortedInDecreasingCoefOrder());
   LARGE coefsum = 0;
-  LARGE deg_plus_cf = degree + getLargestCoef();
-  uint32_t min_watches = 0;
-  uint32_t nonzeroes = 0;
   for (Var v : vars) {
     const SMALL& cf = coefs[v];
     if (cf == 0) break;
-    min_watches += coefsum < deg_plus_cf;
     coefsum += aux::abs(cf);
-    ++nonzeroes;
   }
-  assert(nonzeroes > 0);
-  return std::sqrt(aux::divToDouble(degree, coefsum) * aux::divToDouble(min_watches, nonzeroes));
+  return aux::divToDouble(degree, coefsum);
 }
 
 template <typename SMALL, typename LARGE>
