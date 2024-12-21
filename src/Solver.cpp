@@ -612,7 +612,8 @@ CRef Solver::attachConstraint(const CeSuper& constraint, bool locked) {
   Constr& c = ca[cr];
   c.initializeWatches(cr, *this);
   constraints.push_back(cr);
-  if (isNonImplied(c.getOrigin())) {
+  const Origin& orig = constraint->orig;
+  if (isNonImplied(orig)) {
     for (unsigned int i = 0; i < c.size(); ++i) {
       Lit l = c.lit(i);
       assert(isOrig(toVar(l)));
@@ -629,7 +630,6 @@ CRef Solver::attachConstraint(const CeSuper& constraint, bool locked) {
     }
   }
 
-  const Origin orig = c.getOrigin();
   const bool learned = isLearned(orig);
   if (learned) {
     global.stats.LEARNEDLENGTHSUM.z += c.size();
