@@ -38,7 +38,6 @@ See the file LICENSE or run with the flag --license=MIT.
 #include "typedefs.hpp"
 
 namespace xct {
-
 enum class Encoding { ORDER, LOG, ONEHOT };
 Encoding opt2enc(const std::string& opt);
 
@@ -70,7 +69,7 @@ std::ostream& operator<<(std::ostream& o, IntVar* x);
 struct IntTerm {
   bigint c;
   IntVar* v;
-  // constructors needed because Apple clang does not support parenthesized initialization of aggregates
+  // TODO constructors needed because Apple clang does not support parenthesized initialization of aggregates
   IntTerm(const bigint& _c, IntVar* _v);
   IntTerm() = default;
   IntTerm(IntTerm&&) = default;
@@ -79,6 +78,25 @@ struct IntTerm {
   IntTerm& operator=(const IntTerm&) = default;
 };
 std::ostream& operator<<(std::ostream& o, const IntTerm& x);
+using IntTermVec = std::vector<IntTerm>;
+}  // namespace xct
+
+template <>
+struct std::hash<xct::IntVar*> {
+  size_t operator()(xct::IntVar* iv) const noexcept;
+};
+
+template <>
+struct std::hash<xct::IntTerm> {
+  size_t operator()(const xct::IntTerm& it) const noexcept;
+};
+
+template <>
+struct std::hash<xct::IntTermVec> {
+  size_t operator()(const xct::IntTermVec& itv) const noexcept;
+};
+
+namespace xct {
 
 using Core = std::unique_ptr<unordered_set<IntVar*>>;
 Core emptyCore();
@@ -87,11 +105,11 @@ Core emptyCore();
 class IntProg;
 
 struct IntConstraint {
-  std::vector<IntTerm> lhs = {};
+  IntTermVec lhs = {};
   std::optional<bigint> lowerBound = 0;
   std::optional<bigint> upperBound = std::nullopt;
 
-  static std::vector<IntTerm> zip(const std::vector<bigint>& coefs, const std::vector<IntVar*>& vars);
+  static IntTermVec zip(const std::vector<bigint>& coefs, const std::vector<IntVar*>& vars);
 
   [[nodiscard]] bigint getRange() const;
   [[nodiscard]] int64_t size() const;
@@ -150,6 +168,11 @@ class IntProg {
   const bool keepInput;
   std::vector<IntConstraint> constraints;
   std::vector<ReifInfo> reifications;
+  // value Lit implies lower bound or upper bound on key
+  unordered_map<IntVar*, std::multimap<bigint, Lit>> reifs;
+  unordered_map<IntVar*, std::multimap<bigint, Lit>> right_reifs;
+  unordered_map<IntVar*, std::multimap<bigint, Lit>> left_reifs;
+
   std::vector<std::vector<IntVar*>> multiplications;  // last two are bounds
 
   IntVar* addFlag();
@@ -165,12 +188,12 @@ class IntProg {
   void setInputVarLimit();
   int getInputVarLimit() const;
 
-  IntVar* addVar(const std::string& name, const bigint& lowerbound, const bigint& upperbound, Encoding encoding,
-                 bool nameAsId = false);
+  IntVar* addVar(const std::string& name, const bigint& lowerbound = 0, const bigint& upperbound = 1,
+                 Encoding encoding = Encoding::LOG, bool nameAsId = false);
   IntVar* getVarFor(const std::string& name) const;  // returns nullptr if it does not exist
   std::vector<IntVar*> getVariables() const;
 
-  void setObjective(const std::vector<IntTerm>& terms, bool min = true, const bigint& offset = 0);
+  void setObjective(const IntTermVec& terms, bool min = true, const bigint& offset = 0);
   IntConstraint& getObjective();
   const IntConstraint& getObjective() const;
 
@@ -190,6 +213,9 @@ class IntProg {
   void addLeftReification(IntVar* head, bool sign, const IntConstraint& ic);
   void addMultiplication(const std::vector<IntVar*>& factors, IntVar* lower_bound = nullptr,
                          IntVar* upper_bound = nullptr);
+
+  void addImplsRightReif(Lit head, IntVar* lhs, const bigint& lb);
+  void addImplsLeftReif(Lit head, IntVar* lhs, const bigint& lb);
 
   void fix(IntVar* iv, const bigint& val);
   void invalidateLastSol();

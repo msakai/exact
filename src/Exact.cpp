@@ -242,7 +242,7 @@ void Exact::setObjective(const std::vector<std::pair<bigint, std::string>>& term
                          const bigint& offset) {
   if (terms.size() > 1e9) throw InvalidArgument("Objective has more than 1e9 terms.");
 
-  std::vector<IntTerm> iterms;
+  IntTermVec iterms;
   iterms.reserve(terms.size());
   for (const auto& t : terms) {
     iterms.push_back({t.first, getVariable(t.second)});

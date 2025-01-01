@@ -199,9 +199,9 @@ IntTerm::IntTerm(const bigint& _c, IntVar* _v) : c(_c), v(_v) {}
 
 Core emptyCore() { return std::make_unique<unordered_set<IntVar*>>(); }
 
-std::vector<IntTerm> IntConstraint::zip(const std::vector<bigint>& coefs, const std::vector<IntVar*>& vars) {
+IntTermVec IntConstraint::zip(const std::vector<bigint>& coefs, const std::vector<IntVar*>& vars) {
   assert(coefs.size() == vars.size());
-  std::vector<IntTerm> res;
+  IntTermVec res;
   res.reserve(coefs.size());
   for (int i = 0; i < (int)coefs.size(); ++i) {
     res.push_back({coefs[i], vars[i]});
@@ -303,7 +303,7 @@ std::vector<IntVar*> IntProg::getVariables() const {
   return aux::comprehension(name2var, [](auto pair) { return pair.second; });
 }
 
-void IntProg::setObjective(const std::vector<IntTerm>& terms, bool min, const bigint& offset) {
+void IntProg::setObjective(const IntTermVec& terms, bool min, const bigint& offset) {
   // TODO: pass IntConstraint instead of terms?
   obj = {terms, -offset};
   minimize = min;
@@ -497,6 +497,34 @@ void IntProg::addRightReification(IntVar* head, bool sign, const IntConstraint& 
   ++nConstrs;
   if (keepInput) reifications.push_back({head, sign, false, ic});
 
+  Var h = head->getEncodingVars()[0];
+  Lit l = sign ? h : -h;
+  if (ic.size() == 1) {
+    IntVar* head = ic.lhs[0].v;
+    if (head->getRange() > 0) {
+      if (ic.lhs[0].c > 0) {
+        if (ic.lowerBound.has_value()) {
+          addImplsRightReif(l, head, aux::ceildiv_safe(ic.lowerBound.value(), ic.lhs[0].c));
+        }
+        if (ic.upperBound.has_value()) {
+          addImplsLeftReif(-l, head, aux::floordiv_safe(ic.upperBound.value(), ic.lhs[0].c) + 1);
+        }
+      }
+      if (ic.lhs[0].c < 0) {
+        if (ic.lowerBound.has_value()) {
+          addImplsLeftReif(
+              -l, head,
+              aux::floordiv_safe(-static_cast<bigint>(ic.lowerBound.value()), static_cast<bigint>(-ic.lhs[0].c)) + 1);
+        }
+        if (ic.upperBound.has_value()) {
+          addImplsRightReif(
+              l, head,
+              aux::ceildiv_safe(-static_cast<bigint>(ic.upperBound.value()), static_cast<bigint>(-ic.lhs[0].c)));
+        }
+      }
+    }
+  }
+
   bool run[2] = {ic.upperBound.has_value(), ic.lowerBound.has_value()};
   for (int i = 0; i < 2; ++i) {
     if (!run[i]) continue;
@@ -504,8 +532,7 @@ void IntProg::addRightReification(IntVar* head, bool sign, const IntConstraint& 
     ic.toConstrExp(leq, i);
     leq->postProcess(solver.getLevel(), solver.getPos(), solver.getHeuristic(), true, global.stats);
 
-    Var h = head->getEncodingVars()[0];
-    leq->addLhs(leq->degree, sign ? -h : h);
+    leq->addLhs(leq->degree, l);
     solver.addConstraint(leq);
   }
 }
@@ -518,6 +545,34 @@ void IntProg::addLeftReification(IntVar* head, bool sign, const IntConstraint& i
   ++nConstrs;
   if (keepInput) reifications.push_back({head, sign, true, ic});
 
+  Var h = head->getEncodingVars()[0];
+  Lit l = sign ? h : -h;
+  if (ic.size() == 1) {
+    IntVar* head = ic.lhs[0].v;
+    if (head->getRange() > 0) {
+      if (ic.lhs[0].c > 0) {
+        if (ic.lowerBound.has_value()) {
+          addImplsLeftReif(l, head, aux::ceildiv_safe(ic.lowerBound.value(), ic.lhs[0].c));
+        }
+        if (ic.upperBound.has_value()) {
+          addImplsRightReif(-l, head, aux::floordiv_safe(ic.upperBound.value(), ic.lhs[0].c) + 1);
+        }
+      }
+      if (ic.lhs[0].c < 0) {
+        if (ic.lowerBound.has_value()) {
+          addImplsRightReif(
+              -l, head,
+              aux::floordiv_safe(-static_cast<bigint>(ic.lowerBound.value()), static_cast<bigint>(-ic.lhs[0].c)) + 1);
+        }
+        if (ic.upperBound.has_value()) {
+          addImplsLeftReif(
+              l, head,
+              aux::ceildiv_safe(-static_cast<bigint>(ic.upperBound.value()), static_cast<bigint>(-ic.lhs[0].c)));
+        }
+      }
+    }
+  }
+
   bool run[2] = {ic.upperBound.has_value(), ic.lowerBound.has_value()};
   for (int i = 0; i < 2; ++i) {
     if (!run[i]) continue;
@@ -525,10 +580,9 @@ void IntProg::addLeftReification(IntVar* head, bool sign, const IntConstraint& i
     ic.toConstrExp(geq, i);
     geq->postProcess(solver.getLevel(), solver.getPos(), solver.getHeuristic(), true, global.stats);
 
-    Var h = head->getEncodingVars()[0];
     geq->addRhs(-1);
     geq->invert();
-    geq->addLhs(geq->degree, sign ? h : -h);
+    geq->addLhs(geq->degree, l);
     solver.addConstraint(geq);
   }
 }
@@ -637,6 +691,49 @@ void IntProg::addMultiplication(const std::vector<IntVar*>& factors, IntVar* low
     if (j > 0) ca->invert();
     solver.addConstraint(ca);
   }
+}
+
+void IntProg::addImplsRightReif(Lit head, IntVar* lhs, const bigint& lb) {
+  auto [it, _] = right_reifs.emplace(std::pair{lhs, std::multimap<bigint, Lit>{}});
+  it->second.insert(std::pair{lb, head});
+
+  auto opposite = left_reifs.find(lhs);
+  if (opposite == left_reifs.end() || opposite->second.empty()) return;
+
+  auto placement = opposite->second.upper_bound(lb);
+  if (placement == opposite->second.begin()) return;
+  --placement;
+  if (placement->second == head) {
+    if (placement == opposite->second.begin()) return;
+    --placement;
+  }
+
+  // P implies f >= 3
+  // f >= 2 implies Q
+  // which entails
+  // P implies Q
+  solver.addBinaryConstraint(-head, placement->second, Origin::FORMULA);
+}
+
+void IntProg::addImplsLeftReif(Lit head, IntVar* lhs, const bigint& lb) {
+  auto [it, _] = left_reifs.emplace(std::pair{lhs, std::multimap<bigint, Lit>{}});
+  it->second.insert(std::pair{lb, head});
+
+  auto opposite = right_reifs.find(lhs);
+  if (opposite == right_reifs.end() || opposite->second.empty()) return;
+
+  auto placement = opposite->second.lower_bound(lb);
+  if (placement == opposite->second.end()) return;
+  if (placement->second == head) {
+    ++placement;
+    if (placement == opposite->second.end()) return;
+  }
+
+  // f >= 3 implies P
+  // Q implies f >= 4
+  // which entails
+  // Q implies P
+  solver.addBinaryConstraint(-placement->second, head, Origin::FORMULA);
 }
 
 void IntProg::fix(IntVar* iv, const bigint& val) { addConstraint(IntConstraint{{{1, iv}}, val, val}); }
@@ -1178,3 +1275,15 @@ void IntProg::runFromCmdLine() {
 }
 
 }  // namespace xct
+
+size_t std::hash<xct::IntVar*>::operator()(xct::IntVar* iv) const noexcept {
+  return iv->getEncodingVars().empty() ? 0 : iv->getEncodingVars().front();
+}
+
+size_t std::hash<xct::IntTerm>::operator()(const xct::IntTerm& it) const noexcept {
+  return xct::aux::hash_comb_ordered(xct::aux::hash(it.c), it.v);
+}
+
+size_t std::hash<xct::IntTermVec>::operator()(const xct::IntTermVec& itv) const noexcept {
+  return xct::aux::hashForList<const xct::IntTerm&>(itv);
+}

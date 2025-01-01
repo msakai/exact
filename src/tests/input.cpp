@@ -37,11 +37,11 @@ TEST_CASE("multiplication simple") {
   intprog.addMultiplication(vars, rhs, rhs);
 
   auto [state, cnt] = intprog.count(vars, true);
-  CHECK(state == SolveState::SAT);
-  CHECK(cnt == 9);
+  CHECK_EQ(state, SolveState::SAT);
+  CHECK_EQ(cnt, 9);
   auto propres = intprog.propagate({rhs}, true);
-  CHECK(propres.state == SolveState::SAT);
-  CHECK(propres.val == std::vector<std::pair<bigint, bigint>>{{0, 4}});
+  CHECK_EQ(propres.state, SolveState::SAT);
+  CHECK_EQ(propres.val, std::vector<std::pair<bigint, bigint>>{{0, 4}});
 }
 
 TEST_CASE("multiplication") {
@@ -60,20 +60,20 @@ TEST_CASE("multiplication") {
   intprog.addMultiplication(vars, z, z);
 
   auto [state, cnt] = intprog.count(vars, true);
-  CHECK(state == SolveState::SAT);
-  CHECK(cnt == 1024);
+  CHECK_EQ(state, SolveState::SAT);
+  CHECK_EQ(cnt, 1024);
   auto propres = intprog.propagate({z}, true);
-  CHECK(propres.state == SolveState::SAT);
-  CHECK(propres.val == std::vector<std::pair<bigint, bigint>>{{-180, 240}});
+  CHECK_EQ(propres.state, SolveState::SAT);
+  CHECK_EQ(propres.val, std::vector<std::pair<bigint, bigint>>{{-180, 240}});
 
   std::stringstream ss;
   intprog.printInput(ss);
-  CHECK(ss.str() == "OBJ MIN \nz[-1000,1000] =< 1*a[-3,4]*b[-2,5]*c[-1,6]*d[0,1]*e[2,2] =< z[-1000,1000]\n");
+  CHECK_EQ(ss.str(), "OBJ MIN \nz[-1000,1000] =< 1*a[-3,4]*b[-2,5]*c[-1,6]*d[0,1]*e[2,2] =< z[-1000,1000]\n");
 
   // Auxiliary variables are only created when needed
   int64_t internal_nvars = intprog.getSolver().getNbVars();
   intprog.addMultiplication(vars, z, z);
-  CHECK(intprog.getSolver().getNbVars() == internal_nvars);
+  CHECK_EQ(intprog.getSolver().getNbVars(), internal_nvars);
 }
 
 TEST_CASE("multiplication edge cases") {
@@ -90,8 +90,78 @@ TEST_CASE("multiplication edge cases") {
   intprog.addMultiplication({a}, y, z);
 
   auto propres = intprog.propagate({a, q, r, y, z}, true);
-  CHECK(propres.state == SolveState::SAT);
-  CHECK(propres.val == std::vector<std::pair<bigint, bigint>>{{-2, 2}, {-10, 1}, {1, 10}, {-10, 2}, {-2, 10}});
+  CHECK_EQ(propres.state, SolveState::SAT);
+  CHECK_EQ(propres.val, std::vector<std::pair<bigint, bigint>>{{-2, 2}, {-10, 1}, {1, 10}, {-10, 2}, {-2, 10}});
+}
+
+TEST_CASE("implication constraints for reification") {
+  Options opts;
+  IntProg intprog(opts);
+
+  IntVar* f = intprog.addVar("f", 0, 7);
+  IntVar* g = intprog.addVar("g", 0, 7);
+  IntVar* p = intprog.addVar("p");
+  IntVar* q = intprog.addVar("q");
+  IntVar* r = intprog.addVar("r");
+  IntVar* s = intprog.addVar("s");
+  IntVar* t = intprog.addVar("t");
+  IntVar* u = intprog.addVar("u");
+
+  const Solver& solver = intprog.getSolver();
+
+  // p <=> f >= 2
+  intprog.addReification(p, true, IntConstraint{{{1, f}}, 2, std::nullopt});
+  CHECK_EQ(solver.getNbConstraints(), 2);  // adds no implications
+  // q <=> f >= 6
+  intprog.addReification(q, true, IntConstraint{{{1, f}}, 6, std::nullopt});
+  CHECK_EQ(solver.getNbConstraints(), 5);  // adds q => p
+
+  // ~r => 2f =< 1
+  // r <= f >= 1
+  intprog.addRightReification(r, false, IntConstraint{{{2, f}}, std::nullopt, 1});
+  CHECK_EQ(solver.getNbConstraints(), 7);  // adds p => r
+  // ~s <= -2f >= -9
+  // s => f >= 5
+  intprog.addLeftReification(s, false, IntConstraint{{{-2, f}}, -9, std::nullopt});
+  CHECK_EQ(solver.getNbConstraints(), 9);  // adds s => p
+
+  // ~r => 2g <= 9
+  // r <= g >= 5
+  intprog.addRightReification(r, false, IntConstraint{{{2, g}}, std::nullopt, 9});
+  CHECK_EQ(solver.getNbConstraints(), 10);  // adds no implications
+  // ~s <= -2g >= -9
+  // s => g >= 5
+  intprog.addLeftReification(s, false, IntConstraint{{{-2, g}}, -9, std::nullopt});
+  CHECK_EQ(solver.getNbConstraints(), 12);  // adds s => r
+
+  // t <=> f <= 3
+  // ~t <=> f >= 4
+  intprog.addReification(t, true, IntConstraint{{{1, f}}, std::nullopt, 3});
+  CHECK_EQ(solver.getNbConstraints(), 16);  // adds ~t => p and s => ~t
+
+  // u => 5f =< 25
+  // ~u <= f >= 6
+  intprog.addRightReification(u, true, IntConstraint{{{5, f}}, std::nullopt, 25});
+  CHECK_EQ(solver.getNbConstraints(), 18);  // adds q => ~u
+
+  std::stringstream ss;
+  for (auto c : solver.getRawConstraints()) {
+    ss << solver.getCA()[c] << std::endl;
+  }
+  const std::string constraints = ss.str();
+  for (auto t : {
+           "1x-8 1x7 >= 1",     // q => p
+           "1x-7 1x9 >= 1",     // p => r
+           "1x-10 1x7 >= 1",    // s => p
+           "1x-10 1x9 >= 1",    // s => r
+           "1x11 1x7 >= 1",     // ~t => p
+           "1x-10 1x-11 >= 1",  // s => ~t
+           "1x-8 1x-12 >= 1",   // q => ~u
+       }) {
+    CHECK(constraints.find(t) != std::string::npos);
+  }
+
+  // TODO: guarantee that full reifications always imply eachother (half implications can break the chain now)
 }
 
 TEST_SUITE_END();

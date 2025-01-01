@@ -189,7 +189,7 @@ void opb_read(std::istream& in, IntProg& intprog) {
   long long lineNr = -1;
   bool wbo = false;
   std::optional<bigint> topcost;
-  std::vector<IntTerm> obj;
+  IntTermVec obj;
   std::optional<bigint> weight;
   for (std::string line; getline(in, line);) {
     ++lineNr;
@@ -309,7 +309,7 @@ void opb_read(std::istream& in, IntProg& intprog) {
 void wcnf_read(std::istream& in, IntProg& intprog) {
   std::vector<LitVec> inputs;
   char dummy;
-  std::vector<IntTerm> obj_terms;
+  IntTermVec obj_terms;
   bigint obj_offset = 0;
   // NOTE: there are annoying edge cases where two clauses share the same line, or a clause is split on two lines.
   // the following rewrite fixes this.
