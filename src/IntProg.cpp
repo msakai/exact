@@ -532,7 +532,7 @@ void IntProg::addRightReification(IntVar* head, bool sign, const IntConstraint& 
     ic.toConstrExp(leq, i);
     leq->postProcess(solver.getLevel(), solver.getPos(), solver.getHeuristic(), true, global.stats);
 
-    leq->addLhs(leq->degree, l);
+    leq->addLhs(leq->degree, -l);
     solver.addConstraint(leq);
   }
 }
@@ -963,7 +963,10 @@ WithState<Ce32> IntProg::getSolIntersection(const std::vector<IntVar*>& ivs, boo
 
   assert(result != SolveState::INPROCESSED);
   assert(result != SolveState::SAT);
-  if (result == SolveState::TIMEOUT) return {SolveState::TIMEOUT, CeNull()};
+
+  if (result == SolveState::TIMEOUT) {
+    return {SolveState::TIMEOUT, CeNull()};
+  }
   assert(result == SolveState::INCONSISTENT || result == SolveState::UNSAT);
   return {SolveState::SAT, invalidator};
 }
@@ -1276,14 +1279,14 @@ void IntProg::runFromCmdLine() {
 
 }  // namespace xct
 
-size_t std::hash<xct::IntVar*>::operator()(xct::IntVar* iv) const noexcept {
-  return iv->getEncodingVars().empty() ? 0 : iv->getEncodingVars().front();
-}
-
-size_t std::hash<xct::IntTerm>::operator()(const xct::IntTerm& it) const noexcept {
-  return xct::aux::hash_comb_ordered(xct::aux::hash(it.c), it.v);
-}
-
-size_t std::hash<xct::IntTermVec>::operator()(const xct::IntTermVec& itv) const noexcept {
-  return xct::aux::hashForList<const xct::IntTerm&>(itv);
-}
+// size_t std::hash<xct::IntVar*>::operator()(xct::IntVar* iv) const noexcept {
+//   return iv->getEncodingVars().empty() ? 0 : iv->getEncodingVars().front();
+// }
+//
+// size_t std::hash<xct::IntTerm>::operator()(const xct::IntTerm& it) const noexcept {
+//   return xct::aux::hash_comb_ordered(xct::aux::hash(it.c), it.v);
+// }
+//
+// size_t std::hash<xct::IntTermVec>::operator()(const xct::IntTermVec& itv) const noexcept {
+//   return xct::aux::hashForList<const xct::IntTerm&>(itv);
+// }

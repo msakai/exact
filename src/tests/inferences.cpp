@@ -245,24 +245,29 @@ TEST_CASE("intersect") {
       }
 
       auto [solvestate, invalidator] = intprog.getSolIntersection(vars, true);
-      CHECK(aux::str(invalidator) == ">= 1 ;");
+      CHECK_EQ(solvestate, SolveState::SAT);
+      CHECK_EQ(aux::str(invalidator), ">= 1 ;");
 
       intprog.setObjective(IntConstraint::zip({-1, -4, -3, -5, -5}, vars));
       auto [solvestate0, invalidator0] = intprog.getSolIntersection(vars, true);
-      CHECK(aux::str(invalidator0) == "+1 ~x1 +1 ~x2 +1 ~x3 +1 ~x4 +1 ~x5 >= 1 ;");
+      CHECK_EQ(solvestate0, SolveState::SAT);
+      CHECK_NE(invalidator0, nullptr);
+      CHECK_EQ(aux::str(invalidator0), "+1 ~x1 +1 ~x2 +1 ~x3 +1 ~x4 +1 ~x5 >= 1 ;");
 
       intprog.addConstraint({IntConstraint::zip({2, 3, 4, 6, 6}, vars), std::nullopt, 10});
       auto [solvestate1, invalidator1] = intprog.getSolIntersection(vars, true);
-      CHECK(aux::str(invalidator1) == "+1 x1 +1 ~x2 +1 x3 >= 1 ;");
+      CHECK_EQ(solvestate1, SolveState::SAT);
+      CHECK_NE(invalidator1, nullptr);
+      CHECK_EQ(aux::str(invalidator1), "+1 x1 +1 ~x2 +1 x3 >= 1 ;");
 
       SolveState res = intprog.getOptim()->runFull(false, 0);
-      CHECK(res == SolveState::SAT);
+      CHECK_EQ(res, SolveState::SAT);
 
       auto [solvestate2, invalidator2] = intprog.getSolIntersection(vars, false);
-      CHECK(aux::str(invalidator2) == "+1 x1 +1 ~x2 +1 x3 >= 1 ;");
+      CHECK_EQ(aux::str(invalidator2), "+1 x1 +1 ~x2 +1 x3 >= 1 ;");
 
       auto [solvestate3, invalidator3] = intprog.getSolIntersection(vars, false);
-      CHECK(invalidator3 == nullptr);
+      CHECK_EQ(invalidator3, nullptr);
     }
   }
 }

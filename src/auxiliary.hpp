@@ -138,12 +138,6 @@ size_t erase_if(unordered_set<K, H, KE>& set, Pred pred) {
 }
 #endif
 
-template <class Key, class T, class Compare = std::less<Key>>
-using map = boost::container::flat_map<Key, T, Compare>;
-
-template <class Key, class Compare = std::less<Key>>
-using set = boost::container::flat_set<Key, Compare>;
-
 enum class State { SUCCESS, FAIL };
 enum class SolveState { UNSAT, SAT, INCONSISTENT, TIMEOUT, INPROCESSED };
 std::ostream& operator<<(std::ostream& o, SolveState state);

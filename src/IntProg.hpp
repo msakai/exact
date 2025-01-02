@@ -81,20 +81,20 @@ std::ostream& operator<<(std::ostream& o, const IntTerm& x);
 using IntTermVec = std::vector<IntTerm>;
 }  // namespace xct
 
-template <>
-struct std::hash<xct::IntVar*> {
-  size_t operator()(xct::IntVar* iv) const noexcept;
-};
-
-template <>
-struct std::hash<xct::IntTerm> {
-  size_t operator()(const xct::IntTerm& it) const noexcept;
-};
-
-template <>
-struct std::hash<xct::IntTermVec> {
-  size_t operator()(const xct::IntTermVec& itv) const noexcept;
-};
+// template <>
+// struct std::hash<xct::IntVar*> {
+//   size_t operator()(xct::IntVar* iv) const noexcept;
+// };
+//
+// template <>
+// struct std::hash<xct::IntTerm> {
+//   size_t operator()(const xct::IntTerm& it) const noexcept;
+// };
+//
+// template <>
+// struct std::hash<xct::IntTermVec> {
+//   size_t operator()(const xct::IntTermVec& itv) const noexcept;
+// };
 
 namespace xct {
 
