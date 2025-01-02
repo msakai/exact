@@ -33,7 +33,6 @@ See the file LICENSE or run with the flag --license=MIT.
 #include "Optimization.hpp"
 
 namespace xct {
-
 Encoding opt2enc(const std::string& opt) {
   assert(opt == "order" || opt == "log" || opt == "onehot");
   return opt == "order" ? Encoding::ORDER : opt == ("log") ? Encoding::LOG : Encoding::ONEHOT;
@@ -693,12 +692,24 @@ void IntProg::addMultiplication(const std::vector<IntVar*>& factors, IntVar* low
   }
 }
 
-void IntProg::addImplsRightReif(Lit head, IntVar* lhs, const bigint& lb) {
-  auto [it, _] = right_reifs.emplace(std::pair{lhs, std::multimap<bigint, Lit>{}});
-  it->second.insert(std::pair{lb, head});
+bool contains_check_erase(unordered_map<IntVar*, std::multimap<bigint, Lit>>& reifs, Lit head, IntVar* lhs,
+                          const bigint& bound, bool erase) {
+  auto reif = reifs.find(lhs);
+  if (reif == reifs.end() || reif->second.empty()) return false;
+  auto range = reif->second.equal_range(bound);
+  for (auto it = range.first; it != range.second; ++it) {
+    if (it->second == head) {
+      if (erase) reif->second.erase(it);
+      return true;
+    }
+  }
+  return false;
+}
 
-  auto opposite = left_reifs.find(lhs);
-  if (opposite == left_reifs.end() || opposite->second.empty()) return;
+void add_implied_binary_upper(unordered_map<IntVar*, std::multimap<bigint, Lit>>& reifs, Lit head, IntVar* lhs,
+                              const bigint& lb, Solver& solver) {
+  auto opposite = reifs.find(lhs);
+  if (opposite == reifs.end() || opposite->second.empty()) return;
 
   auto placement = opposite->second.upper_bound(lb);
   if (placement == opposite->second.begin()) return;
@@ -715,12 +726,10 @@ void IntProg::addImplsRightReif(Lit head, IntVar* lhs, const bigint& lb) {
   solver.addBinaryConstraint(-head, placement->second, Origin::FORMULA);
 }
 
-void IntProg::addImplsLeftReif(Lit head, IntVar* lhs, const bigint& lb) {
-  auto [it, _] = left_reifs.emplace(std::pair{lhs, std::multimap<bigint, Lit>{}});
-  it->second.insert(std::pair{lb, head});
-
-  auto opposite = right_reifs.find(lhs);
-  if (opposite == right_reifs.end() || opposite->second.empty()) return;
+void add_implied_binary_lower(unordered_map<IntVar*, std::multimap<bigint, Lit>>& reifs, Lit head, IntVar* lhs,
+                              const bigint& lb, Solver& solver) {
+  auto opposite = reifs.find(lhs);
+  if (opposite == reifs.end() || opposite->second.empty()) return;
 
   auto placement = opposite->second.lower_bound(lb);
   if (placement == opposite->second.end()) return;
@@ -734,6 +743,36 @@ void IntProg::addImplsLeftReif(Lit head, IntVar* lhs, const bigint& lb) {
   // which entails
   // Q implies P
   solver.addBinaryConstraint(-placement->second, head, Origin::FORMULA);
+}
+
+void IntProg::addImplsRightReif(Lit head, IntVar* lhs, const bigint& lb) {
+  if (contains_check_erase(reifs, head, lhs, lb, false)) return;
+  if (contains_check_erase(right_reifs, head, lhs, lb, false)) return;
+  if (contains_check_erase(left_reifs, head, lhs, lb, true)) {
+    auto [it, _] = reifs.emplace(std::pair{lhs, std::multimap<bigint, Lit>{}});
+    it->second.insert(std::pair{lb, head});
+  } else {
+    auto [it, _] = right_reifs.emplace(std::pair{lhs, std::multimap<bigint, Lit>{}});
+    it->second.insert(std::pair{lb, head});
+  }
+
+  add_implied_binary_upper(reifs, head, lhs, lb, solver);
+  add_implied_binary_upper(left_reifs, head, lhs, lb, solver);
+}
+
+void IntProg::addImplsLeftReif(Lit head, IntVar* lhs, const bigint& lb) {
+  if (contains_check_erase(reifs, head, lhs, lb, false)) return;
+  if (contains_check_erase(left_reifs, head, lhs, lb, false)) return;
+  if (contains_check_erase(right_reifs, head, lhs, lb, true)) {
+    auto [it, _] = reifs.emplace(std::pair{lhs, std::multimap<bigint, Lit>{}});
+    it->second.insert(std::pair{lb, head});
+  } else {
+    auto [it, _] = left_reifs.emplace(std::pair{lhs, std::multimap<bigint, Lit>{}});
+    it->second.insert(std::pair{lb, head});
+  }
+
+  add_implied_binary_lower(reifs, head, lhs, lb, solver);
+  add_implied_binary_lower(right_reifs, head, lhs, lb, solver);
 }
 
 void IntProg::fix(IntVar* iv, const bigint& val) { addConstraint(IntConstraint{{{1, iv}}, val, val}); }

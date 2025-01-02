@@ -106,6 +106,8 @@ TEST_CASE("implication constraints for reification") {
   IntVar* s = intprog.addVar("s");
   IntVar* t = intprog.addVar("t");
   IntVar* u = intprog.addVar("u");
+  IntVar* rr = intprog.addVar("rr");
+  IntVar* ss = intprog.addVar("ss");
 
   const Solver& solver = intprog.getSolver();
 
@@ -123,41 +125,48 @@ TEST_CASE("implication constraints for reification") {
   // ~s <= -2f >= -9
   // s => f >= 5
   intprog.addLeftReification(s, false, IntConstraint{{{-2, f}}, -9, std::nullopt});
-  CHECK_EQ(solver.getNbConstraints(), 9);  // adds s => p
+  CHECK_EQ(solver.getNbConstraints(), 10);  // adds s => p and s => r
 
-  // ~r => 2g <= 9
-  // r <= g >= 5
-  intprog.addRightReification(r, false, IntConstraint{{{2, g}}, std::nullopt, 9});
-  CHECK_EQ(solver.getNbConstraints(), 10);  // adds no implications
-  // ~s <= -2g >= -9
-  // s => g >= 5
-  intprog.addLeftReification(s, false, IntConstraint{{{-2, g}}, -9, std::nullopt});
-  CHECK_EQ(solver.getNbConstraints(), 12);  // adds s => r
+  // ~rr => 2g <= 9
+  // rr <= g >= 5
+  intprog.addRightReification(rr, false, IntConstraint{{{2, g}}, std::nullopt, 9});
+  CHECK_EQ(solver.getNbConstraints(), 11);  // adds no implications
+  // ~ss <= -2g >= -9
+  // ss => g >= 5
+  intprog.addLeftReification(ss, false, IntConstraint{{{-2, g}}, -9, std::nullopt});
+  CHECK_EQ(solver.getNbConstraints(), 13);  // adds ss => rr
 
   // t <=> f <= 3
   // ~t <=> f >= 4
   intprog.addReification(t, true, IntConstraint{{{1, f}}, std::nullopt, 3});
-  CHECK_EQ(solver.getNbConstraints(), 16);  // adds ~t => p and s => ~t
+  CHECK_EQ(solver.getNbConstraints(), 19);  // adds ~t => p and q => ~t and s => ~t and ~t => r
 
   // u => 5f =< 25
   // ~u <= f >= 6
   intprog.addRightReification(u, true, IntConstraint{{{5, f}}, std::nullopt, 25});
-  CHECK_EQ(solver.getNbConstraints(), 18);  // adds q => ~u
+  CHECK_EQ(solver.getNbConstraints(), 21);  // adds q => ~u
 
-  std::stringstream ss;
+  std::stringstream strs;
   for (auto c : solver.getRawConstraints()) {
-    ss << solver.getCA()[c] << std::endl;
+    strs << solver.getCA()[c] << std::endl;
   }
-  const std::string constraints = ss.str();
+  const std::string constraints = strs.str();
   for (auto t : {
            "1x-8 1x7 >= 1",     // q => p
            "1x-7 1x9 >= 1",     // p => r
            "1x-10 1x7 >= 1",    // s => p
            "1x-10 1x9 >= 1",    // s => r
            "1x11 1x7 >= 1",     // ~t => p
+           "1x-8 1x-11 >= 1",   // q => ~t
            "1x-10 1x-11 >= 1",  // s => ~t
+           "1x11 1x9 >= 1",     // ~t => r
            "1x-8 1x-12 >= 1",   // q => ~u
+           "1x-14 1x13 >= 1",   // ss => rr
        }) {
+    if (constraints.find(t) == std::string::npos) {
+      aux::cout << "missing: " << t << std::endl;
+      aux::cout << constraints << std::endl;
+    }
     CHECK(constraints.find(t) != std::string::npos);
   }
 
