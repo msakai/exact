@@ -44,6 +44,7 @@ or run with the flag --license=AGPLv3. If not, see
 #include "datastructures/Heuristic.cpp"
 #include "datastructures/IntSet.cpp"
 #include "datastructures/SolverStructs.cpp"
+#include "interface/IntConstraint.cpp"
 #include "interface/IntProg.cpp"
 #include "parsing.cpp"
 #include "propagation/Equalities.cpp"
