@@ -38,7 +38,7 @@ Encoding opt2enc(const std::string& opt) {
 }
 
 std::ostream& operator<<(std::ostream& o, const IntVar& x) {
-  return o << x.getName() << "[" << x.getLowerBound() << "," << x.getUpperBound() << "]";
+  return o << x.name << "[" << x.lowerBound << "," << x.upperBound << "]";
 }
 std::ostream& operator<<(std::ostream& o, IntVar* x) { return o << *x; }
 std::ostream& operator<<(std::ostream& o, const IntTerm& x) {
@@ -68,7 +68,7 @@ IntVar::IntVar(const std::string& n, Solver& solver, bool nameAsId, const bigint
 
   if (nameAsId) {
     assert(isBoolean());
-    Var next = std::stoi(getName());
+    Var next = std::stoi(name);
     solver.setNbVars(next, true);
     encodingVars.emplace_back(next);
   } else {
@@ -121,8 +121,12 @@ IntVar::IntVar(const std::string& n, Solver& solver, bool nameAsId, const bigint
   }
 }
 
+bigint IntVar::getRange() const { return upperBound - lowerBound; }  // TODO: Boolean range is 1?
+bool IntVar::isBoolean() const { return lowerBound == 0 && upperBound == 1; }
+const VarVec& IntVar::getEncodingVars() const { return encodingVars; }
+
 bigint IntVar::getValue(const LitVec& sol) const {
-  bigint val = getLowerBound();
+  bigint val = lowerBound;
   if (encoding == Encoding::LOG) {
     bigint base = 1;
     for (Var v : getEncodingVars()) {
@@ -160,8 +164,8 @@ LitVec IntVar::val2lits(const bigint& val) const {
   const VarVec& enc = getEncodingVars();
   LitVec res;
   res.reserve(enc.size());
-  if (getEncoding() == Encoding::LOG) {
-    bigint value = val - getLowerBound();
+  if (encoding == Encoding::LOG) {
+    bigint value = val - lowerBound;
     assert(value >= 0);
     for (Var v : enc) {
       res.push_back(value % 2 == 0 ? -v : v);
@@ -170,15 +174,15 @@ LitVec IntVar::val2lits(const bigint& val) const {
     assert(value == 0);
     return res;
   }
-  assert(val - getLowerBound() <= getEncodingVars().size());
-  int val_int = static_cast<int>(val - getLowerBound());
-  if (getEncoding() == Encoding::ONEHOT) {
+  assert(val - lowerBound <= getEncodingVars().size());
+  int val_int = static_cast<int>(val - lowerBound);
+  if (encoding == Encoding::ONEHOT) {
     for (int i = 0; i < (int)enc.size(); ++i) {
       res.push_back(i == val_int ? enc[i] : -enc[i]);
     }
     return res;
   }
-  assert(getEncoding() == Encoding::ORDER);
+  assert(encoding == Encoding::ORDER);
   for (int i = 0; i < (int)enc.size(); ++i) {
     res.push_back(i < val_int ? enc[i] : -enc[i]);
   }
@@ -225,21 +229,21 @@ void IntConstraint::toConstrExp(CeArb& input, bool useLowerBound) const {
   }
   for (const IntTerm& t : lhs) {
     if (t.c == 0) continue;
-    if (t.v->getLowerBound() != 0) input->addRhs(-t.c * t.v->getLowerBound());
-    if (t.v->getEncoding() == Encoding::LOG) {
+    if (t.v->lowerBound != 0) input->addRhs(-t.c * t.v->lowerBound);
+    if (t.v->encoding == Encoding::LOG) {
       assert(!t.v->getEncodingVars().empty());
       bigint base = 1;
       for (const Var v : t.v->getEncodingVars()) {
         input->addLhs(base * t.c, v);
         base *= 2;
       }
-    } else if (t.v->getEncoding() == Encoding::ORDER) {
+    } else if (t.v->encoding == Encoding::ORDER) {
       assert(t.v->getRange() == 0 || !t.v->getEncodingVars().empty());
       for (const Var v : t.v->getEncodingVars()) {
         input->addLhs(t.c, v);
       }
     } else {
-      assert(t.v->getEncoding() == Encoding::ONEHOT);
+      assert(t.v->encoding == Encoding::ONEHOT);
       assert(!t.v->getEncodingVars().empty());
       int ith = 0;
       for (const Var v : t.v->getEncodingVars()) {

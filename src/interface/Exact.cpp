@@ -148,7 +148,7 @@ void Exact::addVariable(const std::string& name, const bigint& lb, const bigint&
 }
 
 std::vector<std::string> Exact::getVariables() const {
-  return aux::comprehension(intprog.getVariables(), [](IntVar* iv) { return iv->getName(); });
+  return aux::comprehension(intprog.getVariables(), [](IntVar* iv) { return iv->name; });
 }
 
 void Exact::addConstraint(const std::vector<std::pair<bigint, std::string>>& terms, bool useLB, const bigint& lb,
@@ -276,7 +276,7 @@ std::vector<py::int_> Exact::getLastSolutionFor(const std::vector<std::string>& 
 std::vector<std::string> Exact::getLastCore() {
   Core core = intprog.getLastCore();
   if (core) {
-    return aux::comprehension(*core, [](IntVar* iv) { return iv->getName(); });
+    return aux::comprehension(*core, [](IntVar* iv) { return iv->name; });
   } else {
     return {};
   }
@@ -291,7 +291,7 @@ std::pair<std::string, std::vector<std::string>> Exact::extractMUS(double timeou
   std::pair<std::string, std::vector<std::string>> res = {"INCONSISTENT", {}};
   res.second.reserve(mus->size());
   for (IntVar* iv : *mus) {
-    res.second.push_back(iv->getName());
+    res.second.push_back(iv->name);
   }
   return res;
 }

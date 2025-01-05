@@ -38,28 +38,25 @@ enum class Encoding { ORDER, LOG, ONEHOT };
 Encoding opt2enc(const std::string& opt);
 
 struct IntVar {
-  explicit IntVar(const std::string& n, Solver& solver, bool nameAsId, const bigint& lb, const bigint& ub, Encoding e);
-
-  [[nodiscard]] const std::string& getName() const { return name; }
-  [[nodiscard]] const bigint& getUpperBound() const { return upperBound; }
-  [[nodiscard]] const bigint& getLowerBound() const { return lowerBound; }
-
-  [[nodiscard]] bigint getRange() const { return upperBound - lowerBound; }  // TODO: Boolean range is 1?
-  [[nodiscard]] bool isBoolean() const { return lowerBound == 0 && upperBound == 1; }
-
-  [[nodiscard]] Encoding getEncoding() const { return encoding; }
-  [[nodiscard]] const VarVec& getEncodingVars() const { return encodingVars; }
-  [[nodiscard]] bigint getValue(const LitVec& sol) const;
-
-  [[nodiscard]] LitVec val2lits(const bigint& val) const;
-
- private:
   const std::string name;
   const bigint lowerBound;
   const bigint upperBound;
 
   const Encoding encoding;
+
+ private:
   VarVec encodingVars;
+
+ public:
+  explicit IntVar(const std::string& n, Solver& solver, bool nameAsId, const bigint& lb, const bigint& ub, Encoding e);
+
+  [[nodiscard]] bigint getRange() const;
+  [[nodiscard]] bool isBoolean() const;
+
+  [[nodiscard]] const VarVec& getEncodingVars() const;
+  [[nodiscard]] bigint getValue(const LitVec& sol) const;
+
+  [[nodiscard]] LitVec val2lits(const bigint& val) const;
 };
 std::ostream& operator<<(std::ostream& o, const IntVar& x);
 std::ostream& operator<<(std::ostream& o, IntVar* x);
