@@ -45,3 +45,8 @@ Lots of changes, most small, some big. Biggest new features:
 *2.1.0*
 commit: 2c6bee36dbeac27bc054d3d80264c73f3ac498cf
 - Add multiplication constraint to the Python interface
+
+### 2025-01-??
+* 2.2.0*
+commit: TODO
+- Add redundant binary implications for reification constraints which should improve propagation speed and mimic integer hybrid order/log encoding.
