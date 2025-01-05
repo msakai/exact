@@ -32,7 +32,6 @@ or run with the flag --license=AGPLv3. If not, see
 // clang-format off
 #include "constraints/ConstrExpPools.cpp"
 // clang-format on
-#include "IntProg.cpp"
 #include "Logger.cpp"
 #include "Optimization.cpp"
 #include "Options.cpp"
@@ -45,6 +44,7 @@ or run with the flag --license=AGPLv3. If not, see
 #include "datastructures/Heuristic.cpp"
 #include "datastructures/IntSet.cpp"
 #include "datastructures/SolverStructs.cpp"
+#include "interface/IntProg.cpp"
 #include "parsing.cpp"
 #include "propagation/Equalities.cpp"
 #include "propagation/Implications.cpp"

@@ -33,8 +33,8 @@ See the file LICENSE or run with the flag --license=MIT.
 #include <pybind11/pybind11.h>
 #include <string>
 #include <vector>
-#include "IntProg.hpp"
 #include "auxiliary.hpp"
+#include "interface/IntProg.hpp"
 
 class Exact {
   xct::IntProg intprog;

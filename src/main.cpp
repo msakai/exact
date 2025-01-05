@@ -19,7 +19,7 @@ or run with the flag --license=AGPLv3. If not, see
 **********************************************************************/
 
 #include <csignal>
-#include "IntProg.hpp"
+#include "interface/IntProg.hpp"
 #include "quit.hpp"
 
 using namespace xct;

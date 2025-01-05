@@ -61,9 +61,9 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "Optimization.hpp"
 #include "Global.hpp"
-#include "IntProg.hpp"
 #include "Solver.hpp"
 #include "constraints/ConstrExp.hpp"
+#include "interface/IntConstraint.hpp"
 
 namespace xct {
 

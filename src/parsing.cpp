@@ -62,8 +62,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "parsing.hpp"
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/tokenizer.hpp>
-#include "IntProg.hpp"
 #include "Solver.hpp"
+#include "interface/IntProg.hpp"
 
 #if WITHCOINUTILS
 #include "coin/CoinLpIO.hpp"

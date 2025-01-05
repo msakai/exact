@@ -61,9 +61,9 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "quit.hpp"
 #include <iostream>
-#include "IntProg.hpp"
 #include "Optimization.hpp"
 #include "auxiliary.hpp"
+#include "interface/IntProg.hpp"
 
 namespace xct {
 

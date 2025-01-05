@@ -30,94 +30,16 @@ See the file LICENSE or run with the flag --license=MIT.
 
 #pragma once
 
-#include <string>
 #include "Global.hpp"
+#include "IntConstraint.hpp"
 #include "Optimization.hpp"
-#include "Solver.hpp"
 #include "datastructures/IntSet.hpp"
-#include "typedefs.hpp"
-
-namespace xct {
-enum class Encoding { ORDER, LOG, ONEHOT };
-Encoding opt2enc(const std::string& opt);
-
-struct IntVar {
-  explicit IntVar(const std::string& n, Solver& solver, bool nameAsId, const bigint& lb, const bigint& ub, Encoding e);
-
-  [[nodiscard]] const std::string& getName() const { return name; }
-  [[nodiscard]] const bigint& getUpperBound() const { return upperBound; }
-  [[nodiscard]] const bigint& getLowerBound() const { return lowerBound; }
-
-  [[nodiscard]] bigint getRange() const { return upperBound - lowerBound; }  // TODO: Boolean range is 1?
-  [[nodiscard]] bool isBoolean() const { return lowerBound == 0 && upperBound == 1; }
-
-  [[nodiscard]] Encoding getEncoding() const { return encoding; }
-  [[nodiscard]] const VarVec& getEncodingVars() const { return encodingVars; }
-  [[nodiscard]] bigint getValue(const LitVec& sol) const;
-
- private:
-  const std::string name;
-  const bigint lowerBound;
-  const bigint upperBound;
-
-  const Encoding encoding;
-  VarVec encodingVars;
-};
-std::ostream& operator<<(std::ostream& o, const IntVar& x);
-std::ostream& operator<<(std::ostream& o, IntVar* x);
-
-struct IntTerm {
-  bigint c;
-  IntVar* v;
-  // TODO constructors needed because Apple clang does not support parenthesized initialization of aggregates
-  IntTerm(const bigint& _c, IntVar* _v);
-  IntTerm() = default;
-  IntTerm(IntTerm&&) = default;
-  IntTerm& operator=(IntTerm&&) = default;
-  IntTerm(const IntTerm&) = default;
-  IntTerm& operator=(const IntTerm&) = default;
-};
-std::ostream& operator<<(std::ostream& o, const IntTerm& x);
-using IntTermVec = std::vector<IntTerm>;
-}  // namespace xct
-
-// template <>
-// struct std::hash<xct::IntVar*> {
-//   size_t operator()(xct::IntVar* iv) const noexcept;
-// };
-//
-// template <>
-// struct std::hash<xct::IntTerm> {
-//   size_t operator()(const xct::IntTerm& it) const noexcept;
-// };
-//
-// template <>
-// struct std::hash<xct::IntTermVec> {
-//   size_t operator()(const xct::IntTermVec& itv) const noexcept;
-// };
 
 namespace xct {
 
 using Core = std::unique_ptr<unordered_set<IntVar*>>;
 Core emptyCore();
 // NOTE: Core is a unique pointer because it is eagerly calculated and ownership is transferred to caller
-
-class IntProg;
-
-struct IntConstraint {
-  IntTermVec lhs = {};
-  std::optional<bigint> lowerBound = 0;
-  std::optional<bigint> upperBound = std::nullopt;
-
-  static IntTermVec zip(const std::vector<bigint>& coefs, const std::vector<IntVar*>& vars);
-
-  [[nodiscard]] bigint getRange() const;
-  [[nodiscard]] int64_t size() const;
-  void invert();
-
-  void toConstrExp(CeArb&, bool useLowerBound) const;
-};
-std::ostream& operator<<(std::ostream& o, const IntConstraint& x);
 
 struct OptRes {
   SolveState state;

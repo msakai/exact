@@ -19,7 +19,7 @@ or run with the flag --license=AGPLv3. If not, see
 **********************************************************************/
 
 #include "../external/doctest/doctest.h"
-#include "IntProg.hpp"
+#include "interface/IntProg.hpp"
 
 using namespace xct;
 

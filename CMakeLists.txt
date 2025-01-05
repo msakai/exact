@@ -120,7 +120,8 @@ set(source_files
     src/constraints/ConstrExpPools.cpp
     src/propagation/LpSolver.cpp
     src/Solver.cpp
-    src/IntProg.cpp
+    src/interface/IntConstraint.cpp
+    src/interface/IntProg.cpp
     src/datastructures/SolverStructs.cpp
     src/Logger.cpp
     src/datastructures/IntSet.cpp
@@ -152,7 +153,8 @@ set(header_files
     src/constraints/ConstrExpPools.hpp
     src/propagation/LpSolver.hpp
     src/Solver.hpp
-    src/IntProg.hpp
+    src/interface/IntConstraint.hpp
+    src/interface/IntProg.hpp
     src/Logger.hpp
     src/datastructures/IntMap.hpp
     src/datastructures/IntSet.hpp
@@ -168,7 +170,7 @@ set(header_files
     src/propagation/Equalities.hpp
     src/propagation/Implications.hpp
     src/Global.hpp
-    src/Exact.hpp
+    src/interface/Exact.hpp
 
     src/used_licenses/licenses.hpp
     src/used_licenses/zib_apache.hpp
@@ -181,7 +183,7 @@ set(header_files
 
 set(main_files
     src/main.cpp
-    src/Exact.cpp
+    src/interface/Exact.cpp
     src/singlesource.cpp
 )
 
@@ -205,12 +207,12 @@ endif()
 
 if(build_result STREQUAL "SharedLib")
     add_library(Exact SHARED ${files_to_compile})
-    set_target_properties(Exact PROPERTIES PUBLIC_HEADER src/Exact.hpp)
+    set_target_properties(Exact PROPERTIES PUBLIC_HEADER src/interface/Exact.hpp)
 endif()
 
 if(build_result STREQUAL "StaticLib")
     add_library(Exact STATIC ${files_to_compile})
-    set_target_properties(Exact PROPERTIES PUBLIC_HEADER src/Exact.hpp)
+    set_target_properties(Exact PROPERTIES PUBLIC_HEADER src/interface/Exact.hpp)
     set(Boost_USE_STATIC_LIBS ON)
 endif()
 

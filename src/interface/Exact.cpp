@@ -35,7 +35,6 @@ See the file LICENSE or run with the flag --license=MIT.
 #include <fstream>
 #include <iomanip>
 #include <sstream>
-#include "Exact.hpp"
 #include "parsing.hpp"
 
 namespace py = pybind11;
