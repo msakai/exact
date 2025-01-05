@@ -296,8 +296,8 @@ void opb_read(std::istream& in, IntProg& intprog) {
     if (topcost) {
       constr.terms.clear();
       for (const IntTerm& it : obj) {
-        assert(it.v->getEncodingVars().size() == 1);
-        constr.terms.emplace_back(it.c, it.v->getEncodingVars()[0]);
+        assert(it.v->encodingVars.size() == 1);
+        constr.terms.emplace_back(it.c, it.v->encodingVars[0]);
       }
       constr.rhs = topcost.value() - 1;  // strict limit
       constr.flip();

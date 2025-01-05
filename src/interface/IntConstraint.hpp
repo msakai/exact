@@ -43,17 +43,16 @@ struct IntVar {
   const bigint upperBound;
 
   const Encoding encoding;
+  const VarVec encodingVars;
 
- private:
-  VarVec encodingVars;
+  const int64_t id;
 
- public:
-  explicit IntVar(const std::string& n, Solver& solver, bool nameAsId, const bigint& lb, const bigint& ub, Encoding e);
+  explicit IntVar(const std::string& n, const bigint& lb, const bigint& ub, Encoding e, const VarVec& encvars,
+                  int64_t id);
 
   [[nodiscard]] bigint getRange() const;
   [[nodiscard]] bool isBoolean() const;
 
-  [[nodiscard]] const VarVec& getEncodingVars() const;
   [[nodiscard]] bigint getValue(const LitVec& sol) const;
 
   [[nodiscard]] LitVec val2lits(const bigint& val) const;

@@ -62,74 +62,20 @@ std::ostream& operator<<(std::ostream& o, const IntConstraint& x) {
   return o;
 }
 
-IntVar::IntVar(const std::string& n, Solver& solver, bool nameAsId, const bigint& lb, const bigint& ub, Encoding e)
-    : name(n), lowerBound(lb), upperBound(ub), encoding(getRange() <= 1 ? Encoding::ORDER : e) {
+IntVar::IntVar(const std::string& n, const bigint& lb, const bigint& ub, Encoding e, const VarVec& encvars, int64_t i)
+    : name(n), lowerBound(lb), upperBound(ub), encoding(e), encodingVars(encvars), id(i) {
   assert(lb <= ub);
-
-  if (nameAsId) {
-    assert(isBoolean());
-    Var next = std::stoi(name);
-    solver.setNbVars(next, true);
-    encodingVars.emplace_back(next);
-  } else {
-    const bigint range = getRange();
-    assert(range > 1 || encoding == Encoding::ORDER);
-    int oldvars = solver.getNbVars();
-    int newvars = oldvars + (encoding == Encoding::LOG
-                                 ? aux::msb(range) + 1  // NOTE: msb is 0-based, so we add another bit
-                                 : static_cast<int>(range) + static_cast<int>(encoding == Encoding::ONEHOT));
-
-    solver.setNbVars(newvars, true);
-    for (Var var = oldvars + 1; var <= newvars; ++var) {
-      encodingVars.emplace_back(var);
-    }
-    if (encoding == Encoding::LOG) {  // upper bound constraint
-      assert(!encodingVars.empty());
-      ConstrSimpleArb csa({}, -range);
-      csa.terms.reserve(encodingVars.size());
-      csa.orig = Origin::FORMULA;
-      bigint base = -1;
-      for (const Var v : encodingVars) {
-        csa.terms.emplace_back(base, v);
-        base *= 2;
-      }
-      // NOTE: last variable could have a smaller coefficient if the range is not a nice power of two - 1
-      // This would actually increase the number of solutions to the constraint. It would also not guarantee that each
-      // value for an integer variable had a unique Boolean representation. Bad idea probably.
-      solver.addConstraint(csa);
-    } else if (encoding == Encoding::ORDER) {
-      assert(!encodingVars.empty() || range == 0);
-      for (Var var = oldvars + 1; var < solver.getNbVars(); ++var) {
-        solver.addBinaryConstraint(var, -(var + 1), Origin::FORMULA);
-      }
-    } else {
-      assert(!encodingVars.empty());
-      assert(encoding == Encoding::ONEHOT);
-      ConstrSimple32 cs1({}, 1);
-      cs1.terms.reserve(encodingVars.size());
-      cs1.orig = Origin::FORMULA;
-      ConstrSimple32 cs2({}, -1);
-      cs2.terms.reserve(encodingVars.size());
-      cs2.orig = Origin::FORMULA;
-      for (int var = oldvars + 1; var <= solver.getNbVars(); ++var) {
-        cs1.terms.emplace_back(1, var);
-        cs2.terms.emplace_back(-1, var);
-      }
-      solver.addConstraint(cs1);
-      solver.addConstraint(cs2);
-    }
-  }
+  assert(encoding == Encoding::ORDER || getRange() > 1);
 }
 
 bigint IntVar::getRange() const { return upperBound - lowerBound; }  // TODO: Boolean range is 1?
 bool IntVar::isBoolean() const { return lowerBound == 0 && upperBound == 1; }
-const VarVec& IntVar::getEncodingVars() const { return encodingVars; }
 
 bigint IntVar::getValue(const LitVec& sol) const {
   bigint val = lowerBound;
   if (encoding == Encoding::LOG) {
     bigint base = 1;
-    for (Var v : getEncodingVars()) {
+    for (Var v : encodingVars) {
       assert(v != 0);
       assert(v < (int)sol.size());
       assert(toVar(sol[v]) == v);
@@ -138,7 +84,7 @@ bigint IntVar::getValue(const LitVec& sol) const {
     }
   } else if (encoding == Encoding::ORDER) {
     int sum = 0;
-    for (Var v : getEncodingVars()) {
+    for (Var v : encodingVars) {
       assert(v < (int)sol.size());
       assert(toVar(sol[v]) == v);
       sum += sol[v] > 0;
@@ -147,7 +93,7 @@ bigint IntVar::getValue(const LitVec& sol) const {
   } else {
     assert(encoding == Encoding::ONEHOT);
     int ith = 0;
-    for (Var v : getEncodingVars()) {
+    for (Var v : encodingVars) {
       assert(v < (int)sol.size());
       assert(toVar(sol[v]) == v);
       if (sol[v] > 0) {
@@ -161,7 +107,7 @@ bigint IntVar::getValue(const LitVec& sol) const {
 }
 
 LitVec IntVar::val2lits(const bigint& val) const {
-  const VarVec& enc = getEncodingVars();
+  const VarVec& enc = encodingVars;
   LitVec res;
   res.reserve(enc.size());
   if (encoding == Encoding::LOG) {
@@ -174,7 +120,7 @@ LitVec IntVar::val2lits(const bigint& val) const {
     assert(value == 0);
     return res;
   }
-  assert(val - lowerBound <= getEncodingVars().size());
+  assert(val - lowerBound <= encodingVars.size());
   int val_int = static_cast<int>(val - lowerBound);
   if (encoding == Encoding::ONEHOT) {
     for (int i = 0; i < (int)enc.size(); ++i) {
@@ -231,22 +177,22 @@ void IntConstraint::toConstrExp(CeArb& input, bool useLowerBound) const {
     if (t.c == 0) continue;
     if (t.v->lowerBound != 0) input->addRhs(-t.c * t.v->lowerBound);
     if (t.v->encoding == Encoding::LOG) {
-      assert(!t.v->getEncodingVars().empty());
+      assert(!t.v->encodingVars.empty());
       bigint base = 1;
-      for (const Var v : t.v->getEncodingVars()) {
+      for (const Var v : t.v->encodingVars) {
         input->addLhs(base * t.c, v);
         base *= 2;
       }
     } else if (t.v->encoding == Encoding::ORDER) {
-      assert(t.v->getRange() == 0 || !t.v->getEncodingVars().empty());
-      for (const Var v : t.v->getEncodingVars()) {
+      assert(t.v->getRange() == 0 || !t.v->encodingVars.empty());
+      for (const Var v : t.v->encodingVars) {
         input->addLhs(t.c, v);
       }
     } else {
       assert(t.v->encoding == Encoding::ONEHOT);
-      assert(!t.v->getEncodingVars().empty());
+      assert(!t.v->encodingVars.empty());
       int ith = 0;
-      for (const Var v : t.v->getEncodingVars()) {
+      for (const Var v : t.v->encodingVars) {
         input->addLhs(ith * t.c, v);
         ++ith;
       }
