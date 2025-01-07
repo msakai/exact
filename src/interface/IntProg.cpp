@@ -455,7 +455,7 @@ void IntProg::addMultiplication(const std::vector<IntVar*>& factors, IntVar* low
     terms_new.reserve(terms.size());
     for (const std::pair<bigint, VarVec>& t : terms) {
       if (f->lowerBound != 0) terms_new.emplace_back(f->lowerBound * t.first, t.second);
-      if (f->getRange() == 0) continue;
+      if (f->isConstant()) continue;
       if (f->encoding == Encoding::LOG) {
         bigint base = 1;
         for (Var v : f->encodingVars) {

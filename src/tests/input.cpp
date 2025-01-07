@@ -94,6 +94,30 @@ TEST_CASE("multiplication edge cases") {
   CHECK_EQ(propres.val, std::vector<std::pair<bigint, bigint>>{{-2, 2}, {-10, 1}, {1, 10}, {-10, 2}, {-2, 10}});
 }
 
+TEST_CASE("constant vars") {
+  Options opts;
+  IntProg intprog(opts);
+
+  IntVar* a = intprog.addVar("a", 0, 3, Encoding::LOG);
+  IntVar* b = intprog.addVar("b", 2, 2, Encoding::LOG);
+  IntVar* c = intprog.addVar("c", 0, 0, Encoding::LOG);
+  IntVar* d = intprog.addVar("d", 0, 1, Encoding::LOG);
+  IntVar* e = intprog.addVar("e", -10, 10, Encoding::LOG);
+
+  intprog.addMultiplication({b, d}, a, a);
+
+  auto propres = intprog.propagate({a, b, c, d, e}, true);
+  CHECK_EQ(propres.state, SolveState::SAT);
+  CHECK_EQ(propres.val, std::vector<std::pair<bigint, bigint>>{{0, 2}, {2, 2}, {0, 0}, {0, 1}, {-10, 10}});
+
+  intprog.addMultiplication({b, c, d, e}, a, a);
+
+  auto propres2 = intprog.propagate({a, b, c, d, e}, true);
+  CHECK_EQ(propres2.state, SolveState::SAT);
+  CHECK_EQ(propres2.val, std::vector<std::pair<bigint, bigint>>{{0, 0}, {2, 2}, {0, 0}, {0, 0}, {-10, 10}});
+  // NOTE: d must be 0 because the first constraint says a=b*d and a=0 because of the second constraint
+}
+
 TEST_CASE("implication constraints for reification") {
   Options opts;
   IntProg intprog(opts);

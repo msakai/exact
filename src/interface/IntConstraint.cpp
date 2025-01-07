@@ -70,6 +70,7 @@ IntVar::IntVar(const std::string& n, const bigint& lb, const bigint& ub, Encodin
 
 bigint IntVar::getRange() const { return upperBound - lowerBound; }  // TODO: Boolean range is 1?
 bool IntVar::isBoolean() const { return lowerBound == 0 && upperBound == 1; }
+bool IntVar::isConstant() const { return lowerBound == upperBound; }
 
 bigint IntVar::getValue(const LitVec& sol) const {
   bigint val = lowerBound;
@@ -184,7 +185,7 @@ void IntConstraint::toConstrExp(CeArb& input, bool useLowerBound) const {
         base *= 2;
       }
     } else if (t.v->encoding == Encoding::ORDER) {
-      assert(t.v->getRange() == 0 || !t.v->encodingVars.empty());
+      assert(t.v->isConstant() || !t.v->encodingVars.empty());
       for (const Var v : t.v->encodingVars) {
         input->addLhs(t.c, v);
       }

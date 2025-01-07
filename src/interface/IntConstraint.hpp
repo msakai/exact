@@ -52,6 +52,7 @@ struct IntVar {
 
   [[nodiscard]] bigint getRange() const;
   [[nodiscard]] bool isBoolean() const;
+  [[nodiscard]] bool isConstant() const;
 
   [[nodiscard]] bigint getValue(const LitVec& sol) const;
 
@@ -101,7 +102,9 @@ struct IntConstraint {
 
   [[nodiscard]] bigint getRange() const;
   [[nodiscard]] int64_t size() const;
+
   void invert();
+  void normalize();
 
   void toConstrExp(CeArb&, bool useLowerBound) const;
 
