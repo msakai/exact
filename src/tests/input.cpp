@@ -136,38 +136,46 @@ TEST_CASE("implication constraints for reification") {
   const Solver& solver = intprog.getSolver();
 
   // p <=> f >= 2
-  intprog.addReification(p, true, IntConstraint{{{1, f}}, 2, std::nullopt});
+  IntConstraint ic1 = IntConstraint{{{1, f}}, 2, std::nullopt};
+  intprog.addReification(p, true, ic1);
   CHECK_EQ(solver.getNbConstraints(), 2);  // adds no implications
   // q <=> f >= 6
-  intprog.addReification(q, true, IntConstraint{{{1, f}}, 6, std::nullopt});
+  IntConstraint ic2 = IntConstraint{{{1, f}}, 6, std::nullopt};
+  intprog.addReification(q, true, ic2);
   CHECK_EQ(solver.getNbConstraints(), 5);  // adds q => p
 
   // ~r => 2f =< 1
   // r <= f >= 1
-  intprog.addRightReification(r, false, IntConstraint{{{2, f}}, std::nullopt, 1});
+  IntConstraint ic3 = IntConstraint{{{2, f}}, std::nullopt, 1};
+  intprog.addRightReification(r, false, ic3);
   CHECK_EQ(solver.getNbConstraints(), 7);  // adds p => r
   // ~s <= -2f >= -9
   // s => f >= 5
-  intprog.addLeftReification(s, false, IntConstraint{{{-2, f}}, -9, std::nullopt});
+  IntConstraint ic4 = IntConstraint{{{-2, f}}, -9, std::nullopt};
+  intprog.addLeftReification(s, false, ic4);
   CHECK_EQ(solver.getNbConstraints(), 10);  // adds s => p and s => r
 
   // ~rr => 2g <= 9
   // rr <= g >= 5
-  intprog.addRightReification(rr, false, IntConstraint{{{2, g}}, std::nullopt, 9});
+  IntConstraint ic5 = IntConstraint{{{2, g}}, std::nullopt, 9};
+  intprog.addRightReification(rr, false, ic5);
   CHECK_EQ(solver.getNbConstraints(), 11);  // adds no implications
   // ~ss <= -2g >= -9
   // ss => g >= 5
-  intprog.addLeftReification(ss, false, IntConstraint{{{-2, g}}, -9, std::nullopt});
+  IntConstraint ic6 = IntConstraint{{{-2, g}}, -9, std::nullopt};
+  intprog.addLeftReification(ss, false, ic6);
   CHECK_EQ(solver.getNbConstraints(), 13);  // adds ss => rr
 
   // t <=> f <= 3
   // ~t <=> f >= 4
-  intprog.addReification(t, true, IntConstraint{{{1, f}}, std::nullopt, 3});
+  IntConstraint ic7 = IntConstraint{{{1, f}}, std::nullopt, 3};
+  intprog.addReification(t, true, ic7);
   CHECK_EQ(solver.getNbConstraints(), 19);  // adds ~t => p and q => ~t and s => ~t and ~t => r
 
   // u => 5f =< 25
   // ~u <= f >= 6
-  intprog.addRightReification(u, true, IntConstraint{{{5, f}}, std::nullopt, 25});
+  IntConstraint ic8 = IntConstraint{{{5, f}}, std::nullopt, 25};
+  intprog.addRightReification(u, true, ic8);
   CHECK_EQ(solver.getNbConstraints(), 21);  // adds q => ~u
 
   std::stringstream strs;
@@ -193,8 +201,31 @@ TEST_CASE("implication constraints for reification") {
     }
     CHECK(constraints.find(t) != std::string::npos);
   }
+}
 
-  // TODO: guarantee that full reifications always imply eachother (half implications can break the chain now)
+TEST_CASE("normalize constraints") {
+  Options opts;
+  IntProg intprog(opts);
+
+  IntVar* f = intprog.addVar("f", 0, 7);
+  IntVar* g = intprog.addVar("g", 0, 7);
+  IntVar* h = intprog.addVar("h", 3, 3);
+  IntVar* i = intprog.addVar("i", -4, -4);
+  IntVar* r = intprog.addVar("r");
+
+  // 10 >= 4i + 1f + 3h + 4r - 2g - 3f >= -5
+  IntConstraint ic{{{4, i}, {1, f}, {-2, g}, {3, h}, {4, r}, {-3, f}}, -5, 10};
+  ic.normalize();
+  // normalized to
+  // 10 >= -2f - 7 + 4r - 2g >= -5
+  // 17 >= -2f + 4r - 2g >= 2
+  // 8 >= -f + 2r - g >= 1
+  // -1 >= f - 2r + g >= -8
+  IntConstraint normalized{{{1, f}, {1, g}, {-2, r}}, -8, -1};
+
+  CHECK(ic == normalized);
+  ic.normalize();
+  CHECK(ic == normalized);  // normalization is idempotent
 }
 
 TEST_SUITE_END();

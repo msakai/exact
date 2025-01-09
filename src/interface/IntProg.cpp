@@ -324,21 +324,33 @@ void IntProg::addConstraint(const IntConstraint& ic) {
 }
 
 // head <=> rhs -- head iff rhs
-void IntProg::addReification(IntVar* head, bool sign, const IntConstraint& ic) {
-  addLeftReification(head, sign, ic);
+void IntProg::addReification(IntVar* head, bool sign, IntConstraint& ic) {
+  IntConstraint ic2 = ic;  // copy because ic can be changed after adding
+  addLeftReification(head, sign, ic2);
   addRightReification(head, sign, ic);
 }
 
 // head => rhs -- head implies rhs
-void IntProg::addRightReification(IntVar* head, bool sign, const IntConstraint& ic) {
+void IntProg::addRightReification(IntVar* head, bool sign, IntConstraint& ic) {
   if (ic.size() >= 1e9) throw InvalidArgument("Reification has more than 1e9 terms.");
   if (!head->isBoolean()) throw InvalidArgument("Head of reification is not Boolean.");
 
   ++nConstrs;
   if (keepInput) reifications.push_back({head, sign, false, ic});
 
+  ic.normalize();
+
   Var h = head->encodingVars[0];
   Lit l = sign ? h : -h;
+
+  if (ic.size() == 0) {
+    if ((ic.lowerBound && ic.lowerBound.value() > 0) || (ic.upperBound && ic.upperBound.value() < 0)) {
+      solver.addUnitConstraint(-l, Origin::FORMULA);
+    }
+    return;
+  }
+  assert(ic.lhs[0].c > 0);
+
   if (ic.size() == 1) {
     IntVar* head = ic.lhs[0].v;
     if (head->getRange() > 0) {
@@ -348,18 +360,6 @@ void IntProg::addRightReification(IntVar* head, bool sign, const IntConstraint& 
         }
         if (ic.upperBound.has_value()) {
           addImplsLeftReif(-l, head, aux::floordiv_safe(ic.upperBound.value(), ic.lhs[0].c) + 1);
-        }
-      }
-      if (ic.lhs[0].c < 0) {
-        if (ic.lowerBound.has_value()) {
-          addImplsLeftReif(
-              -l, head,
-              aux::floordiv_safe(-static_cast<bigint>(ic.lowerBound.value()), static_cast<bigint>(-ic.lhs[0].c)) + 1);
-        }
-        if (ic.upperBound.has_value()) {
-          addImplsRightReif(
-              l, head,
-              aux::ceildiv_safe(-static_cast<bigint>(ic.upperBound.value()), static_cast<bigint>(-ic.lhs[0].c)));
         }
       }
     }
@@ -378,15 +378,25 @@ void IntProg::addRightReification(IntVar* head, bool sign, const IntConstraint& 
 }
 
 // head <= rhs -- rhs implies head
-void IntProg::addLeftReification(IntVar* head, bool sign, const IntConstraint& ic) {
+void IntProg::addLeftReification(IntVar* head, bool sign, IntConstraint& ic) {
   if (ic.size() >= 1e9) throw InvalidArgument("Reification has more than 1e9 terms.");
   if (!head->isBoolean()) throw InvalidArgument("Head of reification is not Boolean.");
 
   ++nConstrs;
   if (keepInput) reifications.push_back({head, sign, true, ic});
 
+  ic.normalize();
+
   Var h = head->encodingVars[0];
   Lit l = sign ? h : -h;
+  if (ic.size() == 0) {
+    if ((!ic.lowerBound || ic.lowerBound.value() <= 0) && (!ic.upperBound || ic.upperBound.value() >= 0)) {
+      solver.addUnitConstraint(l, Origin::FORMULA);
+    }
+    return;
+  }
+  assert(ic.lhs[0].c > 0);
+
   if (ic.size() == 1) {
     IntVar* head = ic.lhs[0].v;
     if (head->getRange() > 0) {
@@ -396,18 +406,6 @@ void IntProg::addLeftReification(IntVar* head, bool sign, const IntConstraint& i
         }
         if (ic.upperBound.has_value()) {
           addImplsRightReif(-l, head, aux::floordiv_safe(ic.upperBound.value(), ic.lhs[0].c) + 1);
-        }
-      }
-      if (ic.lhs[0].c < 0) {
-        if (ic.lowerBound.has_value()) {
-          addImplsRightReif(
-              -l, head,
-              aux::floordiv_safe(-static_cast<bigint>(ic.lowerBound.value()), static_cast<bigint>(-ic.lhs[0].c)) + 1);
-        }
-        if (ic.upperBound.has_value()) {
-          addImplsLeftReif(
-              l, head,
-              aux::ceildiv_safe(-static_cast<bigint>(ic.upperBound.value()), static_cast<bigint>(-ic.lhs[0].c)));
         }
       }
     }
