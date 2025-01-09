@@ -169,7 +169,48 @@ void IntConstraint::normalize() {
   bigint offset = 0;
   for (IntTerm& it : lhs) {
     if (it.v->isConstant()) {
+      offset += it.c * it.v->lowerBound;
+      it.c = 0;
     }
+  }
+  if (lowerBound) {
+    lowerBound = lowerBound.value() - offset;
+  }
+  if (upperBound) {
+    upperBound = upperBound.value() - offset;
+  }
+  std::ranges::sort(lhs, [](const IntTerm& x, const IntTerm& y) { return x.v->id < y.v->id; });
+  for (uint32_t i = 0; i < std::ssize(lhs) - 1; ++i) {
+    if (lhs[i].v == lhs[i + 1].v) {
+      // remove duplicates
+      lhs[i + 1].c += lhs[i].c;
+      lhs[i].c = 0;
+    }
+  }
+  std::erase_if(lhs, [](const IntTerm& x) { return x.c == 0; });
+  if (lhs.size() == 0) return;
+  if (lhs[0].c < 0) {
+    invert();
+    std::swap(lowerBound, upperBound);
+  }
+  bigint gcd = aux::abs(lhs[0].c);
+  for (const IntTerm& it : lhs) {
+    gcd = std::min(gcd, aux::abs(it.c));
+  }
+  for (const IntTerm& it : lhs) {
+    if (gcd == 1) return;
+    gcd = aux::gcd(gcd, aux::abs(it.c));
+  }
+  if (gcd == 1) return;
+  assert(gcd > 1);
+  for (IntTerm& it : lhs) {
+    it.c /= gcd;
+  }
+  if (lowerBound) {
+    lowerBound = aux::ceildiv_safe(lowerBound.value(), gcd);
+  }
+  if (upperBound) {
+    upperBound = aux::floordiv_safe(upperBound.value(), gcd);
   }
 }
 

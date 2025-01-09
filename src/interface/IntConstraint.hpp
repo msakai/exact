@@ -71,6 +71,7 @@ struct IntTerm {
   IntTerm& operator=(IntTerm&&) = default;
   IntTerm(const IntTerm&) = default;
   IntTerm& operator=(const IntTerm&) = default;
+  bool operator==(const IntTerm&) const = default;
 };
 std::ostream& operator<<(std::ostream& o, const IntTerm& x);
 using IntTermVec = std::vector<IntTerm>;
@@ -97,6 +98,8 @@ struct IntConstraint {
   IntTermVec lhs = {};
   std::optional<bigint> lowerBound = 0;
   std::optional<bigint> upperBound = std::nullopt;
+
+  bool operator==(const IntConstraint&) const = default;
 
   static IntTermVec zip(const std::vector<bigint>& coefs, const std::vector<IntVar*>& vars);
 
