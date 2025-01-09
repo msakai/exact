@@ -165,6 +165,14 @@ void IntConstraint::invert() {
   for (IntTerm& it : lhs) it.c = -it.c;
 }
 
+void IntConstraint::normalize() {
+  bigint offset = 0;
+  for (IntTerm& it : lhs) {
+    if (it.v->isConstant()) {
+    }
+  }
+}
+
 void IntConstraint::toConstrExp(CeArb& input, bool useLowerBound) const {
   input->orig = Origin::FORMULA;
   if (useLowerBound) {
