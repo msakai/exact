@@ -101,6 +101,11 @@ class IntProg {
   Var fixObjective(const IntConstraint& ico, const bigint& opt);
   void addSingleAssumption(IntVar* iv, const bigint& val);
 
+  void addImplsRightReif(Lit head, IntVar* lhs, const bigint& lb);
+  void addImplsLeftReif(Lit head, IntVar* lhs, const bigint& lb);
+  void addRightImplication(Lit head, const IntConstraint& ic);  // head => terms >= lb
+  void addLeftImplication(Lit head, const IntConstraint& ic);   // head <= terms >= lb
+
  public:
   explicit IntProg(const Options& opts, bool keepIn = false);
 
@@ -135,9 +140,6 @@ class IntProg {
   void addLeftReification(IntVar* head, bool sign, IntConstraint& ic);   // NOTE: may modify ic
   void addMultiplication(const std::vector<IntVar*>& factors, IntVar* lower_bound = nullptr,
                          IntVar* upper_bound = nullptr);
-
-  void addImplsRightReif(Lit head, IntVar* lhs, const bigint& lb);
-  void addImplsLeftReif(Lit head, IntVar* lhs, const bigint& lb);
 
   void fix(IntVar* iv, const bigint& val);
   void invalidateLastSol();

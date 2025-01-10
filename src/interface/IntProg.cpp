@@ -33,7 +33,6 @@ See the file LICENSE or run with the flag --license=MIT.
 #include "Optimization.hpp"
 
 namespace xct {
-
 void log2assumptions(const VarVec& encoding, const bigint& value, const bigint& lowerbound, IntSet& assumptions) {
   bigint val = value - lowerbound;
   assert(val >= 0);
@@ -325,9 +324,28 @@ void IntProg::addConstraint(const IntConstraint& ic) {
 
 // head <=> rhs -- head iff rhs
 void IntProg::addReification(IntVar* head, bool sign, IntConstraint& ic) {
-  IntConstraint ic2 = ic;  // copy because ic can be changed after adding
-  addLeftReification(head, sign, ic2);
-  addRightReification(head, sign, ic);
+  if (ic.size() >= 1e9) throw InvalidArgument("Reification has more than 1e9 terms.");
+  if (!head->isBoolean()) throw InvalidArgument("Head of reification is not Boolean.");
+
+  ++nConstrs;
+  if (keepInput) {
+    reifications.push_back({head, sign, false, ic});
+    reifications.push_back({head, sign, true, ic});
+    // TODO: merge these as one equivalence
+  }
+
+  ic.normalize();
+  Lit l = sign ? head->encodingVars[0] : -head->encodingVars[0];
+
+  if (ic.lowerBound.has_value()) {
+    addRightImplication(l, ic);
+    addLeftImplication(l, ic);
+  }
+  if (ic.upperBound.has_value()) {
+    ic.lowerBound = ic.upperBound.value() + 1;
+    addRightImplication(-l, ic);
+    addLeftImplication(-l, ic);
+  }
 }
 
 // head => rhs -- head implies rhs
@@ -339,41 +357,12 @@ void IntProg::addRightReification(IntVar* head, bool sign, IntConstraint& ic) {
   if (keepInput) reifications.push_back({head, sign, false, ic});
 
   ic.normalize();
+  Lit l = sign ? head->encodingVars[0] : -head->encodingVars[0];
 
-  Var h = head->encodingVars[0];
-  Lit l = sign ? h : -h;
-
-  if (ic.size() == 0) {
-    if ((ic.lowerBound && ic.lowerBound.value() > 0) || (ic.upperBound && ic.upperBound.value() < 0)) {
-      solver.addUnitConstraint(-l, Origin::FORMULA);
-    }
-    return;
-  }
-  assert(ic.lhs[0].c > 0);
-
-  if (ic.size() == 1) {
-    IntVar* head = ic.lhs[0].v;
-    if (head->getRange() > 0) {
-      if (ic.lhs[0].c > 0) {
-        if (ic.lowerBound.has_value()) {
-          addImplsRightReif(l, head, aux::ceildiv_safe(ic.lowerBound.value(), ic.lhs[0].c));
-        }
-        if (ic.upperBound.has_value()) {
-          addImplsLeftReif(-l, head, aux::floordiv_safe(ic.upperBound.value(), ic.lhs[0].c) + 1);
-        }
-      }
-    }
-  }
-
-  bool run[2] = {ic.upperBound.has_value(), ic.lowerBound.has_value()};
-  for (int i = 0; i < 2; ++i) {
-    if (!run[i]) continue;
-    CeArb leq = global.cePools.takeArb();
-    ic.toConstrExp(leq, i);
-    leq->postProcess(solver.getLevel(), solver.getPos(), solver.getHeuristic(), true, global.stats);
-
-    leq->addLhs(leq->degree, -l);
-    solver.addConstraint(leq);
+  if (ic.lowerBound.has_value()) addRightImplication(l, ic);
+  if (ic.upperBound.has_value()) {
+    ic.lowerBound = ic.upperBound.value() + 1;
+    addLeftImplication(-l, ic);
   }
 }
 
@@ -386,42 +375,12 @@ void IntProg::addLeftReification(IntVar* head, bool sign, IntConstraint& ic) {
   if (keepInput) reifications.push_back({head, sign, true, ic});
 
   ic.normalize();
+  Lit l = sign ? head->encodingVars[0] : -head->encodingVars[0];
 
-  Var h = head->encodingVars[0];
-  Lit l = sign ? h : -h;
-  if (ic.size() == 0) {
-    if ((!ic.lowerBound || ic.lowerBound.value() <= 0) && (!ic.upperBound || ic.upperBound.value() >= 0)) {
-      solver.addUnitConstraint(l, Origin::FORMULA);
-    }
-    return;
-  }
-  assert(ic.lhs[0].c > 0);
-
-  if (ic.size() == 1) {
-    IntVar* head = ic.lhs[0].v;
-    if (head->getRange() > 0) {
-      if (ic.lhs[0].c > 0) {
-        if (ic.lowerBound.has_value()) {
-          addImplsLeftReif(l, head, aux::ceildiv_safe(ic.lowerBound.value(), ic.lhs[0].c));
-        }
-        if (ic.upperBound.has_value()) {
-          addImplsRightReif(-l, head, aux::floordiv_safe(ic.upperBound.value(), ic.lhs[0].c) + 1);
-        }
-      }
-    }
-  }
-
-  bool run[2] = {ic.upperBound.has_value(), ic.lowerBound.has_value()};
-  for (int i = 0; i < 2; ++i) {
-    if (!run[i]) continue;
-    CeArb geq = global.cePools.takeArb();
-    ic.toConstrExp(geq, i);
-    geq->postProcess(solver.getLevel(), solver.getPos(), solver.getHeuristic(), true, global.stats);
-
-    geq->addRhs(-1);
-    geq->invert();
-    geq->addLhs(geq->degree, l);
-    solver.addConstraint(geq);
+  if (ic.lowerBound.has_value()) addLeftImplication(l, ic);
+  if (ic.upperBound.has_value()) {
+    ic.lowerBound = ic.upperBound.value() + 1;
+    addRightImplication(-l, ic);
   }
 }
 
@@ -612,6 +571,57 @@ void IntProg::addImplsLeftReif(Lit head, IntVar* lhs, const bigint& lb) {
 
   add_implied_binary_lower(reifs, head, lhs, lb, solver);
   add_implied_binary_lower(right_reifs, head, lhs, lb, solver);
+}
+
+// head => terms >= lb
+void IntProg::addRightImplication(Lit head, const IntConstraint& ic) {
+  // should already be normalized
+  assert(!ic.lhs.empty());
+  assert(ic.lhs[0].c > 0);
+  assert(ic.lowerBound);
+  const IntTermVec& terms = ic.lhs;
+  const bigint& lb = ic.lowerBound.value();
+
+  if (terms.size() == 0) {
+    if (lb > 0) solver.addUnitConstraint(-head, Origin::FORMULA);
+    return;
+  }
+  if (terms.size() == 1) {
+    addImplsRightReif(head, terms[0].v, lb);
+  }
+
+  CeArb carb = global.cePools.takeArb();
+  ic.toConstrExp(carb, true);
+  carb->postProcess(solver.getLevel(), solver.getPos(), solver.getHeuristic(), true, global.stats);
+
+  carb->addLhs(carb->degree, -head);
+  solver.addConstraint(carb);
+}
+// head <= terms >= lb
+void IntProg::addLeftImplication(Lit head, const IntConstraint& ic) {
+  // should already be normalized
+  assert(!ic.lhs.empty());
+  assert(ic.lhs[0].c > 0);
+  assert(ic.lowerBound);
+  const IntTermVec& terms = ic.lhs;
+  const bigint& lb = ic.lowerBound.value();
+
+  if (terms.size() == 0) {
+    if (lb <= 0) solver.addUnitConstraint(head, Origin::FORMULA);
+    return;
+  }
+  if (terms.size() == 1) {
+    addImplsLeftReif(head, terms[0].v, lb);
+  }
+
+  CeArb carb = global.cePools.takeArb();
+  ic.toConstrExp(carb, true);
+  carb->postProcess(solver.getLevel(), solver.getPos(), solver.getHeuristic(), true, global.stats);
+
+  carb->addRhs(-1);
+  carb->invert();
+  carb->addLhs(carb->degree, head);
+  solver.addConstraint(carb);
 }
 
 void IntProg::fix(IntVar* iv, const bigint& val) { addConstraint(IntConstraint{{{1, iv}}, val, val}); }
