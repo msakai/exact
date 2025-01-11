@@ -94,6 +94,11 @@ using IntTermVec = std::vector<IntTerm>;
 
 namespace xct {
 
+constexpr char CHAR_PLUS = static_cast<char>(255);
+constexpr char CHAR_MINUS = static_cast<char>(254);
+constexpr char CHAR_ONE = static_cast<char>(253);
+constexpr char CHAR_MIN_ONE = static_cast<char>(252);
+
 struct IntConstraint {
   IntTermVec lhs = {};
   std::optional<bigint> lowerBound = 0;
@@ -110,6 +115,8 @@ struct IntConstraint {
   void normalize();
 
   void toConstrExp(CeArb&, bool useLowerBound) const;
+  std::string encode() const;
+  void decode(const std::string& code, const std::vector<IntVar*>& ivs);
 
   void lhs2str(std::ostream& o) const;
 };

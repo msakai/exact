@@ -228,4 +228,49 @@ TEST_CASE("normalize constraints") {
   CHECK(ic == normalized);  // normalization is idempotent
 }
 
+TEST_CASE("encode constraints") {
+  Options opts;
+  IntProg intprog(opts);
+
+  IntVar* f = intprog.addVar("f", 0, 7);
+  IntVar* g = intprog.addVar("g", 0, 7);
+  IntVar* h = intprog.addVar("h", 3, 3);
+  IntVar* i = intprog.addVar("i", -4, -4);
+  IntVar* r = intprog.addVar("r");
+  IntVar* s = intprog.addVar("s");
+  IntVar* t = intprog.addVar("t");
+
+  // 10 >= 4i + 1f + 3h + 4r - 2g - 3f >= -5
+  IntConstraint ic{{{4, i}, {1, f}, {-2, g}, {3, h}, {4, r}, {-3, f}}, -5, 10};
+  std::string encoding = ic.encode();
+  IntConstraint ic2;
+  ic2.decode(encoding, intprog.getVariables());
+  CHECK_EQ(ic, ic2);
+
+  ic.normalize();
+  encoding = ic.encode();
+  IntConstraint ic3;
+  ic3.decode(encoding, intprog.getVariables());
+  CHECK_EQ(ic, ic3);
+
+  IntConstraint ic4;
+  IntConstraint ic5;
+  encoding = ic4.encode();
+  ic5.decode(encoding, intprog.getVariables());
+  CHECK_EQ(ic4, ic5);
+
+  // r + ~s + t >= 1
+  IntConstraint ic6{{{1, r}, {-1, s}, {1, t}}, 0};
+  encoding = ic6.encode();
+  IntConstraint ic7;
+  ic7.decode(encoding, intprog.getVariables());
+  CHECK_EQ(ic6, ic7);
+
+  ic6.invert();
+  encoding = ic6.encode();
+  IntConstraint ic8;
+  ic8.decode(encoding, intprog.getVariables());
+  CHECK_EQ(ic6, ic8);
+}
+
 TEST_SUITE_END();

@@ -31,7 +31,6 @@ See the file LICENSE or run with the flag --license=MIT.
 #include "IntConstraint.hpp"
 
 namespace xct {
-
 Encoding opt2enc(const std::string& opt) {
   assert(opt == "order" || opt == "log" || opt == "onehot");
   return opt == "order" ? Encoding::ORDER : opt == ("log") ? Encoding::LOG : Encoding::ONEHOT;
@@ -249,6 +248,93 @@ void IntConstraint::toConstrExp(CeArb& input, bool useLowerBound) const {
     }
   }
   if (!useLowerBound) input->invert();
+}
+
+template <typename T>
+void encode_num(const T& num, std::string& result) {
+  T val = aux::abs(num);
+  while (val > 0) {
+    result.push_back(static_cast<char>(val % 252));
+    val /= 252;
+  }
+}
+
+std::string IntConstraint::encode() const {
+  std::string result;
+  if (lowerBound) {
+    result.push_back(lowerBound.value() >= 0 ? CHAR_PLUS : CHAR_MINUS);
+    encode_num(lowerBound.value(), result);
+  } else {
+    result.push_back(CHAR_MIN_ONE);
+  }
+  assert(result[0] == CHAR_PLUS || result[0] == CHAR_MIN_ONE || result[0] == CHAR_MINUS);
+  if (upperBound) {
+    result.push_back(upperBound.value() >= 0 ? CHAR_PLUS : CHAR_MINUS);
+    encode_num(upperBound.value(), result);
+  } else {
+    result.push_back(CHAR_MIN_ONE);
+  }
+  for (const IntTerm& it : lhs) {
+    if (it.c == 1) {
+      result.push_back(CHAR_ONE);
+      encode_num(it.v->id, result);
+      continue;
+    }
+    if (it.c == -1) {
+      result.push_back(CHAR_MIN_ONE);
+      encode_num(it.v->id, result);
+      continue;
+    }
+    result.push_back(CHAR_PLUS);
+    encode_num(it.v->id, result);
+    result.push_back(it.c >= 0 ? CHAR_PLUS : CHAR_MINUS);
+    encode_num(it.c, result);
+  }
+  return result;
+}
+
+template <typename T>
+T decode_num(const std::string& code, size_t& i, bool positive) {
+  ++i;
+  T result = 0;
+  T basis = 1;
+  while (i < code.size() && static_cast<uint8_t>(code[i]) < 252) {
+    result += basis * static_cast<uint8_t>(code[i]);
+    basis *= 252;
+    ++i;
+  }
+  return positive ? result : -result;
+}
+
+void IntConstraint::decode(const std::string& code, const std::vector<IntVar*>& ivs) {
+  size_t i = 0;
+  assert(i < code.size());
+  if (code[i] != CHAR_MIN_ONE) {
+    assert(code[i] == CHAR_PLUS || code[i] == CHAR_MINUS);
+    lowerBound = decode_num<bigint>(code, i, code[i] == CHAR_PLUS);
+  } else {
+    ++i;
+  }
+  assert(i < code.size());
+  if (code[i] != CHAR_MIN_ONE) {
+    assert(code[i] == CHAR_PLUS || code[i] == CHAR_MINUS);
+    upperBound = decode_num<bigint>(code, i, code[i] == CHAR_PLUS);
+  } else {
+    ++i;
+  }
+  while (i < code.size()) {
+    const char& signal = code[i];
+    IntVar* iv = ivs[decode_num<int64_t>(code, i, true)];
+    if (signal == CHAR_ONE) {
+      lhs.push_back({1, iv});
+    } else if (signal == CHAR_MIN_ONE) {
+      lhs.push_back({-1, iv});
+    } else {
+      assert(signal == CHAR_PLUS);
+      assert(code[i] == CHAR_PLUS || code[i] == CHAR_MINUS);
+      lhs.push_back({decode_num<bigint>(code, i, code[i] == CHAR_PLUS), iv});
+    }
+  }
 }
 
 }  // namespace xct

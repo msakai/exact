@@ -74,7 +74,7 @@ class IntProg {
   Solver solver;
   Optim optim;
 
-  std::vector<std::unique_ptr<IntVar>> vars;
+  std::vector<IntVar*> vars;  // Owning pointers, get deleted in ~IntProg.
   IntConstraint obj;  // NOTE: we could erase this, but then we would not store the untransformed input objective
   bool minimize = true;
   unordered_map<std::string, IntVar*> name2var;
@@ -108,6 +108,7 @@ class IntProg {
 
  public:
   explicit IntProg(const Options& opts, bool keepIn = false);
+  ~IntProg();
 
   const Solver& getSolver() const;
   Solver& getSolver();
@@ -118,7 +119,7 @@ class IntProg {
   IntVar* addVar(const std::string& name, const bigint& lowerbound = 0, const bigint& upperbound = 1,
                  Encoding encoding = Encoding::LOG, bool nameAsId = false);
   IntVar* getVarFor(const std::string& name) const;  // returns nullptr if it does not exist
-  std::vector<IntVar*> getVariables() const;
+  const std::vector<IntVar*>& getVariables() const;
 
   void setObjective(const IntTermVec& terms, bool min = true, const bigint& offset = 0);
   IntConstraint& getObjective();

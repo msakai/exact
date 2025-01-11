@@ -52,6 +52,11 @@ IntProg::IntProg(const Options& opts, bool keepIn)
   global.logger.activate(global.options.proofLog.get(), (bool)global.options.proofZip);
   setObjective({}, true, {});
 }
+IntProg::~IntProg() {
+  for (IntVar* iv : vars) {
+    delete iv;
+  }
+}
 
 const Solver& IntProg::getSolver() const { return solver; }
 Solver& IntProg::getSolver() { return solver; }
@@ -124,9 +129,9 @@ IntVar* IntProg::addVar(const std::string& name, const bigint& lowerbound, const
     }
   }
 
-  vars.push_back(std::make_unique<IntVar>(name, lowerbound, upperbound, encoding, encodingVars, vars.size()));
+  vars.push_back(new IntVar(name, lowerbound, upperbound, encoding, encodingVars, vars.size()));
 
-  IntVar* iv = vars.back().get();
+  IntVar* iv = vars.back();
   name2var.insert({name, iv});
   for (Var v : iv->encodingVars) {
     var2var.insert({v, iv});
@@ -139,9 +144,7 @@ IntVar* IntProg::getVarFor(const std::string& name) const {
   return nullptr;
 }
 
-std::vector<IntVar*> IntProg::getVariables() const {
-  return aux::comprehension(name2var, [](auto pair) { return pair.second; });
-}
+const std::vector<IntVar*>& IntProg::getVariables() const { return vars; }
 
 void IntProg::setObjective(const IntTermVec& terms, bool min, const bigint& offset) {
   // TODO: pass IntConstraint instead of terms?
@@ -789,7 +792,7 @@ Core IntProg::getLastCore() {
 
 void IntProg::printOrigSol() const {
   if (!solver.foundSolution()) throw InvalidArgument("No solution to return.");
-  for (const std::unique_ptr<IntVar>& iv : vars) {
+  for (const IntVar* iv : vars) {
     bigint val = iv->getValue(solver.getLastSolution());
     if (val != 0) {
       std::cout << iv->name << " " << val << "\n";
