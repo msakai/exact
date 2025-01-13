@@ -65,6 +65,8 @@ struct ReifInfo {
   IntConstraint body;
 };
 
+using ReifMap = unordered_map<std::string, std::multimap<bigint, Lit>>;
+
 class IntProg {
  public:
   Global global;
@@ -91,9 +93,9 @@ class IntProg {
   std::vector<IntConstraint> constraints;
   std::vector<ReifInfo> reifications;
   // value Lit implies lower bound or upper bound on key
-  unordered_map<IntVar*, std::multimap<bigint, Lit>> reifs;
-  unordered_map<IntVar*, std::multimap<bigint, Lit>> right_reifs;
-  unordered_map<IntVar*, std::multimap<bigint, Lit>> left_reifs;
+  ReifMap reifs;
+  ReifMap right_reifs;
+  ReifMap left_reifs;
 
   std::vector<std::vector<IntVar*>> multiplications;  // last two are bounds
 
@@ -101,8 +103,8 @@ class IntProg {
   Var fixObjective(const IntConstraint& ico, const bigint& opt);
   void addSingleAssumption(IntVar* iv, const bigint& val);
 
-  void addImplsRightReif(Lit head, IntVar* lhs, const bigint& lb);
-  void addImplsLeftReif(Lit head, IntVar* lhs, const bigint& lb);
+  void addImplsRightReif(Lit head, const IntConstraint& ic);
+  void addImplsLeftReif(Lit head, const IntConstraint& ic);
   void addRightImplication(Lit head, const IntConstraint& ic);  // head => terms >= lb
   void addLeftImplication(Lit head, const IntConstraint& ic);   // head <= terms >= lb
 

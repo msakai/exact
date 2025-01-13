@@ -99,6 +99,9 @@ constexpr char CHAR_MINUS = static_cast<char>(254);
 constexpr char CHAR_ONE = static_cast<char>(253);
 constexpr char CHAR_MIN_ONE = static_cast<char>(252);
 
+void encode_itv(const IntTermVec& itv, std::string& out);
+void decode_itv(const std::string& code, const std::vector<IntVar*>& ivs, size_t start, IntTermVec& out);
+
 struct IntConstraint {
   IntTermVec lhs = {};
   std::optional<bigint> lowerBound = 0;

@@ -259,6 +259,25 @@ void encode_num(const T& num, std::string& result) {
   }
 }
 
+void encode_itv(const IntTermVec& itv, std::string& out) {
+  for (const IntTerm& it : itv) {
+    if (it.c == 1) {
+      out.push_back(CHAR_ONE);
+      encode_num(it.v->id, out);
+      continue;
+    }
+    if (it.c == -1) {
+      out.push_back(CHAR_MIN_ONE);
+      encode_num(it.v->id, out);
+      continue;
+    }
+    out.push_back(CHAR_PLUS);
+    encode_num(it.v->id, out);
+    out.push_back(it.c >= 0 ? CHAR_PLUS : CHAR_MINUS);
+    encode_num(it.c, out);
+  }
+}
+
 std::string IntConstraint::encode() const {
   std::string result;
   if (lowerBound) {
@@ -274,22 +293,7 @@ std::string IntConstraint::encode() const {
   } else {
     result.push_back(CHAR_MIN_ONE);
   }
-  for (const IntTerm& it : lhs) {
-    if (it.c == 1) {
-      result.push_back(CHAR_ONE);
-      encode_num(it.v->id, result);
-      continue;
-    }
-    if (it.c == -1) {
-      result.push_back(CHAR_MIN_ONE);
-      encode_num(it.v->id, result);
-      continue;
-    }
-    result.push_back(CHAR_PLUS);
-    encode_num(it.v->id, result);
-    result.push_back(it.c >= 0 ? CHAR_PLUS : CHAR_MINUS);
-    encode_num(it.c, result);
-  }
+  encode_itv(lhs, result);
   return result;
 }
 
@@ -304,6 +308,23 @@ T decode_num(const std::string& code, size_t& i, bool positive) {
     ++i;
   }
   return positive ? result : -result;
+}
+
+void decode_itv(const std::string& code, const std::vector<IntVar*>& ivs, size_t start, IntTermVec& out) {
+  size_t i = start;
+  while (i < code.size()) {
+    const char& signal = code[i];
+    IntVar* iv = ivs[decode_num<int64_t>(code, i, true)];
+    if (signal == CHAR_ONE) {
+      out.push_back({1, iv});
+    } else if (signal == CHAR_MIN_ONE) {
+      out.push_back({-1, iv});
+    } else {
+      assert(signal == CHAR_PLUS);
+      assert(code[i] == CHAR_PLUS || code[i] == CHAR_MINUS);
+      out.push_back({decode_num<bigint>(code, i, code[i] == CHAR_PLUS), iv});
+    }
+  }
 }
 
 void IntConstraint::decode(const std::string& code, const std::vector<IntVar*>& ivs) {
@@ -322,19 +343,7 @@ void IntConstraint::decode(const std::string& code, const std::vector<IntVar*>& 
   } else {
     ++i;
   }
-  while (i < code.size()) {
-    const char& signal = code[i];
-    IntVar* iv = ivs[decode_num<int64_t>(code, i, true)];
-    if (signal == CHAR_ONE) {
-      lhs.push_back({1, iv});
-    } else if (signal == CHAR_MIN_ONE) {
-      lhs.push_back({-1, iv});
-    } else {
-      assert(signal == CHAR_PLUS);
-      assert(code[i] == CHAR_PLUS || code[i] == CHAR_MINUS);
-      lhs.push_back({decode_num<bigint>(code, i, code[i] == CHAR_PLUS), iv});
-    }
-  }
+  decode_itv(code, ivs, i, lhs);
 }
 
 }  // namespace xct

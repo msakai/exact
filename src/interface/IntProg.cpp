@@ -493,8 +493,7 @@ void IntProg::addMultiplication(const std::vector<IntVar*>& factors, IntVar* low
   }
 }
 
-bool contains_check_erase(unordered_map<IntVar*, std::multimap<bigint, Lit>>& reifs, Lit head, IntVar* lhs,
-                          const bigint& bound, bool erase) {
+bool contains_check_erase(ReifMap& reifs, Lit head, const std::string& lhs, const bigint& bound, bool erase) {
   auto reif = reifs.find(lhs);
   if (reif == reifs.end() || reif->second.empty()) return false;
   auto range = reif->second.equal_range(bound);
@@ -507,8 +506,7 @@ bool contains_check_erase(unordered_map<IntVar*, std::multimap<bigint, Lit>>& re
   return false;
 }
 
-void add_implied_binary_upper(unordered_map<IntVar*, std::multimap<bigint, Lit>>& reifs, Lit head, IntVar* lhs,
-                              const bigint& lb, Solver& solver) {
+void add_implied_binary_upper(ReifMap& reifs, Lit head, const std::string& lhs, const bigint& lb, Solver& solver) {
   auto opposite = reifs.find(lhs);
   if (opposite == reifs.end() || opposite->second.empty()) return;
 
@@ -527,8 +525,7 @@ void add_implied_binary_upper(unordered_map<IntVar*, std::multimap<bigint, Lit>>
   solver.addBinaryConstraint(-head, placement->second, Origin::FORMULA);
 }
 
-void add_implied_binary_lower(unordered_map<IntVar*, std::multimap<bigint, Lit>>& reifs, Lit head, IntVar* lhs,
-                              const bigint& lb, Solver& solver) {
+void add_implied_binary_lower(ReifMap& reifs, Lit head, const std::string& lhs, const bigint& lb, Solver& solver) {
   auto opposite = reifs.find(lhs);
   if (opposite == reifs.end() || opposite->second.empty()) return;
 
@@ -546,7 +543,11 @@ void add_implied_binary_lower(unordered_map<IntVar*, std::multimap<bigint, Lit>>
   solver.addBinaryConstraint(-placement->second, head, Origin::FORMULA);
 }
 
-void IntProg::addImplsRightReif(Lit head, IntVar* lhs, const bigint& lb) {
+void IntProg::addImplsRightReif(Lit head, const IntConstraint& ic) {
+  assert(ic.lowerBound.value());  // should be normalized
+  const bigint& lb = ic.lowerBound.value();
+  std::string lhs;
+  encode_itv(ic.lhs, lhs);
   if (contains_check_erase(reifs, head, lhs, lb, false)) return;
   if (contains_check_erase(right_reifs, head, lhs, lb, false)) return;
   if (contains_check_erase(left_reifs, head, lhs, lb, true)) {
@@ -561,7 +562,11 @@ void IntProg::addImplsRightReif(Lit head, IntVar* lhs, const bigint& lb) {
   add_implied_binary_upper(left_reifs, head, lhs, lb, solver);
 }
 
-void IntProg::addImplsLeftReif(Lit head, IntVar* lhs, const bigint& lb) {
+void IntProg::addImplsLeftReif(Lit head, const IntConstraint& ic) {
+  assert(ic.lowerBound.value());  // should be normalized
+  const bigint& lb = ic.lowerBound.value();
+  std::string lhs;
+  encode_itv(ic.lhs, lhs);
   if (contains_check_erase(reifs, head, lhs, lb, false)) return;
   if (contains_check_erase(left_reifs, head, lhs, lb, false)) return;
   if (contains_check_erase(right_reifs, head, lhs, lb, true)) {
@@ -589,9 +594,7 @@ void IntProg::addRightImplication(Lit head, const IntConstraint& ic) {
     if (lb > 0) solver.addUnitConstraint(-head, Origin::FORMULA);
     return;
   }
-  if (terms.size() == 1) {
-    addImplsRightReif(head, terms[0].v, lb);
-  }
+  addImplsRightReif(head, ic);
 
   CeArb carb = global.cePools.takeArb();
   ic.toConstrExp(carb, true);
@@ -613,9 +616,7 @@ void IntProg::addLeftImplication(Lit head, const IntConstraint& ic) {
     if (lb <= 0) solver.addUnitConstraint(head, Origin::FORMULA);
     return;
   }
-  if (terms.size() == 1) {
-    addImplsLeftReif(head, terms[0].v, lb);
-  }
+  addImplsLeftReif(head, ic);
 
   CeArb carb = global.cePools.takeArb();
   ic.toConstrExp(carb, true);
