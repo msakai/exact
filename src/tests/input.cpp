@@ -273,4 +273,92 @@ TEST_CASE("encode constraints") {
   CHECK_EQ(ic6, ic8);
 }
 
+TEST_CASE("implication constraints for reification 2") {
+  Options opts;
+  IntProg intprog(opts);
+
+  IntVar* f = intprog.addVar("f", 0, 7);
+  IntVar* g = intprog.addVar("g", 0, 7);
+  IntVar* p = intprog.addVar("p");
+  IntVar* q = intprog.addVar("q");
+  IntVar* r = intprog.addVar("r");
+  IntVar* s = intprog.addVar("s");
+  IntVar* t = intprog.addVar("t");
+  IntVar* u = intprog.addVar("u");
+  IntVar* rr = intprog.addVar("rr");
+  IntVar* ss = intprog.addVar("ss");
+  IntVar* h = intprog.addVar("h", 0, 7);
+
+  const Solver& solver = intprog.getSolver();
+
+  IntTermVec first{{1, f}, {1, h}};
+
+  // p <=> f >= 2
+  IntConstraint ic1 = IntConstraint{first, 2, std::nullopt};
+  intprog.addReification(p, true, ic1);
+  CHECK_EQ(solver.getNbConstraints(), 2);  // adds no implications
+  // q <=> f >= 6
+  IntConstraint ic2 = IntConstraint{first, 6, std::nullopt};
+  intprog.addReification(q, true, ic2);
+  CHECK_EQ(solver.getNbConstraints(), 5);  // adds q => p
+
+  // ~r => 2f =< 1
+  // r <= f >= 1
+  IntConstraint ic3 = IntConstraint{{{2, f}, {2, h}}, std::nullopt, 1};
+  intprog.addRightReification(r, false, ic3);
+  CHECK_EQ(solver.getNbConstraints(), 7);  // adds p => r
+  // ~s <= -2f >= -9
+  // s => f >= 5
+  IntConstraint ic4 = IntConstraint{{{-2, f}, {-2, h}}, -9, std::nullopt};
+  intprog.addLeftReification(s, false, ic4);
+  CHECK_EQ(solver.getNbConstraints(), 10);  // adds s => p and s => r
+
+  // ~rr => 2g <= 9
+  // rr <= g >= 5
+  IntConstraint ic5 = IntConstraint{{{2, g}, {2, h}}, std::nullopt, 9};
+  intprog.addRightReification(rr, false, ic5);
+  CHECK_EQ(solver.getNbConstraints(), 11);  // adds no implications
+  // ~ss <= -2g >= -9
+  // ss => g >= 5
+  IntConstraint ic6 = IntConstraint{{{-2, g}, {-2, h}}, -9, std::nullopt};
+  intprog.addLeftReification(ss, false, ic6);
+  CHECK_EQ(solver.getNbConstraints(), 13);  // adds ss => rr
+
+  // t <=> f <= 3
+  // ~t <=> f >= 4
+  IntConstraint ic7 = IntConstraint{first, std::nullopt, 3};
+  intprog.addReification(t, true, ic7);
+  CHECK_EQ(solver.getNbConstraints(), 19);  // adds ~t => p and q => ~t and s => ~t and ~t => r
+
+  // u => 5f =< 25
+  // ~u <= f >= 6
+  IntConstraint ic8 = IntConstraint{{{5, f}, {5, h}}, std::nullopt, 25};
+  intprog.addRightReification(u, true, ic8);
+  CHECK_EQ(solver.getNbConstraints(), 21);  // adds q => ~u
+
+  std::stringstream strs;
+  for (auto c : solver.getRawConstraints()) {
+    strs << solver.getCA()[c] << std::endl;
+  }
+  const std::string constraints = strs.str();
+  for (auto t : {
+           "1x-8 1x7 >= 1",     // q => p
+           "1x-7 1x9 >= 1",     // p => r
+           "1x-10 1x7 >= 1",    // s => p
+           "1x-10 1x9 >= 1",    // s => r
+           "1x11 1x7 >= 1",     // ~t => p
+           "1x-8 1x-11 >= 1",   // q => ~t
+           "1x-10 1x-11 >= 1",  // s => ~t
+           "1x11 1x9 >= 1",     // ~t => r
+           "1x-8 1x-12 >= 1",   // q => ~u
+           "1x-14 1x13 >= 1",   // ss => rr
+       }) {
+    if (constraints.find(t) == std::string::npos) {
+      aux::cout << "missing: " << t << std::endl;
+      aux::cout << constraints << std::endl;
+    }
+    CHECK(constraints.find(t) != std::string::npos);
+  }
+}
+
 TEST_SUITE_END();

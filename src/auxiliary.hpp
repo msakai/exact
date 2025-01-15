@@ -590,6 +590,10 @@ struct IntVecHash {
   size_t operator()(const std::vector<int32_t>& t) const { return xct::aux::hashForList<int32_t>(t); }
 };
 
+struct StringHash {
+  size_t operator()(const std::string& t) const { return xct::aux::hashForList<char>(t); }
+};
+
 void* align_alloc(size_t alignment, size_t size);
 void align_free(void* ptr);
 

@@ -312,7 +312,7 @@ void IntProg::clearSolutionHints(const std::vector<IntVar*>& ivs) {
 void IntProg::addConstraint(const IntConstraint& ic) {
   if (ic.size() > 1e9) throw InvalidArgument("Constraint has more than 1e9 terms.");
   ++nConstrs;
-  if (keepInput) constraints.push_back(ic);
+  if (keepInput) constraints.push_back(ic.encode());
   if (ic.lowerBound.has_value()) {
     CeArb input = global.cePools.takeArb();
     ic.toConstrExp(input, true);
@@ -331,11 +331,7 @@ void IntProg::addReification(IntVar* head, bool sign, IntConstraint& ic) {
   if (!head->isBoolean()) throw InvalidArgument("Head of reification is not Boolean.");
 
   ++nConstrs;
-  if (keepInput) {
-    reifications.push_back({head, sign, false, ic});
-    reifications.push_back({head, sign, true, ic});
-    // TODO: merge these as one equivalence
-  }
+  if (keepInput) reifications.push_back({head, sign, true, true, ic.encode()});
 
   ic.normalize();
   Lit l = sign ? head->encodingVars[0] : -head->encodingVars[0];
@@ -357,7 +353,7 @@ void IntProg::addRightReification(IntVar* head, bool sign, IntConstraint& ic) {
   if (!head->isBoolean()) throw InvalidArgument("Head of reification is not Boolean.");
 
   ++nConstrs;
-  if (keepInput) reifications.push_back({head, sign, false, ic});
+  if (keepInput) reifications.push_back({head, sign, false, true, ic.encode()});
 
   ic.normalize();
   Lit l = sign ? head->encodingVars[0] : -head->encodingVars[0];
@@ -375,7 +371,7 @@ void IntProg::addLeftReification(IntVar* head, bool sign, IntConstraint& ic) {
   if (!head->isBoolean()) throw InvalidArgument("Head of reification is not Boolean.");
 
   ++nConstrs;
-  if (keepInput) reifications.push_back({head, sign, true, ic});
+  if (keepInput) reifications.push_back({head, sign, true, false, ic.encode()});
 
   ic.normalize();
   Lit l = sign ? head->encodingVars[0] : -head->encodingVars[0];
@@ -709,16 +705,19 @@ std::ostream& IntProg::printInput(std::ostream& out) const {
   out << std::endl;
 
   std::vector<std::string> strs;
+  IntConstraint ic;
   for (const auto& pr : reifications) {
     std::stringstream ss;
-    ss << (pr.sign ? "!" : "") << *pr.head << (pr.left ? " <- " : " -> ") << pr.body;
+    ic.decode(pr.body, getVariables());
+    ss << (pr.sign ? "!" : "") << *pr.head << (pr.left && pr.right ? " <-> " : pr.left ? " <- " : " -> ") << ic;
     strs.push_back(ss.str());
   }
   std::sort(strs.begin(), strs.end());
   for (const std::string& s : strs) out << s << std::endl;
 
   strs.clear();
-  for (const IntConstraint& ic : constraints) {
+  for (const std::string& code : constraints) {
+    ic.decode(code, getVariables());
     strs.push_back(aux::str(ic));
   }
   std::sort(strs.begin(), strs.end());

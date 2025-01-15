@@ -311,6 +311,7 @@ T decode_num(const std::string& code, size_t& i, bool positive) {
 }
 
 void decode_itv(const std::string& code, const std::vector<IntVar*>& ivs, size_t start, IntTermVec& out) {
+  out.clear();
   size_t i = start;
   while (i < code.size()) {
     const char& signal = code[i];
@@ -328,6 +329,8 @@ void decode_itv(const std::string& code, const std::vector<IntVar*>& ivs, size_t
 }
 
 void IntConstraint::decode(const std::string& code, const std::vector<IntVar*>& ivs) {
+  lowerBound = std::nullopt;
+  upperBound = std::nullopt;
   size_t i = 0;
   assert(i < code.size());
   if (code[i] != CHAR_MIN_ONE) {

@@ -62,10 +62,11 @@ struct ReifInfo {
   IntVar* head = nullptr;
   bool sign = false;
   bool left = false;
-  IntConstraint body;
+  bool right = false;
+  std::string body;  // encoding
 };
 
-using ReifMap = unordered_map<std::string, std::multimap<bigint, Lit>>;
+using ReifMap = unordered_map<std::string, std::multimap<bigint, Lit>, aux::StringHash>;
 
 class IntProg {
  public:
@@ -90,7 +91,7 @@ class IntProg {
 
   // only for printing purposes:
   const bool keepInput;
-  std::vector<IntConstraint> constraints;
+  std::vector<std::string> constraints;  // encodings
   std::vector<ReifInfo> reifications;
   // value Lit implies lower bound or upper bound on key
   ReifMap reifs;
