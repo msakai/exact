@@ -540,7 +540,7 @@ void add_implied_binary_lower(ReifMap& reifs, Lit head, const std::string& lhs, 
 }
 
 void IntProg::addImplsRightReif(Lit head, const IntConstraint& ic) {
-  assert(ic.lowerBound.value());  // should be normalized
+  assert(ic.lowerBound.has_value());  // should be normalized
   const bigint& lb = ic.lowerBound.value();
   std::string lhs;
   encode_itv(ic.lhs, lhs);
@@ -559,7 +559,7 @@ void IntProg::addImplsRightReif(Lit head, const IntConstraint& ic) {
 }
 
 void IntProg::addImplsLeftReif(Lit head, const IntConstraint& ic) {
-  assert(ic.lowerBound.value());  // should be normalized
+  assert(ic.lowerBound.has_value());  // should be normalized
   const bigint& lb = ic.lowerBound.value();
   std::string lhs;
   encode_itv(ic.lhs, lhs);
