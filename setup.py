@@ -11,7 +11,7 @@
 # In Exact's root:
 ## docker build -f docker_images/pypi_package -t manylinux_with_boost
 ## docker run -it --entrypoint bash manylinux_with_boost
-## git clone https://gitlab.com/JoD/exact
+## git clone https://gitlab.com/nonfiction-software/exact
 ## cd exact
 ## /opt/python/cp312-cp312/bin/python -m build
 ## auditwheel repair dist/Exact-2.0.0-cp312-cp312-linux_x86_64.whl

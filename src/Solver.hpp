@@ -1,7 +1,7 @@
 /**********************************************************************
 This file is part of Exact.
 
-Copyright (c) 2022-2024 Jo Devriendt, Nonfiction Software
+Copyright (c) 2022-2025 Jo Devriendt, Nonfiction Software
 
 Exact is free software: you can redistribute it and/or modify it under
 the terms of the GNU Affero General Public License version 3 as
@@ -78,12 +78,12 @@ namespace xct {
 class Solver {
   friend class LpSolver;
   friend struct Constr;
+  friend struct Binary;
   friend struct Clause;
   friend struct Cardinality;
+  friend struct Watched32;
   template <typename CF, typename DG>
   friend struct Watched;
-  template <typename CF, typename DG>
-  friend struct WatchedSafe;
   friend class Propagator;
   friend class Equalities;
   friend class Implications;
@@ -138,7 +138,6 @@ class Solver {
 
   int64_t nconfl_to_reduce;
   int64_t nconfl_to_restart;
-  Var nextToSort = 0;
 
   // vectors used in subroutines that should not be reallocated over and over
   LitVec assertionStateMem;
@@ -233,7 +232,6 @@ class Solver {
   [[nodiscard]] CeSuper runDatabasePropagation();
   [[nodiscard]] CeSuper runPropagation();
   [[nodiscard]] CeSuper runPropagationWithLP();
-  WatchStatus checkForPropagation(CRef cr, int& idx, Lit p);
 
   // ---------------------------------------------------------------------
   // Conflict analysis
@@ -271,7 +269,6 @@ class Solver {
 
  private:
   void inProcess();
-  void sortWatchlists();
   void removeSatisfiedNonImpliedsAtRoot();
   void derivePureLits();
   void dominanceBreaking();

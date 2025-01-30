@@ -1,7 +1,7 @@
 /**********************************************************************
 This file is part of Exact.
 
-Copyright (c) 2022-2024 Jo Devriendt, Nonfiction Software
+Copyright (c) 2022-2025 Jo Devriendt, Nonfiction Software
 
 Exact is free software: you can redistribute it and/or modify it under
 the terms of the GNU Affero General Public License version 3 as
@@ -19,7 +19,7 @@ or run with the flag --license=AGPLv3. If not, see
 **********************************************************************/
 
 #include "../external/doctest/doctest.h"
-#include "IntProg.hpp"
+#include "interface/IntProg.hpp"
 
 using namespace xct;
 

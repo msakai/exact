@@ -1,7 +1,7 @@
 /**********************************************************************
 This file is part of Exact.
 
-Copyright (c) 2022-2024 Jo Devriendt, Nonfiction Software
+Copyright (c) 2022-2025 Jo Devriendt, Nonfiction Software
 
 Exact is free software: you can redistribute it and/or modify it under
 the terms of the GNU Affero General Public License version 3 as
@@ -33,65 +33,7 @@ See the file LICENSE or run with the flag --license=MIT.
 #include "Optimization.hpp"
 
 namespace xct {
-
-Encoding opt2enc(const std::string& opt) {
-  assert(opt == "order" || opt == "log" || opt == "onehot");
-  return opt == "order" ? Encoding::ORDER : opt == ("log") ? Encoding::LOG : Encoding::ONEHOT;
-}
-
-std::ostream& operator<<(std::ostream& o, const IntVar& x) {
-  return o << x.getName() << "[" << x.getLowerBound() << "," << x.getUpperBound() << "]";
-}
-std::ostream& operator<<(std::ostream& o, IntVar* x) { return o << *x; }
-std::ostream& operator<<(std::ostream& o, const IntTerm& x) {
-  return o << (x.c < 0 ? "" : "+") << (x.c == 1 ? "" : aux::str(x.c) + "*") << *x.v;
-}
-void lhs2str(std::ostream& o, const IntConstraint& x) {
-  std::vector<std::string> terms;
-  terms.reserve(x.lhs.size());
-  for (const IntTerm& t : x.lhs) {
-    terms.push_back(aux::str(t));
-  }
-  std::ranges::sort(terms);
-  for (const std::string& s : terms) o << s << " ";
-}
-std::ostream& operator<<(std::ostream& o, const IntConstraint& x) {
-  if (x.upperBound.has_value()) o << x.upperBound.value() << " >= ";
-  lhs2str(o, x);
-  if (x.lowerBound.has_value()) o << ">= " << x.lowerBound.value();
-  return o;
-}
-
-LitVec val2lits(IntVar* iv, const bigint& val) {
-  const VarVec& encoding = iv->getEncodingVars();
-  LitVec res;
-  res.reserve(encoding.size());
-  if (iv->getEncoding() == Encoding::LOG) {
-    bigint value = val - iv->getLowerBound();
-    assert(value >= 0);
-    for (Var v : encoding) {
-      res.push_back(value % 2 == 0 ? -v : v);
-      value /= 2;
-    }
-    assert(value == 0);
-    return res;
-  }
-  assert(val - iv->getLowerBound() <= iv->getEncodingVars().size());
-  int val_int = static_cast<int>(val - iv->getLowerBound());
-  if (iv->getEncoding() == Encoding::ONEHOT) {
-    for (int i = 0; i < (int)encoding.size(); ++i) {
-      res.push_back(i == val_int ? encoding[i] : -encoding[i]);
-    }
-    return res;
-  }
-  assert(iv->getEncoding() == Encoding::ORDER);
-  for (int i = 0; i < (int)encoding.size(); ++i) {
-    res.push_back(i < val_int ? encoding[i] : -encoding[i]);
-  }
-  return res;
-}
-
-void log2assumptions(const VarVec& encoding, const bigint& value, const bigint& lowerbound, xct::IntSet& assumptions) {
+void log2assumptions(const VarVec& encoding, const bigint& value, const bigint& lowerbound, IntSet& assumptions) {
   bigint val = value - lowerbound;
   assert(val >= 0);
   for (Var v : encoding) {
@@ -101,18 +43,46 @@ void log2assumptions(const VarVec& encoding, const bigint& value, const bigint& 
   assert(val == 0);
 }
 
-IntVar::IntVar(const std::string& n, Solver& solver, bool nameAsId, const bigint& lb, const bigint& ub, Encoding e)
-    : name(n), lowerBound(lb), upperBound(ub), encoding(getRange() <= 1 ? Encoding::ORDER : e) {
-  assert(lb <= ub);
+Core emptyCore() { return std::make_unique<unordered_set<IntVar*>>(); }
 
+IntProg::IntProg(const Options& opts, bool keepIn)
+    : global(opts), obj_denominator(1), solver(global), keepInput(keepIn) {
+  global.stats.startTime = std::chrono::steady_clock::now();
+  aux::rng::seed = global.options.randomSeed.get();
+  global.logger.activate(global.options.proofLog.get(), (bool)global.options.proofZip);
+  setObjective({}, true, {});
+}
+IntProg::~IntProg() {
+  for (IntVar* iv : vars) {
+    delete iv;
+  }
+}
+
+const Solver& IntProg::getSolver() const { return solver; }
+Solver& IntProg::getSolver() { return solver; }
+const Optim& IntProg::getOptim() const { return optim; }
+void IntProg::setInputVarLimit() { inputVarLimit = solver.getNbVars(); }
+int IntProg::getInputVarLimit() const { return inputVarLimit; }
+
+IntVar* IntProg::addVar(const std::string& name, const bigint& lowerbound, const bigint& upperbound, Encoding encoding,
+                        bool nameAsId) {
+  assert(!getVarFor(name));
+  if (upperbound < lowerbound) {
+    throw InvalidArgument((std::stringstream() << "Upper bound " << upperbound << " of " << name
+                                               << " is smaller than lower bound " << lowerbound)
+                              .str());
+  }
+
+  const bigint range = upperbound - lowerbound;
+  if (range <= 1) encoding = Encoding::ORDER;
+  VarVec encodingVars;
   if (nameAsId) {
-    assert(isBoolean());
-    Var next = std::stoi(getName());
+    assert(lowerbound == 0);
+    assert(upperbound == 1);
+    Var next = std::stoi(name);
     solver.setNbVars(next, true);
     encodingVars.emplace_back(next);
   } else {
-    const bigint range = getRange();
-    assert(range > 1 || encoding == Encoding::ORDER);
     int oldvars = solver.getNbVars();
     int newvars = oldvars + (encoding == Encoding::LOG
                                  ? aux::msb(range) + 1  // NOTE: msb is 0-based, so we add another bit
@@ -158,137 +128,12 @@ IntVar::IntVar(const std::string& n, Solver& solver, bool nameAsId, const bigint
       solver.addConstraint(cs2);
     }
   }
-}
 
-bigint IntVar::getValue(const LitVec& sol) const {
-  bigint val = getLowerBound();
-  if (encoding == Encoding::LOG) {
-    bigint base = 1;
-    for (Var v : getEncodingVars()) {
-      assert(v != 0);
-      assert(v < (int)sol.size());
-      assert(toVar(sol[v]) == v);
-      if (sol[v] > 0) val += base;
-      base *= 2;
-    }
-  } else if (encoding == Encoding::ORDER) {
-    int sum = 0;
-    for (Var v : getEncodingVars()) {
-      assert(v < (int)sol.size());
-      assert(toVar(sol[v]) == v);
-      sum += sol[v] > 0;
-    }
-    val += sum;
-  } else {
-    assert(encoding == Encoding::ONEHOT);
-    int ith = 0;
-    for (Var v : getEncodingVars()) {
-      assert(v < (int)sol.size());
-      assert(toVar(sol[v]) == v);
-      if (sol[v] > 0) {
-        val += ith;
-        break;
-      }
-      ++ith;
-    }
-  }
-  return val;
-}
+  vars.push_back(new IntVar(name, lowerbound, upperbound, encoding, encodingVars, vars.size()));
 
-IntTerm::IntTerm(const bigint& _c, IntVar* _v) : c(_c), v(_v) {}
-
-Core emptyCore() { return std::make_unique<unordered_set<IntVar*>>(); }
-
-std::vector<IntTerm> IntConstraint::zip(const std::vector<bigint>& coefs, const std::vector<IntVar*>& vars) {
-  assert(coefs.size() == vars.size());
-  std::vector<IntTerm> res;
-  res.reserve(coefs.size());
-  for (int i = 0; i < (int)coefs.size(); ++i) {
-    res.push_back({coefs[i], vars[i]});
-  }
-  return res;
-}
-
-bigint IntConstraint::getRange() const {
-  bigint res = 0;
-  for (const IntTerm& t : lhs) {
-    assert(t.v->getRange() >= 0);
-    res += aux::abs(t.c) * t.v->getRange();
-  }
-  return res;
-}
-
-int64_t IntConstraint::size() const { return std::ssize(lhs); }
-
-void IntConstraint::invert() {
-  if (lowerBound) lowerBound = -lowerBound.value();
-  if (upperBound) upperBound = -upperBound.value();
-  for (IntTerm& it : lhs) it.c = -it.c;
-}
-
-void IntConstraint::toConstrExp(CeArb& input, bool useLowerBound) const {
-  input->orig = Origin::FORMULA;
-  if (useLowerBound) {
-    assert(lowerBound.has_value());
-    input->addRhs(lowerBound.value());
-  } else {
-    assert(upperBound.has_value());
-    input->addRhs(upperBound.value());
-  }
-  for (const IntTerm& t : lhs) {
-    if (t.c == 0) continue;
-    if (t.v->getLowerBound() != 0) input->addRhs(-t.c * t.v->getLowerBound());
-    if (t.v->getEncoding() == Encoding::LOG) {
-      assert(!t.v->getEncodingVars().empty());
-      bigint base = 1;
-      for (const Var v : t.v->getEncodingVars()) {
-        input->addLhs(base * t.c, v);
-        base *= 2;
-      }
-    } else if (t.v->getEncoding() == Encoding::ORDER) {
-      assert(t.v->getRange() == 0 || !t.v->getEncodingVars().empty());
-      for (const Var v : t.v->getEncodingVars()) {
-        input->addLhs(t.c, v);
-      }
-    } else {
-      assert(t.v->getEncoding() == Encoding::ONEHOT);
-      assert(!t.v->getEncodingVars().empty());
-      int ith = 0;
-      for (const Var v : t.v->getEncodingVars()) {
-        input->addLhs(ith * t.c, v);
-        ++ith;
-      }
-    }
-  }
-  if (!useLowerBound) input->invert();
-}
-
-IntProg::IntProg(const Options& opts, bool keepIn)
-    : global(opts), obj_denominator(1), solver(global), keepInput(keepIn) {
-  global.stats.startTime = std::chrono::steady_clock::now();
-  aux::rng::seed = global.options.randomSeed.get();
-  global.logger.activate(global.options.proofLog.get(), (bool)global.options.proofZip);
-  setObjective({}, true, {});
-}
-
-const Solver& IntProg::getSolver() const { return solver; }
-Solver& IntProg::getSolver() { return solver; }
-const Optim& IntProg::getOptim() const { return optim; }
-void IntProg::setInputVarLimit() { inputVarLimit = solver.getNbVars(); }
-int IntProg::getInputVarLimit() const { return inputVarLimit; }
-
-IntVar* IntProg::addVar(const std::string& name, const bigint& lowerbound, const bigint& upperbound, Encoding encoding,
-                        bool nameAsId) {
-  assert(!getVarFor(name));
-  if (upperbound < lowerbound) {
-    throw InvalidArgument((std::stringstream() << "Upper bound " << upperbound << " of " << name
-                                               << " is smaller than lower bound " << lowerbound)
-                              .str());
-  }
-  vars.push_back(std::make_unique<IntVar>(name, solver, nameAsId, lowerbound, upperbound, encoding));
-  IntVar* iv = vars.back().get();
+  IntVar* iv = vars.back();
   name2var.insert({name, iv});
-  for (Var v : iv->getEncodingVars()) {
+  for (Var v : iv->encodingVars) {
     var2var.insert({v, iv});
   }
   return iv;
@@ -299,11 +144,9 @@ IntVar* IntProg::getVarFor(const std::string& name) const {
   return nullptr;
 }
 
-std::vector<IntVar*> IntProg::getVariables() const {
-  return aux::comprehension(name2var, [](auto pair) { return pair.second; });
-}
+const std::vector<IntVar*>& IntProg::getVariables() const { return vars; }
 
-void IntProg::setObjective(const std::vector<IntTerm>& terms, bool min, const bigint& offset) {
+void IntProg::setObjective(const IntTermVec& terms, bool min, const bigint& offset) {
   // TODO: pass IntConstraint instead of terms?
   obj = {terms, -offset};
   minimize = min;
@@ -314,21 +157,21 @@ IntConstraint& IntProg::getObjective() { return obj; }
 const IntConstraint& IntProg::getObjective() const { return obj; }
 
 void IntProg::addSingleAssumption(IntVar* iv, const bigint& val) {
-  if (iv->getEncoding() == Encoding::LOG) {
-    log2assumptions(iv->getEncodingVars(), val, iv->getLowerBound(), assumptions);
+  if (iv->encoding == Encoding::LOG) {
+    log2assumptions(iv->encodingVars, val, iv->lowerBound, assumptions);
   } else {
-    assert(val - iv->getLowerBound() <= iv->getEncodingVars().size());
-    int val_int = static_cast<int>(val - iv->getLowerBound());
-    if (iv->getEncoding() == Encoding::ORDER) {
+    assert(val - iv->lowerBound <= iv->encodingVars.size());
+    int val_int = static_cast<int>(val - iv->lowerBound);
+    if (iv->encoding == Encoding::ORDER) {
       if (val_int > 0) {
-        assumptions.add(iv->getEncodingVars()[val_int - 1]);
+        assumptions.add(iv->encodingVars[val_int - 1]);
       }
-      if (val_int < (int)iv->getEncodingVars().size()) {
-        assumptions.add(-iv->getEncodingVars()[val_int]);
+      if (val_int < (int)iv->encodingVars.size()) {
+        assumptions.add(-iv->encodingVars[val_int]);
       }
     } else {
-      assert(iv->getEncoding() == Encoding::ONEHOT);
-      assumptions.add(iv->getEncodingVars()[val_int]);
+      assert(iv->encoding == Encoding::ONEHOT);
+      assumptions.add(iv->encodingVars[val_int]);
     }
   }
 }
@@ -337,14 +180,14 @@ void IntProg::setAssumptions(const std::vector<std::pair<IntVar*, std::vector<bi
   for (auto [iv, dom] : ivs) {
     assert(iv);
     if (dom.empty()) {
-      throw InvalidArgument("No possible values given when setting assumptions for " + iv->getName() + ".");
+      throw InvalidArgument("No possible values given when setting assumptions for " + iv->name + ".");
     }
     for (const bigint& vals_i : dom) {
-      if (vals_i < iv->getLowerBound() || vals_i > iv->getUpperBound())
-        throw InvalidArgument("Assumption value " + aux::str(vals_i) + " for " + iv->getName() +
+      if (vals_i < iv->lowerBound || vals_i > iv->upperBound)
+        throw InvalidArgument("Assumption value " + aux::str(vals_i) + " for " + iv->name +
                               " exceeds variable bounds.");
     }
-    for (Var v : iv->getEncodingVars()) {
+    for (Var v : iv->encodingVars) {
       assumptions.remove(v);
       assumptions.remove(-v);
     }
@@ -352,14 +195,14 @@ void IntProg::setAssumptions(const std::vector<std::pair<IntVar*, std::vector<bi
       addSingleAssumption(iv, dom[0]);
     } else {
       unordered_set<bigint> toCheck(dom.begin(), dom.end());
-      if (toCheck.size() == iv->getUpperBound() - iv->getLowerBound() + 1) return;
-      if (iv->getEncoding() != Encoding::ONEHOT) {
-        throw InvalidArgument("Variable " + iv->getName() + " is not one-hot encoded but has " +
+      if (toCheck.size() == iv->upperBound - iv->lowerBound + 1) continue;
+      if (iv->encoding != Encoding::ONEHOT) {
+        throw InvalidArgument("Variable " + iv->name + " is not one-hot encoded but has " +
                               std::to_string(toCheck.size()) +
                               " (more than one and less than its range) values to assume.");
       }
-      bigint val = iv->getLowerBound();
-      for (Var v : iv->getEncodingVars()) {
+      bigint val = iv->lowerBound;
+      for (Var v : iv->encodingVars) {
         if (!toCheck.count(val)) {
           assumptions.add(-v);
         }
@@ -373,10 +216,9 @@ void IntProg::setAssumptions(const std::vector<std::pair<IntVar*, std::vector<bi
 void IntProg::setAssumptions(const std::vector<std::pair<IntVar*, bigint>>& ivs) {
   for (auto [iv, val] : ivs) {
     assert(iv);
-    if (val < iv->getLowerBound() || val > iv->getUpperBound())
-      throw InvalidArgument("Assumption value " + aux::str(val) + " for " + iv->getName() +
-                            " exceeds variable bounds.");
-    for (Var v : iv->getEncodingVars()) {
+    if (val < iv->lowerBound || val > iv->upperBound)
+      throw InvalidArgument("Assumption value " + aux::str(val) + " for " + iv->name + " exceeds variable bounds.");
+    for (Var v : iv->encodingVars) {
       assumptions.remove(v);
       assumptions.remove(-v);
     }
@@ -386,44 +228,44 @@ void IntProg::setAssumptions(const std::vector<std::pair<IntVar*, bigint>>& ivs)
 }
 
 bool IntProg::hasAssumption(IntVar* iv) const {
-  return std::any_of(iv->getEncodingVars().begin(), iv->getEncodingVars().end(),
+  return std::any_of(iv->encodingVars.begin(), iv->encodingVars.end(),
                      [&](Var v) { return assumptions.has(v) || assumptions.has(-v); });
 }
 std::vector<bigint> IntProg::getAssumption(IntVar* iv) const {
   if (!hasAssumption(iv)) {
     std::vector<bigint> res;
-    res.reserve(size_t(iv->getUpperBound() - iv->getLowerBound() + 1));
-    for (bigint i = iv->getLowerBound(); i <= iv->getUpperBound(); ++i) {
+    res.reserve(size_t(iv->upperBound - iv->lowerBound + 1));
+    for (bigint i = iv->lowerBound; i <= iv->upperBound; ++i) {
       res.push_back(i);
     }
     return res;
   }
   assert(hasAssumption(iv));
-  if (iv->getEncoding() == Encoding::LOG) {
-    bigint val = iv->getLowerBound();
+  if (iv->encoding == Encoding::LOG) {
+    bigint val = iv->lowerBound;
     bigint base = 1;
-    for (const Var& v : iv->getEncodingVars()) {
+    for (const Var& v : iv->encodingVars) {
       if (assumptions.has(v)) val += base;
       base *= 2;
     }
     return {val};
-  } else if (iv->getEncoding() == Encoding::ORDER) {
+  } else if (iv->encoding == Encoding::ORDER) {
     int i = 0;
-    for (const Var& v : iv->getEncodingVars()) {
+    for (const Var& v : iv->encodingVars) {
       if (assumptions.has(-v)) break;
       ++i;
     }
-    return {iv->getLowerBound() + i};
+    return {iv->lowerBound + i};
   }
-  assert(iv->getEncoding() == Encoding::ONEHOT);
+  assert(iv->encoding == Encoding::ONEHOT);
   std::vector<bigint> res;
   int i = 0;
-  for (const Var& v : iv->getEncodingVars()) {
+  for (const Var& v : iv->encodingVars) {
     if (assumptions.has(v)) {
-      return {iv->getLowerBound() + i};
+      return {iv->lowerBound + i};
     }
     if (!assumptions.has(-v)) {
-      res.emplace_back(iv->getLowerBound() + i);
+      res.emplace_back(iv->lowerBound + i);
     }
     ++i;
   }
@@ -436,7 +278,7 @@ void IntProg::clearAssumptions() {
 }
 void IntProg::clearAssumptions(const std::vector<IntVar*>& ivs) {
   for (IntVar* iv : ivs) {
-    for (Var v : iv->getEncodingVars()) {
+    for (Var v : iv->encodingVars) {
       assumptions.remove(v);
       assumptions.remove(-v);
     }
@@ -448,9 +290,9 @@ void IntProg::setSolutionHints(const std::vector<std::pair<IntVar*, bigint>>& hn
   std::vector<std::pair<Var, Lit>> hints;
   for (const std::pair<IntVar*, bigint>& hnt : hnts) {
     assert(hnt.first);
-    assert(hnt.second >= hnt.first->getLowerBound());
-    assert(hnt.second <= hnt.first->getUpperBound());
-    for (Lit l : val2lits(hnt.first, hnt.second)) {
+    assert(hnt.second >= hnt.first->lowerBound);
+    assert(hnt.second <= hnt.first->upperBound);
+    for (Lit l : hnt.first->val2lits(hnt.second)) {
       assert(l != 0);
       hints.emplace_back(toVar(l), l);
     }
@@ -460,7 +302,7 @@ void IntProg::setSolutionHints(const std::vector<std::pair<IntVar*, bigint>>& hn
 void IntProg::clearSolutionHints(const std::vector<IntVar*>& ivs) {
   std::vector<std::pair<Var, Lit>> hints;
   for (IntVar* iv : ivs) {
-    for (const Var& v : iv->getEncodingVars()) {
+    for (const Var& v : iv->encodingVars) {
       hints.emplace_back(v, 0);
     }
   }
@@ -470,7 +312,7 @@ void IntProg::clearSolutionHints(const std::vector<IntVar*>& ivs) {
 void IntProg::addConstraint(const IntConstraint& ic) {
   if (ic.size() > 1e9) throw InvalidArgument("Constraint has more than 1e9 terms.");
   ++nConstrs;
-  if (keepInput) constraints.push_back(ic);
+  if (keepInput) constraints.push_back(ic.encode());
   if (ic.lowerBound.has_value()) {
     CeArb input = global.cePools.takeArb();
     ic.toConstrExp(input, true);
@@ -484,52 +326,60 @@ void IntProg::addConstraint(const IntConstraint& ic) {
 }
 
 // head <=> rhs -- head iff rhs
-void IntProg::addReification(IntVar* head, bool sign, const IntConstraint& ic) {
-  addLeftReification(head, sign, ic);
-  addRightReification(head, sign, ic);
-}
-
-// head => rhs -- head implies rhs
-void IntProg::addRightReification(IntVar* head, bool sign, const IntConstraint& ic) {
+void IntProg::addReification(IntVar* head, bool sign, IntConstraint& ic) {
   if (ic.size() >= 1e9) throw InvalidArgument("Reification has more than 1e9 terms.");
   if (!head->isBoolean()) throw InvalidArgument("Head of reification is not Boolean.");
 
   ++nConstrs;
-  if (keepInput) reifications.push_back({head, sign, false, ic});
+  if (keepInput) reifications.push_back({head, sign, true, true, ic.encode()});
 
-  bool run[2] = {ic.upperBound.has_value(), ic.lowerBound.has_value()};
-  for (int i = 0; i < 2; ++i) {
-    if (!run[i]) continue;
-    CeArb leq = global.cePools.takeArb();
-    ic.toConstrExp(leq, i);
-    leq->postProcess(solver.getLevel(), solver.getPos(), solver.getHeuristic(), true, global.stats);
+  ic.normalize();
+  Lit l = sign ? head->encodingVars[0] : -head->encodingVars[0];
 
-    Var h = head->getEncodingVars()[0];
-    leq->addLhs(leq->degree, sign ? -h : h);
-    solver.addConstraint(leq);
+  if (ic.lowerBound.has_value()) {
+    addRightImplication(l, ic);
+    addLeftImplication(l, ic);
+  }
+  if (ic.upperBound.has_value()) {
+    ic.lowerBound = ic.upperBound.value() + 1;
+    addRightImplication(-l, ic);
+    addLeftImplication(-l, ic);
+  }
+}
+
+// head => rhs -- head implies rhs
+void IntProg::addRightReification(IntVar* head, bool sign, IntConstraint& ic) {
+  if (ic.size() >= 1e9) throw InvalidArgument("Reification has more than 1e9 terms.");
+  if (!head->isBoolean()) throw InvalidArgument("Head of reification is not Boolean.");
+
+  ++nConstrs;
+  if (keepInput) reifications.push_back({head, sign, false, true, ic.encode()});
+
+  ic.normalize();
+  Lit l = sign ? head->encodingVars[0] : -head->encodingVars[0];
+
+  if (ic.lowerBound.has_value()) addRightImplication(l, ic);
+  if (ic.upperBound.has_value()) {
+    ic.lowerBound = ic.upperBound.value() + 1;
+    addLeftImplication(-l, ic);
   }
 }
 
 // head <= rhs -- rhs implies head
-void IntProg::addLeftReification(IntVar* head, bool sign, const IntConstraint& ic) {
+void IntProg::addLeftReification(IntVar* head, bool sign, IntConstraint& ic) {
   if (ic.size() >= 1e9) throw InvalidArgument("Reification has more than 1e9 terms.");
   if (!head->isBoolean()) throw InvalidArgument("Head of reification is not Boolean.");
 
   ++nConstrs;
-  if (keepInput) reifications.push_back({head, sign, true, ic});
+  if (keepInput) reifications.push_back({head, sign, true, false, ic.encode()});
 
-  bool run[2] = {ic.upperBound.has_value(), ic.lowerBound.has_value()};
-  for (int i = 0; i < 2; ++i) {
-    if (!run[i]) continue;
-    CeArb geq = global.cePools.takeArb();
-    ic.toConstrExp(geq, i);
-    geq->postProcess(solver.getLevel(), solver.getPos(), solver.getHeuristic(), true, global.stats);
+  ic.normalize();
+  Lit l = sign ? head->encodingVars[0] : -head->encodingVars[0];
 
-    Var h = head->getEncodingVars()[0];
-    geq->addRhs(-1);
-    geq->invert();
-    geq->addLhs(geq->degree, sign ? h : -h);
-    solver.addConstraint(geq);
+  if (ic.lowerBound.has_value()) addLeftImplication(l, ic);
+  if (ic.upperBound.has_value()) {
+    ic.lowerBound = ic.upperBound.value() + 1;
+    addRightImplication(-l, ic);
   }
 }
 
@@ -560,23 +410,23 @@ void IntProg::addMultiplication(const std::vector<IntVar*>& factors, IntVar* low
     assert(terms_new.empty());
     terms_new.reserve(terms.size());
     for (const std::pair<bigint, VarVec>& t : terms) {
-      if (f->getLowerBound() != 0) terms_new.emplace_back(f->getLowerBound() * t.first, t.second);
-      if (f->getRange() == 0) continue;
-      if (f->getEncoding() == Encoding::LOG) {
+      if (f->lowerBound != 0) terms_new.emplace_back(f->lowerBound * t.first, t.second);
+      if (f->isConstant()) continue;
+      if (f->encoding == Encoding::LOG) {
         bigint base = 1;
-        for (Var v : f->getEncodingVars()) {
+        for (Var v : f->encodingVars) {
           terms_new.emplace_back(base * t.first, t.second);
           terms_new.back().second.push_back(v);
           base *= 2;
         }
-      } else if (f->getEncoding() == Encoding::ONEHOT) {
-        for (int64_t i = 1; i < (int64_t)f->getEncodingVars().size(); ++i) {
+      } else if (f->encoding == Encoding::ONEHOT) {
+        for (int64_t i = 1; i < (int64_t)f->encodingVars.size(); ++i) {
           terms_new.emplace_back(i * t.first, t.second);
-          terms_new.back().second.push_back(f->getEncodingVars()[i]);
+          terms_new.back().second.push_back(f->encodingVars[i]);
         }
       } else {
-        assert(f->getEncoding() == Encoding::ORDER);
-        for (Var v : f->getEncodingVars()) {
+        assert(f->encoding == Encoding::ORDER);
+        for (Var v : f->encodingVars) {
           terms_new.emplace_back(t.first, t.second);
           terms_new.back().second.push_back(v);
         }
@@ -614,29 +464,164 @@ void IntProg::addMultiplication(const std::vector<IntVar*>& factors, IntVar* low
     if (!iv) continue;
     CeArb ca = global.cePools.takeArb();
     ca->orig = Origin::FORMULA;
-    ca->addRhs(iv->getLowerBound());
+    ca->addRhs(iv->lowerBound);
     for (const TermArb& ta : lhs) {
       ca->addLhs(ta.c, ta.l);
     }
-    if (lower_bound->getEncoding() == Encoding::LOG) {
+    if (lower_bound->encoding == Encoding::LOG) {
       bigint base = -1;
-      for (Var v : lower_bound->getEncodingVars()) {
+      for (Var v : lower_bound->encodingVars) {
         ca->addLhs(base, v);
         base *= 2;
       }
-    } else if (lower_bound->getEncoding() == Encoding::ONEHOT) {
-      for (int64_t i = 1; i < (int64_t)lower_bound->getEncodingVars().size(); ++i) {
-        ca->addLhs(-i, lower_bound->getEncodingVars()[i]);
+    } else if (lower_bound->encoding == Encoding::ONEHOT) {
+      for (int64_t i = 1; i < (int64_t)lower_bound->encodingVars.size(); ++i) {
+        ca->addLhs(-i, lower_bound->encodingVars[i]);
       }
     } else {
-      assert(lower_bound->getEncoding() == Encoding::ORDER);
-      for (Var v : lower_bound->getEncodingVars()) {
+      assert(lower_bound->encoding == Encoding::ORDER);
+      for (Var v : lower_bound->encodingVars) {
         ca->addLhs(-1, v);
       }
     }
     if (j > 0) ca->invert();
     solver.addConstraint(ca);
   }
+}
+
+bool contains_check_erase(ReifMap& reifs, Lit head, const std::string& lhs, const bigint& bound, bool erase) {
+  auto reif = reifs.find(lhs);
+  if (reif == reifs.end() || reif->second.empty()) return false;
+  auto range = reif->second.equal_range(bound);
+  for (auto it = range.first; it != range.second; ++it) {
+    if (it->second == head) {
+      if (erase) reif->second.erase(it);
+      return true;
+    }
+  }
+  return false;
+}
+
+void add_implied_binary_upper(ReifMap& reifs, Lit head, const std::string& lhs, const bigint& lb, Solver& solver) {
+  auto opposite = reifs.find(lhs);
+  if (opposite == reifs.end() || opposite->second.empty()) return;
+
+  auto placement = opposite->second.upper_bound(lb);
+  if (placement == opposite->second.begin()) return;
+  --placement;
+  if (placement->second == head) {
+    if (placement == opposite->second.begin()) return;
+    --placement;
+  }
+
+  // P implies f >= 3
+  // f >= 2 implies Q
+  // which entails
+  // P implies Q
+  solver.addBinaryConstraint(-head, placement->second, Origin::FORMULA);
+}
+
+void add_implied_binary_lower(ReifMap& reifs, Lit head, const std::string& lhs, const bigint& lb, Solver& solver) {
+  auto opposite = reifs.find(lhs);
+  if (opposite == reifs.end() || opposite->second.empty()) return;
+
+  auto placement = opposite->second.lower_bound(lb);
+  if (placement == opposite->second.end()) return;
+  if (placement->second == head) {
+    ++placement;
+    if (placement == opposite->second.end()) return;
+  }
+
+  // f >= 3 implies P
+  // Q implies f >= 4
+  // which entails
+  // Q implies P
+  solver.addBinaryConstraint(-placement->second, head, Origin::FORMULA);
+}
+
+void IntProg::addImplsRightReif(Lit head, const IntConstraint& ic) {
+  assert(ic.lowerBound.has_value());  // should be normalized
+  const bigint& lb = ic.lowerBound.value();
+  std::string lhs;
+  encode_itv(ic.lhs, lhs);
+  if (contains_check_erase(reifs, head, lhs, lb, false)) return;
+  if (contains_check_erase(right_reifs, head, lhs, lb, false)) return;
+  if (contains_check_erase(left_reifs, head, lhs, lb, true)) {
+    auto [it, _] = reifs.emplace(std::pair{lhs, std::multimap<bigint, Lit>{}});
+    it->second.insert(std::pair{lb, head});
+  } else {
+    auto [it, _] = right_reifs.emplace(std::pair{lhs, std::multimap<bigint, Lit>{}});
+    it->second.insert(std::pair{lb, head});
+  }
+
+  add_implied_binary_upper(reifs, head, lhs, lb, solver);
+  add_implied_binary_upper(left_reifs, head, lhs, lb, solver);
+}
+
+void IntProg::addImplsLeftReif(Lit head, const IntConstraint& ic) {
+  assert(ic.lowerBound.has_value());  // should be normalized
+  const bigint& lb = ic.lowerBound.value();
+  std::string lhs;
+  encode_itv(ic.lhs, lhs);
+  if (contains_check_erase(reifs, head, lhs, lb, false)) return;
+  if (contains_check_erase(left_reifs, head, lhs, lb, false)) return;
+  if (contains_check_erase(right_reifs, head, lhs, lb, true)) {
+    auto [it, _] = reifs.emplace(std::pair{lhs, std::multimap<bigint, Lit>{}});
+    it->second.insert(std::pair{lb, head});
+  } else {
+    auto [it, _] = left_reifs.emplace(std::pair{lhs, std::multimap<bigint, Lit>{}});
+    it->second.insert(std::pair{lb, head});
+  }
+
+  add_implied_binary_lower(reifs, head, lhs, lb, solver);
+  add_implied_binary_lower(right_reifs, head, lhs, lb, solver);
+}
+
+// head => terms >= lb
+void IntProg::addRightImplication(Lit head, const IntConstraint& ic) {
+  // should already be normalized
+  assert(!ic.lhs.empty());
+  assert(ic.lhs[0].c > 0);
+  assert(ic.lowerBound);
+  const IntTermVec& terms = ic.lhs;
+  const bigint& lb = ic.lowerBound.value();
+
+  if (terms.size() == 0) {
+    if (lb > 0) solver.addUnitConstraint(-head, Origin::FORMULA);
+    return;
+  }
+  addImplsRightReif(head, ic);
+
+  CeArb carb = global.cePools.takeArb();
+  ic.toConstrExp(carb, true);
+  carb->postProcess(solver.getLevel(), solver.getPos(), solver.getHeuristic(), true, global.stats);
+
+  carb->addLhs(carb->degree, -head);
+  solver.addConstraint(carb);
+}
+// head <= terms >= lb
+void IntProg::addLeftImplication(Lit head, const IntConstraint& ic) {
+  // should already be normalized
+  assert(!ic.lhs.empty());
+  assert(ic.lhs[0].c > 0);
+  assert(ic.lowerBound);
+  const IntTermVec& terms = ic.lhs;
+  const bigint& lb = ic.lowerBound.value();
+
+  if (terms.size() == 0) {
+    if (lb <= 0) solver.addUnitConstraint(head, Origin::FORMULA);
+    return;
+  }
+  addImplsLeftReif(head, ic);
+
+  CeArb carb = global.cePools.takeArb();
+  ic.toConstrExp(carb, true);
+  carb->postProcess(solver.getLevel(), solver.getPos(), solver.getHeuristic(), true, global.stats);
+
+  carb->addRhs(-1);
+  carb->invert();
+  carb->addLhs(carb->degree, head);
+  solver.addConstraint(carb);
 }
 
 void IntProg::fix(IntVar* iv, const bigint& val) { addConstraint(IntConstraint{{{1, iv}}, val, val}); }
@@ -647,7 +632,7 @@ void IntProg::invalidateLastSol() {
   VarVec vars;
   vars.reserve(name2var.size());
   for (const auto& tup : name2var) {
-    aux::appendTo(vars, tup.second->getEncodingVars());
+    aux::appendTo(vars, tup.second->encodingVars);
   }
   solver.invalidateLastSol(vars);
 }
@@ -658,7 +643,7 @@ void IntProg::invalidateLastSol(const std::vector<IntVar*>& ivs, Var flag) {
   VarVec vars;
   vars.reserve(ivs.size() + (flag != 0));
   for (IntVar* iv : ivs) {
-    aux::appendTo(vars, iv->getEncodingVars());
+    aux::appendTo(vars, iv->encodingVars);
   }
   if (flag != 0) {
     vars.push_back(flag);
@@ -710,26 +695,29 @@ std::ostream& IntProg::printInput(std::ostream& out) const {
   out << "OBJ ";
   if (minimize) {
     out << "MIN ";
-    lhs2str(out, obj);
+    obj.lhs2str(out);
   } else {
     out << "MAX ";
     IntConstraint tmpObj = obj;
     tmpObj.invert();
-    lhs2str(out, tmpObj);
+    tmpObj.lhs2str(out);
   }
   out << std::endl;
 
   std::vector<std::string> strs;
+  IntConstraint ic;
   for (const auto& pr : reifications) {
     std::stringstream ss;
-    ss << (pr.sign ? "!" : "") << *pr.head << (pr.left ? " <- " : " -> ") << pr.body;
+    ic.decode(pr.body, getVariables());
+    ss << (pr.sign ? "!" : "") << *pr.head << (pr.left && pr.right ? " <-> " : pr.left ? " <- " : " -> ") << ic;
     strs.push_back(ss.str());
   }
   std::sort(strs.begin(), strs.end());
   for (const std::string& s : strs) out << s << std::endl;
 
   strs.clear();
-  for (const IntConstraint& ic : constraints) {
+  for (const std::string& code : constraints) {
+    ic.decode(code, getVariables());
     strs.push_back(aux::str(ic));
   }
   std::sort(strs.begin(), strs.end());
@@ -804,10 +792,10 @@ Core IntProg::getLastCore() {
 
 void IntProg::printOrigSol() const {
   if (!solver.foundSolution()) throw InvalidArgument("No solution to return.");
-  for (const std::unique_ptr<IntVar>& iv : vars) {
+  for (const IntVar* iv : vars) {
     bigint val = iv->getValue(solver.getLastSolution());
     if (val != 0) {
-      std::cout << iv->getName() << " " << val << "\n";
+      std::cout << iv->name << " " << val << "\n";
     }
   }
 }
@@ -823,7 +811,7 @@ WithState<Ce32> IntProg::getSolIntersection(const std::vector<IntVar*>& ivs, boo
   invalidator->orig = Origin::INVALIDATOR;
   invalidator->addRhs(1);
   for (IntVar* iv : ivs) {
-    for (Var v : iv->getEncodingVars()) {
+    for (Var v : iv->encodingVars) {
       invalidator->addLhs(1, -solver.getLastSolution()[v]);
     }
   }
@@ -866,7 +854,10 @@ WithState<Ce32> IntProg::getSolIntersection(const std::vector<IntVar*>& ivs, boo
 
   assert(result != SolveState::INPROCESSED);
   assert(result != SolveState::SAT);
-  if (result == SolveState::TIMEOUT) return {SolveState::TIMEOUT, CeNull()};
+
+  if (result == SolveState::TIMEOUT) {
+    return {SolveState::TIMEOUT, CeNull()};
+  }
   assert(result == SolveState::INCONSISTENT || result == SolveState::UNSAT);
   return {SolveState::SAT, invalidator};
 }
@@ -888,8 +879,8 @@ OptRes IntProg::toOptimum(IntConstraint& objective, bool keepstate, const TimeOu
     return {SolveState::SAT, 0, emptyCore()};
   }
   IntVar* flag = addFlag();
-  assert(flag->getEncodingVars().size() == 1);
-  Var flag_v = flag->getEncodingVars()[0];
+  assert(flag->encodingVars.size() == 1);
+  Var flag_v = flag->encodingVars[0];
   assumptions.add(flag_v);
   bigint cf = 1 + (keepstate ? objrange : 0);
   assert(cf > 0);
@@ -933,8 +924,8 @@ WithState<std::vector<std::pair<bigint, bigint>>> IntProg::propagate(const std::
   bools.reserve(ivs.size());
   int64_t i = 0;
   for (IntVar* iv : ivs) {
-    if (iv->getEncodingVars().empty()) {
-      consequences[i] = {iv->getLowerBound(), iv->getUpperBound()};
+    if (iv->encodingVars.empty()) {
+      consequences[i] = {iv->lowerBound, iv->upperBound};
     } else if (iv->isBoolean()) {
       bools.push_back(iv);
       consequences[i] = {0, 1};
@@ -954,10 +945,10 @@ WithState<std::vector<std::pair<bigint, bigint>>> IntProg::propagate(const std::
       }
       assert(upperstate == SolveState::SAT);
       consequences[i] = {lowerbound, -upperbound};
-      if (!keepstate && consequences[i].first > iv->getLowerBound()) {
+      if (!keepstate && consequences[i].first > iv->lowerBound) {
         addConstraint({{{1, iv}}, consequences[i].first});
       }
-      if (!keepstate && consequences[i].second < iv->getUpperBound()) {
+      if (!keepstate && consequences[i].second < iv->upperBound) {
         addConstraint({{{1, iv}}, std::nullopt, consequences[i].second});
       }
     }
@@ -973,9 +964,9 @@ WithState<std::vector<std::pair<bigint, bigint>>> IntProg::propagate(const std::
   i = -1;
   for (IntVar* iv : ivs) {
     ++i;
-    if (iv->getEncodingVars().empty() || !iv->isBoolean()) continue;
-    assert(iv->getEncodingVars().size() == 1);
-    Lit l = iv->getEncodingVars()[0];
+    if (iv->encodingVars.empty() || !iv->isBoolean()) continue;
+    assert(iv->encodingVars.size() == 1);
+    Lit l = iv->encodingVars[0];
     if (invalidator->hasLit(l)) consequences[i].second = 0;
     if (invalidator->hasLit(-l)) consequences[i].first = 1;
     assert(consequences[i].first <= consequences[i].second);
@@ -988,8 +979,8 @@ WithState<std::vector<std::pair<bigint, bigint>>> IntProg::propagate(const std::
 WithState<std::vector<std::vector<bigint>>> IntProg::pruneDomains(const std::vector<IntVar*>& ivs, bool keepstate,
                                                                   const TimeOut& to) {
   for (IntVar* iv : ivs) {
-    if (iv->getEncodingVars().size() != 1 && iv->getEncoding() != Encoding::ONEHOT) {
-      throw InvalidArgument("Non-Boolean variable " + iv->getName() +
+    if (iv->encodingVars.size() != 1 && iv->encoding != Encoding::ONEHOT) {
+      throw InvalidArgument("Non-Boolean variable " + iv->name +
                             " is passed to pruneDomains but is not one-hot encoded.");
     }
   }
@@ -1002,25 +993,25 @@ WithState<std::vector<std::vector<bigint>>> IntProg::pruneDomains(const std::vec
   std::vector<std::vector<bigint>> doms(ivs.size());
   for (int i = 0; i < (int)ivs.size(); ++i) {
     IntVar* iv = ivs[i];
-    if (iv->getEncodingVars().empty()) {
-      assert(iv->getLowerBound() == iv->getUpperBound());
-      doms[i].push_back(iv->getLowerBound());
+    if (iv->encodingVars.empty()) {
+      assert(iv->lowerBound == iv->upperBound);
+      doms[i].push_back(iv->lowerBound);
       continue;
     }
-    if (iv->getEncodingVars().size() == 1) {
-      assert(iv->getEncoding() == Encoding::ORDER);
-      Var v = iv->getEncodingVars()[0];
+    if (iv->encodingVars.size() == 1) {
+      assert(iv->encoding == Encoding::ORDER);
+      Var v = iv->encodingVars[0];
       if (!invalidator->hasLit(-v)) {
-        doms[i].push_back(iv->getLowerBound());
+        doms[i].push_back(iv->lowerBound);
       }
       if (!invalidator->hasLit(v)) {
-        doms[i].push_back(iv->getUpperBound());
+        doms[i].push_back(iv->upperBound);
       }
       continue;
     }
-    assert(iv->getEncoding() == Encoding::ONEHOT);
-    bigint val = iv->getLowerBound();
-    for (Var v : iv->getEncodingVars()) {
+    assert(iv->encoding == Encoding::ONEHOT);
+    bigint val = iv->lowerBound;
+    for (Var v : iv->encodingVars) {
       if (!invalidator->hasLit(v)) {
         doms[i].push_back(val);
       }
@@ -1032,7 +1023,7 @@ WithState<std::vector<std::vector<bigint>>> IntProg::pruneDomains(const std::vec
 
 Var IntProg::fixObjective(const IntConstraint& ico, const bigint& optval) {
   IntVar* flag = addFlag();
-  Var flag_v = flag->getEncodingVars()[0];
+  Var flag_v = flag->encodingVars[0];
   assumptions.add(flag_v);
   if (ico.getRange() > 0) {
     IntConstraint ic = ico;
@@ -1118,7 +1109,7 @@ WithState<Core> IntProg::extractMUS(const TimeOut& to) {
 
   for (IntVar* iv : *last_core) {
     toCheck.push_back(iv);
-    for (Var v : iv->getEncodingVars()) {
+    for (Var v : iv->encodingVars) {
       if (assumptions.has(v)) newAssumps.add(v);
       if (assumptions.has(-v)) newAssumps.add(-v);
     }
@@ -1129,7 +1120,7 @@ WithState<Core> IntProg::extractMUS(const TimeOut& to) {
   while (!toCheck.empty()) {
     IntVar* current = toCheck.back();
     toCheck.pop_back();
-    for (Var v : current->getEncodingVars()) {
+    for (Var v : current->encodingVars) {
       newAssumps.remove(v);
       newAssumps.remove(-v);
     }
@@ -1148,7 +1139,7 @@ WithState<Core> IntProg::extractMUS(const TimeOut& to) {
     } else {
       assert(result == SolveState::SAT);
       needed->insert(current);
-      for (Var v : current->getEncodingVars()) {
+      for (Var v : current->encodingVars) {
         if (assumptions.has(v)) newAssumps.add(v);
         if (assumptions.has(-v)) newAssumps.add(-v);
       }
@@ -1166,7 +1157,7 @@ void IntProg::runFromCmdLine() {
   }
   if (global.options.printCsvData) global.stats.printCsvHeader();
 
-  aux::timeCallVoid([&] { parsing::file_read(*this); }, global.stats.PARSETIME);
+  aux::timeCallVoid([&] { parsing::file_read(*this); }, global.stats.PARSETIME.z);
 
   if (global.options.printOpb) printFormula();
   if (global.options.noSolve) throw EarlyTermination();
@@ -1178,3 +1169,15 @@ void IntProg::runFromCmdLine() {
 }
 
 }  // namespace xct
+
+// size_t std::hash<xct::IntVar*>::operator()(xct::IntVar* iv) const noexcept {
+//   return iv->encodingVars.empty() ? 0 : iv->encodingVars.front();
+// }
+//
+// size_t std::hash<xct::IntTerm>::operator()(const xct::IntTerm& it) const noexcept {
+//   return xct::aux::hash_comb_ordered(xct::aux::hash(it.c), it.v);
+// }
+//
+// size_t std::hash<xct::IntTermVec>::operator()(const xct::IntTermVec& itv) const noexcept {
+//   return xct::aux::hashForList<const xct::IntTerm&>(itv);
+// }

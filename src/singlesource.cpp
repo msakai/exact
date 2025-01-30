@@ -1,7 +1,7 @@
 /**********************************************************************
 This file is part of Exact.
 
-Copyright (c) 2022-2024 Jo Devriendt, Nonfiction Software
+Copyright (c) 2022-2025 Jo Devriendt, Nonfiction Software
 
 Exact is free software: you can redistribute it and/or modify it under
 the terms of the GNU Affero General Public License version 3 as
@@ -32,7 +32,6 @@ or run with the flag --license=AGPLv3. If not, see
 // clang-format off
 #include "constraints/ConstrExpPools.cpp"
 // clang-format on
-#include "IntProg.cpp"
 #include "Logger.cpp"
 #include "Optimization.cpp"
 #include "Options.cpp"
@@ -45,6 +44,8 @@ or run with the flag --license=AGPLv3. If not, see
 #include "datastructures/Heuristic.cpp"
 #include "datastructures/IntSet.cpp"
 #include "datastructures/SolverStructs.cpp"
+#include "interface/IntConstraint.cpp"
+#include "interface/IntProg.cpp"
 #include "parsing.cpp"
 #include "propagation/Equalities.cpp"
 #include "propagation/Implications.cpp"

@@ -1,7 +1,7 @@
 /**********************************************************************
 This file is part of Exact.
 
-Copyright (c) 2022-2024 Jo Devriendt, Nonfiction Software
+Copyright (c) 2022-2025 Jo Devriendt, Nonfiction Software
 
 Exact is free software: you can redistribute it and/or modify it under
 the terms of the GNU Affero General Public License version 3 as
@@ -61,9 +61,9 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "quit.hpp"
 #include <iostream>
-#include "IntProg.hpp"
 #include "Optimization.hpp"
 #include "auxiliary.hpp"
+#include "interface/IntProg.hpp"
 
 namespace xct {
 

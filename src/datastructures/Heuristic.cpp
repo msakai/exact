@@ -1,7 +1,7 @@
 /**********************************************************************
 This file is part of Exact.
 
-Copyright (c) 2022-2024 Jo Devriendt, Nonfiction Software
+Copyright (c) 2022-2025 Jo Devriendt, Nonfiction Software
 
 Exact is free software: you can redistribute it and/or modify it under
 the terms of the GNU Affero General Public License version 3 as
@@ -60,7 +60,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 **********************************************************************/
 
 #include "Heuristic.hpp"
-#include <constraints/ConstrExp.hpp>
+#include "../constraints/ConstrExp.hpp"
 
 namespace xct {
 
@@ -130,7 +130,7 @@ void Heuristic::bumpObjective(const CeArb& obj, const std::vector<int>& position
   assert(obj->hasNoZeroes());
   // set initial phase and activity so that we try optimal objective assignment first
   VarVec vars = obj->vars;
-  std::ranges::sort(vars, [&](Var v1, Var v2) {
+  std::sort(vars.begin(), vars.end(), [&](Var v1, Var v2) {
     const bigint diff = obj->absCoef(v1) - obj->absCoef(v2);
     return diff > 0 || (diff == 0 && actList[v1].activity > actList[v2].activity);  // takes into account randomization
   });

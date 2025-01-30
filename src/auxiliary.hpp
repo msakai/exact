@@ -1,7 +1,7 @@
 /**********************************************************************
 This file is part of Exact.
 
-Copyright (c) 2022-2024 Jo Devriendt, Nonfiction Software
+Copyright (c) 2022-2025 Jo Devriendt, Nonfiction Software
 
 Exact is free software: you can redistribute it and/or modify it under
 the terms of the GNU Affero General Public License version 3 as
@@ -66,8 +66,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <stdlib.h>
 #include <algorithm>
-#include <boost/container/flat_map.hpp>
-#include <boost/container/flat_set.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 #include <cassert>
 #include <chrono>
@@ -79,6 +77,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <numeric>
 #include <optional>
 #include <set>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -139,13 +138,6 @@ size_t erase_if(unordered_set<K, H, KE>& set, Pred pred) {
   return boost::unordered::erase_if(set, pred);
 }
 #endif
-
-template <typename K, typename V, typename Comp = std::less<K>>
-using ordered_map = boost::container::flat_map<K, V, Comp>;
-// using ordered_map = std::unordered_map<K, V, Comp>;
-template <typename K, typename Comp = std::less<K>>
-using ordered_set = boost::container::flat_set<K, Comp>;
-// using ordered_set = std::set<K, Comp>;
 
 enum class State { SUCCESS, FAIL };
 enum class SolveState { UNSAT, SAT, INCONSISTENT, TIMEOUT, INPROCESSED };
@@ -596,6 +588,10 @@ auto comprehension(CONTAINER&& container, LAM_MAP&& map, LAM_FILTER&& filter) {
 
 struct IntVecHash {
   size_t operator()(const std::vector<int32_t>& t) const { return xct::aux::hashForList<int32_t>(t); }
+};
+
+struct StringHash {
+  size_t operator()(const std::string& t) const { return xct::aux::hashForList<char>(t); }
 };
 
 void* align_alloc(size_t alignment, size_t size);

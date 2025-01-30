@@ -22,5 +22,5 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://gitlab.com/JoD/exact"
-Issues = "https://gitlab.com/JoD/exact/-/issues"
+Homepage = "https://gitlab.com/nonfiction-software/exact"
+Issues = "https://gitlab.com/nonfiction-software/exact/-/issues"

@@ -1,7 +1,7 @@
 /**********************************************************************
 This file is part of Exact.
 
-Copyright (c) 2022-2024 Jo Devriendt, Nonfiction Software
+Copyright (c) 2022-2025 Jo Devriendt, Nonfiction Software
 
 Exact is free software: you can redistribute it and/or modify it under
 the terms of the GNU Affero General Public License version 3 as
@@ -174,7 +174,7 @@ void Options::parseCommandLine(int argc, char** argv) {
 
 void Options::usage(const char* name) {
   std::cout << "Welcome to Exact!\n\n";
-  std::cout << "Source code: https://gitlab.com/JoD/exact\n";
+  std::cout << "Source code: https://gitlab.com/nonfiction-software/exact\n";
   std::cout << "branch       " EXPANDED(GIT_BRANCH) "\n";
   std::cout << "commit       " EXPANDED(GIT_COMMIT_HASH) "\n";
   std::cout << "\n";

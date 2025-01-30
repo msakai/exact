@@ -1,7 +1,7 @@
 /**********************************************************************
 This file is part of Exact.
 
-Copyright (c) 2022-2024 Jo Devriendt, Nonfiction Software
+Copyright (c) 2022-2025 Jo Devriendt, Nonfiction Software
 
 Exact is free software: you can redistribute it and/or modify it under
 the terms of the GNU Affero General Public License version 3 as
@@ -61,9 +61,9 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "Optimization.hpp"
 #include "Global.hpp"
-#include "IntProg.hpp"
 #include "Solver.hpp"
 #include "constraints/ConstrExp.hpp"
+#include "interface/IntConstraint.hpp"
 
 namespace xct {
 
@@ -409,7 +409,7 @@ State Optimization<SMALL, LARGE>::reformObjective(const CeSuper& core) {  // mod
   }
   if (mult == 0) return State::FAIL;  // no further literals of the objective remain
 
-  global.stats.NCGNONCLAUSALCORES += !cardCore->isClause();
+  global.stats.NCGNONCLAUSALCORES.z += !cardCore->isClause();
 
   assert(!cardCore->isTautology());
   assert(!cardCore->isUnsat());
@@ -464,7 +464,7 @@ void Optimization<SMALL, LARGE>::handleInconsistency(const CeSuper& core) {  // 
   assert(reformObj);
   reformObj->removeUnitsAndZeroes(solver.getLevel(), solver.getPos());
   if (lower_bound < -reformObj->getDegree()) {
-    ++global.stats.NCGUNITCORES;
+    ++global.stats.NCGUNITCORES.z;
     lower_bound = -reformObj->getDegree();
   }
 
@@ -529,8 +529,8 @@ SolveState Optimization<SMALL, LARGE>::run(bool optimize, double timeout) {
     bool topdown = false;
     if (optimize && !origObj->empty() && lower_bound < upper_bound &&
         (global.options.optRatio.get() >= 1 ||
-         global.stats.DETTIMEBOTTOMUP <
-             global.options.optRatio.get() * (global.stats.DETTIMETOPDOWN + global.stats.DETTIMEBOTTOMUP))) {
+         global.stats.DETTIMEBOTTOMUP.z <
+             global.options.optRatio.get() * (global.stats.DETTIMETOPDOWN.z + global.stats.DETTIMEBOTTOMUP.z))) {
       // figure out and set new bottom-up assumptions
       if (global.options.optCoreguided && global.options.proofAssumps) {
         assert(reformObj);
@@ -583,7 +583,7 @@ SolveState Optimization<SMALL, LARGE>::run(bool optimize, double timeout) {
     } else {
       try {
         reply = aux::timeCall<SolveState>([&] { return solver.solve(); },
-                                          topdown ? global.stats.SOLVETIMETOPDOWN : global.stats.SOLVETIMEBOTTOMUP);
+                                          topdown ? global.stats.SOLVETIMETOPDOWN.z : global.stats.SOLVETIMEBOTTOMUP.z);
       } catch (const UnsatEncounter&) {
         reply = SolveState::UNSAT;
       }

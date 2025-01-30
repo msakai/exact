@@ -1,7 +1,7 @@
 /**********************************************************************
 This file is part of Exact.
 
-Copyright (c) 2022-2024 Jo Devriendt, Nonfiction Software
+Copyright (c) 2022-2025 Jo Devriendt, Nonfiction Software
 
 Exact is free software: you can redistribute it and/or modify it under
 the terms of the GNU Affero General Public License version 3 as
@@ -172,6 +172,9 @@ struct Stats {
   Stat NWATCHLOOKUPSBJ{0, "watch backjump lookups"};
   Stat NWATCHCHECKS{0, "watch checks"};
   Stat NPROPCHECKS{0, "propagation checks"};
+  Stat NBLOCKINGSUCCESS{0, "blocking literal success"};
+  Stat NBLOCKINGFAILS{0, "blocking literal fails  "};
+
   Stat NADDEDLITERALS{0, "literal additions"};
   Stat NSATURATESTEPS{0, "saturation steps"};
   Stat NUNKNOWNROUNDEDUP{0, "unknown literals rounded up"};
@@ -424,6 +427,8 @@ struct Stats {
       &NWATCHLOOKUPSBJ,
       &NWATCHCHECKS,
       &NPROPCHECKS,
+      &NBLOCKINGSUCCESS,
+      &NBLOCKINGFAILS,
       &NADDEDLITERALS,
       &NSATURATESTEPS,
       &NUNKNOWNROUNDEDUP,

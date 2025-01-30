@@ -1,7 +1,7 @@
 /**********************************************************************
 This file is part of Exact.
 
-Copyright (c) 2022-2024 Jo Devriendt, Nonfiction Software
+Copyright (c) 2022-2025 Jo Devriendt, Nonfiction Software
 
 Exact is free software: you can redistribute it and/or modify it under
 the terms of the GNU Affero General Public License version 3 as
@@ -198,7 +198,7 @@ struct ConstrExpSuper {
   virtual void toStreamWithAssignment(std::ostream& o, const IntMap<int>& level, const std::vector<int>& pos) const = 0;
   virtual void toStreamPure(std::ostream& o) const = 0;
 
-  virtual unsigned int resolveWith(const Lit* data, unsigned int size, unsigned int deg, ID id, Lit l,
+  virtual unsigned int resolveWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit l,
                                    const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet) = 0;
   virtual unsigned int resolveWith(const Lit* lits, const int* coefs, unsigned int size, const long long& degr, ID id,
                                    Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos,
@@ -215,7 +215,7 @@ struct ConstrExpSuper {
   virtual unsigned int resolveWith(const Lit* lits, const bigint* coefs, unsigned int size, const bigint& degr, ID id,
                                    Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos,
                                    IntSet& actSet) = 0;
-  virtual unsigned int subsumeWith(const Lit* data, unsigned int size, unsigned int deg, ID id, Lit l,
+  virtual unsigned int subsumeWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit l,
                                    const IntMap<int>& level, const std::vector<int>& pos, IntSet& saturatedLits) = 0;
   virtual unsigned int subsumeWith(const Lit* lits, const int* coefs, unsigned int size, const long long& degr, ID id,
                                    Lit l, const IntMap<int>& level, const std::vector<int>& pos,
@@ -345,7 +345,7 @@ struct ConstrExp final : ConstrExpSuper {
 
   template <typename S, typename L>
   void addUp(const CePtr<S, L>& c, const SMALL& cmult = 1) {
-    global.stats.NADDEDLITERALS += c->nVars();
+    global.stats.NADDEDLITERALS.z += c->nVars();
     assert(cmult >= 1);
     if (global.logger.isActive()) Logger::proofMult(proofBuffer << c->proofBuffer.str(), cmult) << "+ ";
     rhs += static_cast<LARGE>(cmult) * static_cast<LARGE>(c->rhs);
@@ -427,7 +427,7 @@ struct ConstrExp final : ConstrExpSuper {
   void toStreamWithAssignment(std::ostream& o, const IntMap<int>& level, const std::vector<int>& pos) const;
   void toStreamPure(std::ostream& o) const;
 
-  unsigned int resolveWith(const Lit* data, unsigned int size, unsigned int deg, ID id, Lit l, const IntMap<int>& level,
+  unsigned int resolveWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit l, const IntMap<int>& level,
                            const std::vector<int>& pos, IntSet& actSet);
   unsigned int resolveWith(const Lit* lits, const int* coefs, unsigned int size, const long long& degr, ID id, Origin o,
                            Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet);
@@ -439,7 +439,7 @@ struct ConstrExp final : ConstrExpSuper {
                            Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet);
   unsigned int resolveWith(const Lit* lits, const bigint* coefs, unsigned int size, const bigint& degr, ID id, Origin o,
                            Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet);
-  unsigned int subsumeWith(const Lit* data, unsigned int size, unsigned int deg, ID id, Lit l, const IntMap<int>& level,
+  unsigned int subsumeWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit l, const IntMap<int>& level,
                            const std::vector<int>& pos, IntSet& saturatedLits);
   unsigned int subsumeWith(const Lit* lits, const int* coefs, unsigned int size, const long long& degr, ID id, Lit l,
                            const IntMap<int>& level, const std::vector<int>& pos, IntSet& saturatedLits);
@@ -553,7 +553,7 @@ struct ConstrExp final : ConstrExpSuper {
         if (reason->getSlack(level) * mult + getSlack(level) < 0) {
           fixed = true;
           multWeakened = true;
-          global.stats.NMULTWEAKENEDREASON += 1;
+          global.stats.NMULTWEAKENEDREASON.z += 1;
           reason->multiply(mult);
           SMALL toWeaken = reasonCoef * mult - conflCoef;
           reason->weakenCheckSaturated(toWeaken, asserting, level);
@@ -565,7 +565,7 @@ struct ConstrExp final : ConstrExpSuper {
           fixed = true;
           multipliedConflict = true;
           multWeakened = true;
-          global.stats.NMULTWEAKENEDCONFLICT += 1;
+          global.stats.NMULTWEAKENEDCONFLICT.z += 1;
           multiply(mult);
           SMALL toWeaken = reasonCoef - conflCoef * mult;
           reason->weakenCheckSaturated(toWeaken, asserting, level);
@@ -635,7 +635,7 @@ struct ConstrExp final : ConstrExpSuper {
           if (global.options.caCancelingUnkns) {
             for (Var v : reason->vars) {
               Lit l = reason->getLit(v);
-              global.stats.NUNKNOWNROUNDEDUP += isUnknown(pos, v) && getCoef(-l) >= mult;
+              global.stats.NUNKNOWNROUNDEDUP.z += isUnknown(pos, v) && getCoef(-l) >= mult;
             }
             reason->weakenDivideRoundOrderedCanceling(bestDiv, level, pos, mult, *this);
             reason->multiply(mult);
@@ -705,7 +705,7 @@ struct ConstrExp final : ConstrExpSuper {
     }
     cf = 0;
     saturatedLits.remove(-toSubsume);
-    ++global.stats.NSUBSUMESTEPS;
+    ++global.stats.NSUBSUMESTEPS.z;
 
     if (global.logger.isActive()) {
       proofBuffer << id << " ";

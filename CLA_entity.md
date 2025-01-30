@@ -1,6 +1,6 @@
 # Exact Entity Contributor License Agreement
 
-Thanks for your interest in contributing to [Exact](https://gitlab.com/JoD/exact)!
+Thanks for your interest in contributing to [Exact](https://gitlab.com/nonfiction-software/exact)!
 
 This contributor agreement (“Agreement”) documents the rights granted by contributors to Jo Devriendt ("We" or "Us" or @JoD). This Agreement is a slightly modified Canonical Individual Contributor License Agreement.
 

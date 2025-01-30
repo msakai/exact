@@ -1,7 +1,7 @@
 /**********************************************************************
 This file is part of Exact.
 
-Copyright (c) 2022-2024 Jo Devriendt, Nonfiction Software
+Copyright (c) 2022-2025 Jo Devriendt, Nonfiction Software
 
 Exact is free software: you can redistribute it and/or modify it under
 the terms of the GNU Affero General Public License version 3 as
@@ -90,13 +90,15 @@ inline bool isPropagated(const std::vector<CRef>& reasons, Lit l) { return !isDe
 
 struct Watch {
   CRef cref;
-  int idx;
   /**
-   * idx<0: blocked literal for clausal propagation
-   * 0<=idx<INF: index of watched literal for cardinality propagation
-   * INF<=idx: index of watched literal for watched/counting propagation
+   * 0<=idx<INF: index of watched literal for Watched32 propagation
+   * 2*INF<=idx<3*INF: index of watched literal for Watched propagation
+   * 3*INF<=idx<4*INF: index of watched literal for Cardinality propagation
+   * idx==4*INF: Clause
+   * idx==4*INF+1: Binary
    **/
-  Watch(CRef cr, int i) : cref(cr), idx(i){};
+  uint32_t idx;
+  Lit blocking;
   bool operator==(const Watch& other) const { return other.cref == cref && other.idx == idx; }
 };
 

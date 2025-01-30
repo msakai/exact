@@ -1,7 +1,7 @@
 /**********************************************************************
 This file is part of Exact.
 
-Copyright (c) 2022-2024 Jo Devriendt, Nonfiction Software
+Copyright (c) 2022-2025 Jo Devriendt, Nonfiction Software
 
 Exact is free software: you can redistribute it and/or modify it under
 the terms of the GNU Affero General Public License version 3 as
@@ -60,7 +60,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 **********************************************************************/
 
 #include "Solver.hpp"
-#include "IntProg.hpp"
 #include "auxiliary.hpp"
 #include "constraints/Constr.hpp"
 
@@ -173,8 +172,8 @@ void Solver::fixPhase(const std::vector<std::pair<Var, Lit>>& vls, bool bump) {
 
 void Solver::enqueueUnit([[maybe_unused]] Lit l, Var v, CRef r) {
   assert(toVar(l) == v);
-  assert(global.stats.NUNITS == trail.size());
-  ++global.stats.NUNITS;
+  assert(global.stats.NUNITS.z == trail.size());
+  ++global.stats.NUNITS.z;
   reason[v] = CRef_Undef;  // no need to keep track of reasons for unit literals
   if (global.logger.isActive()) {
     CeSuper tmp = ca[r].toExpanded(global.cePools);
@@ -200,15 +199,18 @@ void Solver::uncheckedEnqueue(Lit l, CRef r) {
 
 void Solver::undoOne() {
   assert(!trail.empty());
-  ++global.stats.NTRAILPOPS;
+  ++global.stats.NTRAILPOPS.z;
   Lit l = trail.back();
   if (qhead == (int)trail.size()) {
-    for (const Watch& w : adj[-l])
-      if (w.idx >= INF) {
-        ca[w.cref].undoFalsified(w.idx);
-        ++global.stats.NWATCHLOOKUPSBJ;
-      }
     --qhead;
+    for (const Watch& w : adj[-l]) {
+      if (w.idx < 3 * UINF) {  // avoids the cardinality and clausal case
+        if (Lit blocking = w.blocking; !isTrue(level, blocking) || position[toVar(blocking)] >= position[toVar(l)]) {
+          ca[w.cref].undoFalsified(w.idx);
+          ++global.stats.NWATCHLOOKUPSBJ.z;
+        }
+      }
+    }
   }
   Var v = toVar(l);
   trail.pop_back();
@@ -234,27 +236,27 @@ void Solver::backjumpTo(int lvl) {
 }
 
 void Solver::decide(Lit l) {
-  ++global.stats.NDECIDE;
+  ++global.stats.NDECIDE.z;
   trail_lim.push_back(trail.size());
   uncheckedEnqueue(l, CRef_Undef);
 }
 
 void Solver::propagate(Lit l, CRef r) {
   assert(isValid(r));
-  ++global.stats.NPROP;
+  ++global.stats.NPROP.z;
   uncheckedEnqueue(l, r);
 }
 
 State Solver::probe(Lit l, bool deriveImplications) {
   assert(decisionLevel() == 0);
   assert(isUnknown(getPos(), l));
-  ++global.stats.NPROBINGS;
+  ++global.stats.NPROBINGS.z;
   while (isUnknown(getPos(), l)) {
     decide(l);
-    CeSuper confl = aux::timeCall<CeSuper>([&] { return runPropagation(); }, global.stats.PROPTIME);
+    CeSuper confl = aux::timeCall<CeSuper>([&] { return runPropagation(); }, global.stats.PROPTIME.z);
     if (confl) {
-      CeSuper analyzed = aux::timeCall<CeSuper>([&] { return analyze(confl); }, global.stats.CATIME);
-      aux::timeCallVoid([&] { learnConstraint(analyzed); }, global.stats.LEARNTIME);
+      CeSuper analyzed = aux::timeCall<CeSuper>([&] { return analyze(confl); }, global.stats.CATIME.z);
+      aux::timeCallVoid([&] { learnConstraint(analyzed); }, global.stats.LEARNTIME.z);
       return State::FAIL;
     }
     // NOTE: we may have backjumped to level 0 due to a learned constraint that did not propagate.
@@ -281,33 +283,70 @@ State Solver::probe(Lit l, bool deriveImplications) {
  * @return: a CeNull when no conflict is detected, otherwise the conflicting constraint
  */
 CeSuper Solver::runDatabasePropagation() {
+  Lit p;
   while (qhead < (int)trail.size()) {
-    Lit p = trail[qhead++];
+    p = trail[qhead++];
+    assert(isTrue(level, p));
     std::vector<Watch>& ws = adj[-p];
-    double prevPrio = std::numeric_limits<double>::lowest();
-    double cPrio = 0;
-    for (int it_ws = 0; it_ws < std::ssize(ws); ++it_ws) {
-      int idx = ws[it_ws].idx;
-      if (idx < 0 && isTrue(level, idx + INF)) {
-        assert(dynamic_cast<Clause*>(&(ca[ws[it_ws].cref])) != nullptr);
-        continue;
-      }  // blocked literal check
-      CRef cr = ws[it_ws].cref;
-      WatchStatus wstat = checkForPropagation(cr, ws[it_ws].idx, -p);
+    for (int32_t it_ws = 0; it_ws < std::ssize(ws); ++it_ws) {
+      const uint32_t& idx = ws[it_ws].idx;
+      const Lit& blocking = ws[it_ws].blocking;
+
+      if (isTrue(level, blocking)) {  // blocking literal check
+        if (idx >= CLAUSE_IDX || position[toVar(blocking)] < position[toVar(p)]) {
+          assert(dynamic_cast<Clause*>(&ca[ws[it_ws].cref]) != nullptr ||
+                 dynamic_cast<Binary*>(&ca[ws[it_ws].cref]) != nullptr || idx < UINF ||
+                 (idx < 3 * UINF && idx >= 2 * UINF));
+          global.stats.NBLOCKINGSUCCESS.z += idx < CLAUSE_IDX;  // not a clause or binary
+          continue;
+        }
+      }
+      global.stats.NBLOCKINGFAILS.z += idx < CLAUSE_IDX && blocking != 0;  // not a clause or binary
+
+      Watch& w = ws[it_ws];
+      WatchStatus wstat = WatchStatus::DROPWATCH;
+      if (idx == BINARY_IDX) {
+        assert(!isTrue(level, blocking));  // already checked for blocking literal
+        if (isFalse(level, blocking)) {
+          wstat = WatchStatus::CONFLICTING;
+        } else {
+          propagate(blocking, w.cref);
+          wstat = WatchStatus::KEEPWATCH;
+        }
+      } else {
+        ++global.stats.NWATCHLOOKUPS.z;
+        Constr& c = ca[w.cref];
+        if (!c.isMarkedForDelete()) {
+          // Try to avoid the vTable indirection
+          if (idx < UINF) {
+            wstat = static_cast<Watched32&>(c).checkForPropagation(w, -p, *this, global.stats);
+          } else if (idx == CLAUSE_IDX) {
+            wstat = static_cast<Clause&>(c).checkForPropagation(w, -p, *this, global.stats);
+          } else {
+            assert(idx < CLAUSE_IDX);  // not a clause or binary
+            assert(idx >= 2 * UINF);   // not a Watched32
+            wstat = c.checkForPropagation(w, -p, *this, global.stats);
+          }
+        }
+      }
+
       if (wstat == WatchStatus::DROPWATCH) {
         plf::single_reorderase(ws, ws.begin() + it_ws);
         --it_ws;
       } else if (wstat == WatchStatus::CONFLICTING) {  // clean up current level and stop propagation
-        ++global.stats.NTRAILPOPS;
-        for (int i = 0; i <= it_ws; ++i) {
-          const Watch& w = ws[i];
-          if (w.idx >= INF) {
-            ca[w.cref].undoFalsified(w.idx);
-            ++global.stats.NWATCHLOOKUPSBJ;
+        Constr& c = ca[w.cref];
+        ++global.stats.NTRAILPOPS.z;
+        --qhead;
+        for (uint32_t i = 0; i <= static_cast<uint32_t>(it_ws); ++i) {
+          const Watch& wa = ws[i];
+          if (wa.idx < 3 * UINF) {  // avoids the cardinality and clausal case
+            if (Lit blocking = wa.blocking;
+                !isTrue(level, blocking) || position[toVar(blocking)] >= position[toVar(p)]) {
+              ca[wa.cref].undoFalsified(wa.idx);
+              ++global.stats.NWATCHLOOKUPSBJ.z;
+            }
           }
         }
-        --qhead;
-        Constr& c = ca[cr];
         CeSuper result = c.toExpanded(global.cePools);
         c.decreaseLBD(result->getLBD(level));
         c.fixEncountered(global.stats);
@@ -315,13 +354,6 @@ CeSuper Solver::runDatabasePropagation() {
         return result;
       } else {
         assert(wstat == WatchStatus::KEEPWATCH);
-        Constr& c = ca[cr];
-        cPrio = c.priority;
-        if (cPrio < prevPrio) {
-          assert(it_ws > 0);
-          std::swap(ws[it_ws], ws[it_ws - 1]);
-        }
-        prevPrio = cPrio;
       }
     }
   }
@@ -342,7 +374,7 @@ CeSuper Solver::runPropagationWithLP() {
   if (CeSuper result = runPropagation(); result) return result;
   if (lpSolver) {
     auto [state, constraint] = aux::timeCall<std::pair<LpStatus, CeSuper>>(
-        [&] { return lpSolver->checkFeasibility(false); }, global.stats.LPTOTALTIME);
+        [&] { return lpSolver->checkFeasibility(false); }, global.stats.LPTOTALTIME.z);
     // NOTE: calling LP solver may increase the propagations on the trail due to added constraints
     if (state == LpStatus::INFEASIBLE || state == LpStatus::OPTIMAL) {
       // added a Farkas/bound constraint and potentially backjumped, so we propagate again
@@ -350,15 +382,6 @@ CeSuper Solver::runPropagationWithLP() {
     }
   }
   return CeNull();
-}
-
-WatchStatus Solver::checkForPropagation(CRef cr, int& idx, Lit p) {
-  assert(isFalse(level, p));
-  Constr& c = ca[cr];
-  if (c.isMarkedForDelete()) return WatchStatus::DROPWATCH;
-  ++global.stats.NWATCHLOOKUPS;
-
-  return c.checkForPropagation(cr, idx, p, *this, global.stats);
 }
 
 // ---------------------------------------------------------------------
@@ -438,7 +461,7 @@ resolve:
       [&] {
         heur.vBumpActivity(actSet.getKeysMutable(), getPos(), global.options.varWeight.get(), global.stats.NCONFL.z);
       },
-      global.stats.HEURTIME);
+      global.stats.HEURTIME.z);
   global.isPool.release(actSet);
 
   assert(confl->hasNegativeSlack(level));
@@ -478,7 +501,7 @@ void Solver::minimize(CeSuper& conflict) {
     }
     if (saturatedLits.isEmpty()) break;
   }
-  global.stats.MINTIME +=
+  global.stats.MINTIME.z +=
       std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - start).count();
   conflict->removeZeroes();  // remove weakened literals
   global.isPool.release(saturatedLits);
@@ -554,14 +577,14 @@ CeSuper Solver::extractCore(const CeSuper& conflict, Lit l_assump) {
       [&] {
         heur.vBumpActivity(actSet.getKeysMutable(), getPos(), global.options.varWeight.get(), global.stats.NCONFL.z);
       },
-      global.stats.HEURTIME);
+      global.stats.HEURTIME.z);
   global.isPool.release(actSet);
 
   // weaken non-falsifieds
   assert(core->hasNegativeSlack(assumptions.getIndex()));
   assert(!core->isTautology());
   assert(core->isSaturated());
-  aux::timeCallVoid([&] { learnConstraint(core); }, global.stats.LEARNTIME);
+  aux::timeCallVoid([&] { learnConstraint(core); }, global.stats.LEARNTIME.z);
   // NOTE: takes care of inconsistency
   backjumpTo(0);
   for (Lit l : assumptions.getKeys()) {
@@ -588,7 +611,8 @@ CRef Solver::attachConstraint(const CeSuper& constraint, bool locked) {
   Constr& c = ca[cr];
   c.initializeWatches(cr, *this);
   constraints.push_back(cr);
-  if (isNonImplied(c.getOrigin())) {
+  const Origin& orig = constraint->orig;
+  if (isNonImplied(orig)) {
     for (unsigned int i = 0; i < c.size(); ++i) {
       Lit l = c.lit(i);
       assert(isOrig(toVar(l)));
@@ -605,38 +629,37 @@ CRef Solver::attachConstraint(const CeSuper& constraint, bool locked) {
     }
   }
 
-  const Origin orig = c.getOrigin();
   const bool learned = isLearned(orig);
   if (learned) {
-    global.stats.LEARNEDLENGTHSUM += c.size();
-    global.stats.LEARNEDDEGREESUM += c.degree();
-    global.stats.LEARNEDSTRENGTHSUM += c.strength();
+    global.stats.LEARNEDLENGTHSUM.z += c.size();
+    global.stats.LEARNEDDEGREESUM.z += static_cast<StatNum>(c.degree());
+    global.stats.LEARNEDSTRENGTHSUM.z += c.strength();
   } else {
-    global.stats.EXTERNLENGTHSUM += c.size();
-    global.stats.EXTERNDEGREESUM += c.degree();
-    global.stats.EXTERNSTRENGTHSUM += c.strength();
+    global.stats.EXTERNLENGTHSUM.z += c.size();
+    global.stats.EXTERNDEGREESUM.z += static_cast<StatNum>(c.degree());
+    global.stats.EXTERNSTRENGTHSUM.z += c.strength();
   }
   if (c.degree() == 1) {
-    global.stats.NCLAUSESLEARNED += learned;
-    global.stats.NCLAUSESEXTERN += !learned;
+    global.stats.NCLAUSESLEARNED.z += learned;
+    global.stats.NCLAUSESEXTERN.z += !learned;
   } else if (c.isClauseOrCard()) {
-    global.stats.NCARDINALITIESLEARNED += learned;
-    global.stats.NCARDINALITIESEXTERN += !learned;
+    global.stats.NCARDINALITIESLEARNED.z += learned;
+    global.stats.NCARDINALITIESEXTERN.z += !learned;
   } else {
-    global.stats.NGENERALSLEARNED += learned;
-    global.stats.NGENERALSEXTERN += !learned;
+    global.stats.NGENERALSLEARNED.z += learned;
+    global.stats.NGENERALSEXTERN.z += !learned;
   }
 
-  global.stats.NCONSFORMULA += orig == Origin::FORMULA;
-  global.stats.NCONSDOMBREAKER += orig == Origin::DOMBREAKER;
-  global.stats.NCONSLEARNED += orig == Origin::LEARNED;
-  global.stats.NCONSBOUND += isBound(orig) || orig == Origin::REFORMBOUND;
-  global.stats.NCONSCOREGUIDED += orig == Origin::COREGUIDED || orig == Origin::BOTTOMUP;
-  global.stats.NLPGOMORYCUTS += orig == Origin::GOMORY;
-  global.stats.NLPDUAL += orig == Origin::DUAL;
-  global.stats.NLPFARKAS += orig == Origin::FARKAS;
-  global.stats.NPURELITS += orig == Origin::PURE;
-  global.stats.NCONSREDUCED += orig == Origin::REDUCED;
+  global.stats.NCONSFORMULA.z += orig == Origin::FORMULA;
+  global.stats.NCONSDOMBREAKER.z += orig == Origin::DOMBREAKER;
+  global.stats.NCONSLEARNED.z += orig == Origin::LEARNED;
+  global.stats.NCONSBOUND.z += isBound(orig) || orig == Origin::REFORMBOUND;
+  global.stats.NCONSCOREGUIDED.z += orig == Origin::COREGUIDED || orig == Origin::BOTTOMUP;
+  global.stats.NLPGOMORYCUTS.z += orig == Origin::GOMORY;
+  global.stats.NLPDUAL.z += orig == Origin::DUAL;
+  global.stats.NLPFARKAS.z += orig == Origin::FARKAS;
+  global.stats.NPURELITS.z += orig == Origin::PURE;
+  global.stats.NCONSREDUCED.z += orig == Origin::REDUCED;
 
   // NOTE: propagation is not necessary, but do it at first level to make sure to derive as many unit lits as possible
   if (decisionLevel() == 0) {
@@ -720,6 +743,9 @@ void Solver::learnClause(Lit l1, Lit l2, Origin orig, ID id) {
 std::pair<ID, ID> Solver::addInputConstraint(const CeSuper& ce) {  // NOTE: should not throw UnsatEncounter
   if (unsatReached) return {ID_Undef, ID_Undef};
   //  std::cout << "ADD INPUT CONSTRAINT " << ce->orig << " " << ce << std::endl;
+  // ce->sortInDecreasingCoefOrder([](Var, Var) { return false; });
+  // ce->saturate(true, true);
+  // aux::cout << "STRENGTH " << ce->getStrength() << std::endl;
 
   assert(isInput(ce->orig));
   assert(decisionLevel() == 0);
@@ -855,6 +881,7 @@ void Solver::dropExternal(ID id, bool erasable, bool forceDelete) {
   auto old_it = external.find(id);
   assert(old_it != external.end());
   if (old_it == external.end()) return;  // TODO: should never happen, happened in some old test run. Temporary fix...
+  // happened on memout in MIPLIB/scpk4.mps
   CRef cr = old_it->second;
   external.erase(old_it);
   ca[cr].setLocked(!erasable);
@@ -933,8 +960,7 @@ void Solver::rebuildLit2Cons() {
 
 void updatePtr(const unordered_map<uint32_t, CRef>& crefmap, CRef& cr) { cr = crefmap.at(cr.ofs); }
 
-// We assume in the garbage collection method that reduceDB() is the
-// only place where constraints are deleted.
+// We assume in the garbage collection method that reduceDB() is the only place where constraints are deleted.
 void Solver::garbage_collect() {
   assert(decisionLevel() == 0);  // otherwise reason CRefs need to be taken care of
   if (global.options.verbosity.get() > 1) std::cout << "c GARBAGE COLLECT" << std::endl;
@@ -1019,11 +1045,6 @@ void Solver::reduceDB() {
     removeConstraint(cr, true);  // NOTE: remove after attaching a stronger version
   }
 
-  for (Lit l = -n; l <= n; ++l) {
-    plf::reorderase_all_if(adj[l], adj[l].begin(), adj[l].end(),
-                           [&](const Watch& w) { return ca[w.cref].isMarkedForDelete(); });
-  }
-
   std::vector<int> cardPoints;
   for (size_t i = limit; i < db_learnts.size(); ++i) {
     Constr& c = ca[db_learnts[i]];
@@ -1049,6 +1070,14 @@ void Solver::reduceDB() {
     }
   }
   constraints.resize(j);
+
+  // shorten watches
+  for (Lit l = -n; l <= n; ++l) {
+    adj[l].erase(
+        std::remove_if(adj[l].begin(), adj[l].end(), [&](const Watch& w) { return ca[w.cref].isMarkedForDelete(); }),
+        adj[l].end());
+  }
+
   if (static_cast<double>(ca.wasted) / static_cast<double>(ca.at) > 0.2) {
     aux::timeCallVoid([&] { garbage_collect(); }, global.stats.GCTIME);
   }
@@ -1096,19 +1125,6 @@ void Solver::inProcess() {
     if (bound) lastGlobalDual = bound;
   }
 #endif  // WITHSOPLEX
-}
-
-void Solver::sortWatchlists() {
-  Var first = getHeuristic().firstInActOrder();
-  sort(adj[first].begin(), adj[first].end(),
-       [&](const Watch& w1, const Watch& w2) -> bool { return ca[w1.cref].priority < ca[w2.cref].priority; });
-  if (getNbVars() == 0) return;
-  nextToSort = (nextToSort % getNbVars()) + 1;
-  if (nextToSort == first) nextToSort = (nextToSort % getNbVars()) + 1;
-  assert(nextToSort > 0);
-  assert(nextToSort <= getNbVars());
-  sort(adj[nextToSort].begin(), adj[nextToSort].end(),
-       [&](const Watch& w1, const Watch& w2) -> bool { return ca[w1.cref].priority < ca[w2.cref].priority; });
 }
 
 void Solver::presolve() {
@@ -1314,7 +1330,6 @@ SolveState Solver::solve() {
         ++global.stats.NRESTARTS;
         double rest_base = luby(global.options.lubyBase.get(), static_cast<int>(global.stats.NRESTARTS.z));
         nconfl_to_restart = (long long)rest_base * global.options.lubyMult.get();
-        sortWatchlists();
       }
       if (global.stats.NCONFL >= nconfl_to_reduce) {
         ++global.stats.NCLEANUP;

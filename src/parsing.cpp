@@ -1,7 +1,7 @@
 /**********************************************************************
 This file is part of Exact.
 
-Copyright (c) 2022-2024 Jo Devriendt, Nonfiction Software
+Copyright (c) 2022-2025 Jo Devriendt, Nonfiction Software
 
 Exact is free software: you can redistribute it and/or modify it under
 the terms of the GNU Affero General Public License version 3 as
@@ -62,8 +62,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "parsing.hpp"
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/tokenizer.hpp>
-#include "IntProg.hpp"
 #include "Solver.hpp"
+#include "interface/IntProg.hpp"
 
 #if WITHCOINUTILS
 #include "coin/CoinLpIO.hpp"
@@ -145,9 +145,9 @@ IntVar* indexedBoolVar(IntProg& intprog, const std::string& name) {
 // @post: asConjunction == false: result == false implies the disjunction in input
 Var reify(bool asConjunction, Solver& solver, LitVec& input, unordered_map<LitVec, Var, aux::IntVecHash>& auxiliaries) {
   assert(input.size() > 1);
-  std::ranges::sort(input);
-  const auto [first, last] = std::ranges::unique(input);
-  input.erase(first, last);
+  unordered_set<Lit> unique_lits(input.begin(), input.end());
+  input.clear();
+  input.insert(input.begin(), unique_lits.begin(), unique_lits.end());
   Var& aux = auxiliaries[input];
   if (aux != 0) return aux;
   aux = solver.addVar(true);  // increases n to n+1
@@ -189,7 +189,7 @@ void opb_read(std::istream& in, IntProg& intprog) {
   long long lineNr = -1;
   bool wbo = false;
   std::optional<bigint> topcost;
-  std::vector<IntTerm> obj;
+  IntTermVec obj;
   std::optional<bigint> weight;
   for (std::string line; getline(in, line);) {
     ++lineNr;
@@ -296,8 +296,8 @@ void opb_read(std::istream& in, IntProg& intprog) {
     if (topcost) {
       constr.terms.clear();
       for (const IntTerm& it : obj) {
-        assert(it.v->getEncodingVars().size() == 1);
-        constr.terms.emplace_back(it.c, it.v->getEncodingVars()[0]);
+        assert(it.v->encodingVars.size() == 1);
+        constr.terms.emplace_back(it.c, it.v->encodingVars[0]);
       }
       constr.rhs = topcost.value() - 1;  // strict limit
       constr.flip();
@@ -309,7 +309,7 @@ void opb_read(std::istream& in, IntProg& intprog) {
 void wcnf_read(std::istream& in, IntProg& intprog) {
   std::vector<LitVec> inputs;
   char dummy;
-  std::vector<IntTerm> obj_terms;
+  IntTermVec obj_terms;
   bigint obj_offset = 0;
   // NOTE: there are annoying edge cases where two clauses share the same line, or a clause is split on two lines.
   // the following rewrite fixes this.

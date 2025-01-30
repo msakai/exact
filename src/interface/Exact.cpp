@@ -1,7 +1,7 @@
 /**********************************************************************
 This file is part of Exact.
 
-Copyright (c) 2022-2024 Jo Devriendt, Nonfiction Software
+Copyright (c) 2022-2025 Jo Devriendt, Nonfiction Software
 
 Exact is free software: you can redistribute it and/or modify it under
 the terms of the GNU Affero General Public License version 3 as
@@ -35,7 +35,6 @@ See the file LICENSE or run with the flag --license=MIT.
 #include <fstream>
 #include <iomanip>
 #include <sstream>
-#include "Exact.hpp"
 #include "parsing.hpp"
 
 namespace py = pybind11;
@@ -149,7 +148,7 @@ void Exact::addVariable(const std::string& name, const bigint& lb, const bigint&
 }
 
 std::vector<std::string> Exact::getVariables() const {
-  return aux::comprehension(intprog.getVariables(), [](IntVar* iv) { return iv->getName(); });
+  return aux::comprehension(intprog.getVariables(), [](IntVar* iv) { return iv->name; });
 }
 
 void Exact::addConstraint(const std::vector<std::pair<bigint, std::string>>& terms, bool useLB, const bigint& lb,
@@ -242,7 +241,7 @@ void Exact::setObjective(const std::vector<std::pair<bigint, std::string>>& term
                          const bigint& offset) {
   if (terms.size() > 1e9) throw InvalidArgument("Objective has more than 1e9 terms.");
 
-  std::vector<IntTerm> iterms;
+  IntTermVec iterms;
   iterms.reserve(terms.size());
   for (const auto& t : terms) {
     iterms.push_back({t.first, getVariable(t.second)});
@@ -277,7 +276,7 @@ std::vector<py::int_> Exact::getLastSolutionFor(const std::vector<std::string>& 
 std::vector<std::string> Exact::getLastCore() {
   Core core = intprog.getLastCore();
   if (core) {
-    return aux::comprehension(*core, [](IntVar* iv) { return iv->getName(); });
+    return aux::comprehension(*core, [](IntVar* iv) { return iv->name; });
   } else {
     return {};
   }
@@ -292,7 +291,7 @@ std::pair<std::string, std::vector<std::string>> Exact::extractMUS(double timeou
   std::pair<std::string, std::vector<std::string>> res = {"INCONSISTENT", {}};
   res.second.reserve(mus->size());
   for (IntVar* iv : *mus) {
-    res.second.push_back(iv->getName());
+    res.second.push_back(iv->name);
   }
   return res;
 }

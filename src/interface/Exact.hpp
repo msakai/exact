@@ -1,7 +1,7 @@
 /**********************************************************************
 This file is part of Exact.
 
-Copyright (c) 2022-2024 Jo Devriendt, Nonfiction Software
+Copyright (c) 2022-2025 Jo Devriendt, Nonfiction Software
 
 Exact is free software: you can redistribute it and/or modify it under
 the terms of the GNU Affero General Public License version 3 as
@@ -33,8 +33,8 @@ See the file LICENSE or run with the flag --license=MIT.
 #include <pybind11/pybind11.h>
 #include <string>
 #include <vector>
-#include "IntProg.hpp"
 #include "auxiliary.hpp"
+#include "interface/IntProg.hpp"
 
 class Exact {
   xct::IntProg intprog;

@@ -1,7 +1,7 @@
 /**********************************************************************
 This file is part of Exact.
 
-Copyright (c) 2022-2024 Jo Devriendt, Nonfiction Software
+Copyright (c) 2022-2025 Jo Devriendt, Nonfiction Software
 
 Exact is free software: you can redistribute it and/or modify it under
 the terms of the GNU Affero General Public License version 3 as
@@ -160,11 +160,10 @@ void ConstrExpSuper::postProcess(const IntMap<int>& level, const std::vector<int
     const std::vector<ActNode>& actList = heur.getActList();
     sortInDecreasingCoefOrder([&](Var v1, Var v2) { return actList[v1].activity > actList[v2].activity; });
   }
-  if (divideByGCD()) {
-    ++stats.NGCD;
-  }
+  const bool dgcd = divideByGCD();
+  stats.NGCD.z += dgcd;
   if (simplifyToCardinality(true, getCardinalityDegree())) {
-    ++stats.NCARDDETECT;
+    ++stats.NCARDDETECT.z;
     return;
   }
   liftDegree();
@@ -250,25 +249,34 @@ CRef ConstrExp<SMALL, LARGE>::toConstr(ConstraintAllocator& ca, bool locked, ID 
   CRef result = CRef{ca.at};
   SMALL maxCoef = aux::abs(coefs[vars[0]]);
   if (isClause()) {
+    // assert((nNonZeroVars() < 2 || getStrength() >= std::sqrt(1.8) / vars.size()));
+    // assert(getStrength() <= std::sqrt(2.2) / vars.size());
+    // if (vars.size() == 2) {
+    //   new (ca.alloc<Binary>(vars.size())) Binary(this, locked, id);
+    // } else {
     new (ca.alloc<Clause>(vars.size())) Clause(this, locked, id);
+    // }
   } else if (maxCoef == 1) {
+    // assert(getStrength() >= 0.9 * static_cast<double>(degree) / vars.size());
+    // assert(getStrength() <= 1.1 * (static_cast<double>(degree) + 1) / vars.size());
     new (ca.alloc<Cardinality>(vars.size())) Cardinality(this, locked, id);
   } else {
     double strngth = getStrength();
     if (maxCoef <= static_cast<LARGE>(limitAbs<int, long long>())) {
-      global.stats.NSMALL += 1;
+      global.stats.NSMALL.z += 1;
+      assert(degree >= maxCoef);
       new (ca.alloc<Watched32>(vars.size())) Watched32(this, locked, id, strngth);
     } else if (maxCoef <= static_cast<LARGE>(limitAbs<long long, int128>())) {
-      global.stats.NLARGE += 1;
+      global.stats.NLARGE.z += 1;
       new (ca.alloc<Watched64>(vars.size())) Watched64(this, locked, id, strngth);
     } else if (maxCoef <= static_cast<LARGE>(limitAbs<int128, int128>())) {
-      global.stats.NLARGE += 1;
+      global.stats.NLARGE.z += 1;
       new (ca.alloc<Watched96>(vars.size())) Watched96(this, locked, id, strngth);
     } else if (maxCoef <= static_cast<LARGE>(limitAbs<int128, int256>())) {
-      global.stats.NLARGE += 1;
+      global.stats.NLARGE.z += 1;
       new (ca.alloc<Watched128>(vars.size())) Watched128(this, locked, id, strngth);
     } else {
-      global.stats.NARB += 1;
+      global.stats.NARB.z += 1;
       new (ca.alloc<WatchedArb>(vars.size())) WatchedArb(this, locked, id, strngth);
     }
   }
@@ -398,11 +406,32 @@ LARGE ConstrExp<SMALL, LARGE>::getDegree() const {
   return degree;
 }
 
+// template <typename SMALL, typename LARGE>
+// double ConstrExp<SMALL, LARGE>::getStrength() const {
+//   assert(isSortedInDecreasingCoefOrder());
+//   LARGE coefsum = 0;
+//   LARGE deg_plus_cf = degree + getLargestCoef();
+//   uint32_t min_watches = 0;
+//   uint32_t nonzeroes = 0;
+//   for (Var v : vars) {
+//     const SMALL& cf = coefs[v];
+//     if (cf == 0) break;
+//     min_watches += coefsum < deg_plus_cf;
+//     coefsum += aux::abs(cf);
+//     ++nonzeroes;
+//   }
+//   assert(nonzeroes > 0);
+//   return std::sqrt(aux::divToDouble(degree, coefsum) * aux::divToDouble(min_watches, nonzeroes));
+// }
+
 template <typename SMALL, typename LARGE>
 double ConstrExp<SMALL, LARGE>::getStrength() const {
+  assert(isSortedInDecreasingCoefOrder());
   LARGE coefsum = 0;
   for (Var v : vars) {
-    coefsum += aux::abs(coefs[v]);
+    const SMALL& cf = coefs[v];
+    if (cf == 0) break;
+    coefsum += aux::abs(cf);
   }
   return aux::divToDouble(degree, coefsum);
 }
@@ -642,7 +671,7 @@ void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit assertin
   if (aboveIndirectThreshhold(asserting, toWeaken, extraIndirectWeakenings)) {
     toWeaken += extraIndirectWeakenings;
   // if (isSaturated(asserting)) {  // indirect weakening # TODO: change to incorporate threshhold
-    global.stats.NMULTWEAKENEDINDIRECT += 1;
+    global.stats.NMULTWEAKENEDINDIRECT.z += 1;
     for (int64_t i = std::ssize(vars) - 1; toWeaken != 0 && i >= 0; --i) {
       Var v = vars[i];
       if (coefs[v] == 0) continue;
@@ -661,7 +690,7 @@ void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit assertin
   }
   assert(toWeaken >= 0);
   if (toWeaken > 0) {  // direct weakening
-    global.stats.NMULTWEAKENEDDIRECT += 1;
+    global.stats.NMULTWEAKENEDDIRECT.z += 1;
     weakenVar(toWeaken, toVar(asserting));
   }
   repairOrder();
@@ -755,7 +784,7 @@ void ConstrExp<SMALL, LARGE>::selfSubsumeImplications(const Implications& implic
     Lit l = getLit(v);
     for (Lit ll : implications.getImplieds(l)) {
       if (!saturateds.has(ll)) continue;
-      ++global.stats.NSUBSUMESTEPS;
+      ++global.stats.NSUBSUMESTEPS.z;
       SMALL cf = aux::abs(coefs[v]);
       if (global.logger.isActive()) Logger::proofMult(proofBuffer << global.logger.logRUP(-l, ll) << " ", cf) << "+ s ";
       addRhs(cf);
@@ -778,7 +807,7 @@ bool ConstrExp<SMALL, LARGE>::hasNoZeroes() const {
 // NOTE: other variables should already be saturated, otherwise proof logging will break
 template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::saturate(const VarVec& vs, bool check, bool sorted) {
-  global.stats.NSATURATESTEPS += vs.size();
+  global.stats.NSATURATESTEPS.z += vs.size();
   assert(check || !sorted);
   if (vars.empty() || (sorted && aux::abs(coefs[vars[0]]) <= degree) ||
       (!sorted && check && getLargestCoef() <= degree)) {
@@ -1378,7 +1407,7 @@ void ConstrExp<SMALL, LARGE>::weakenNonImplied(const IntMap<int>& level, const L
       ++weakenings;
     }
   }
-  global.stats.NWEAKENEDNONIMPLIED += weakenings;
+  global.stats.NWEAKENEDNONIMPLIED.z += weakenings;
 }
 
 // @post: preserves order after removeZeroes()
@@ -1397,7 +1426,7 @@ bool ConstrExp<SMALL, LARGE>::weakenNonImplying(const IntMap<int>& level, const 
       ++weakenings;
     }
   }
-  global.stats.NWEAKENEDNONIMPLYING += weakenings;
+  global.stats.NWEAKENEDNONIMPLYING.z += weakenings;
   return weakenings != 0;
 }
 
@@ -1643,7 +1672,7 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
     if (heur1 - cfs[i] >= degree) heur1 -= cfs[i];
     if (heur2 + cfs[i] <= degree) heur2 += cfs[i];
     if (heur1 == degree || heur2 == degree) {
-      global.stats.SUBSETSUMTIME +=
+      global.stats.SUBSETSUMTIME.z +=
           std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - start).count();
       return;
     }
@@ -1686,7 +1715,7 @@ void ConstrExp<SMALL, LARGE>::sortInDecreasingCoefOrder(const std::function<bool
 template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::sortWithCoefTiebreaker(const std::function<int(Var, Var)>& comp) {
   if (vars.size() <= 1) return;
-  std::ranges::sort(vars, [&](Var v1, Var v2) {
+  std::sort(vars.begin(), vars.end(), [&](Var v1, Var v2) {
     const int res = comp(v1, v2);
     return res > 0 || (res == 0 && aux::abs(coefs[v1]) > aux::abs(coefs[v2]));
   });
@@ -1740,48 +1769,45 @@ void ConstrExp<SMALL, LARGE>::toStreamPure(std::ostream& o) const {
 }
 
 template <typename SMALL, typename LARGE>
-unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* data, unsigned int size, unsigned int deg, ID id, Lit l,
+unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit toProp,
                                                   const IntMap<int>& level, const std::vector<int>& pos,
                                                   IntSet& actSet) {
-  assert(getCoef(-l) > 0);
+  assert(getCoef(-toProp) > 0);
   assert(hasNoZeroes());
-  global.stats.NADDEDLITERALS += size;
+  global.stats.NADDEDLITERALS += data.size();
 
-  for (unsigned int i = 0; i < size; ++i) {
-    Lit ll = data[i];
-    if (isFalse(level, ll)) {
-      actSet.add(toVar(ll));
+  for (Lit l : data) {
+    if (isFalse(level, l)) {
+      actSet.add(toVar(l));
     }
   }
 
   LARGE oldDegree = getDegree();
   SMALL largestCF = 0;
-  SMALL cmult = getCoef(-l);
+  SMALL cmult = getCoef(-toProp);
   assert(cmult >= 1);
   if (global.logger.isActive()) {
     Logger::proofMult(proofBuffer << id << " ", cmult) << "+ ";
-    for (unsigned int i = 0; i < size; ++i) {
-      Lit ll = data[i];
-      if (isUnit(level, ll)) {
-        Logger::proofWeaken(proofBuffer, ll, -cmult);
-      } else if (isUnit(level, -ll)) {
-        Logger::proofWeakenFalseUnit(proofBuffer, global.logger.getUnitID(ll, pos), -cmult);
+    for (Lit l : data) {
+      if (isUnit(level, l)) {
+        Logger::proofWeaken(proofBuffer, l, -cmult);
+      } else if (isUnit(level, -l)) {
+        Logger::proofWeakenFalseUnit(proofBuffer, global.logger.getUnitID(l, pos), -cmult);
       }
     }
   }
   addRhs(cmult * deg);
-  for (unsigned int i = 0; i < size; ++i) {
-    Lit ll = data[i];
-    if (isUnit(level, -ll)) {
+  for (Lit l : data) {
+    if (isUnit(level, -l)) {
       continue;
     }
-    if (isUnit(level, ll)) {
+    if (isUnit(level, l)) {
       addRhs(-cmult);
       continue;
     }
-    Var v = toVar(ll);
+    Var v = toVar(l);
     SMALL cf = cmult;
-    if (ll < 0) {
+    if (l < 0) {
       rhs -= cmult;
       cf = -cmult;
     }
@@ -1792,11 +1818,11 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* data, unsigned int 
   assert(getDegree() > 0);
   if (oldDegree <= getDegree()) {
     if (largestCF > getDegree()) {
-      global.stats.NSATURATESTEPS += size;
+      global.stats.NSATURATESTEPS += data.size();
       if (global.logger.isActive()) proofBuffer << "s ";
       largestCF = static_cast<SMALL>(degree);
-      for (unsigned int i = 0; i < size; ++i) {
-        Var v = toVar(data[i]);
+      for (Lit l : data) {
+        Var v = toVar(l);
         if (coefs[v] < -largestCF) {
           rhs -= coefs[v] + largestCF;
           coefs[v] = -largestCF;
@@ -1809,12 +1835,12 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* data, unsigned int 
   } else {
     saturateAndFixOverflow(level, global.options.bitsOverflow.get(), global.options.bitsReduced.get(), 0, false);
   }
-  assert(getCoef(-l) == 0);
+  assert(getCoef(-toProp) == 0);
   assert(hasNegativeSlack(level));
 
   IntSet& lbdSet = global.isPool.take();
-  for (int i = 0; i < (int)size; ++i) {
-    lbdSet.add(level[-data[i]] % INF);
+  for (Lit l : data) {
+    lbdSet.add(level[-l] % INF);
   }
   lbdSet.remove(0);  // unit literals and non-falsifieds should not be counted
   unsigned int lbd = lbdSet.size();
@@ -1824,17 +1850,16 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* data, unsigned int 
 
 //@post: variable vector vars is not changed, but coefs[toVar(toSubsume)] may become 0
 template <typename SMALL, typename LARGE>
-unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const Lit* data, unsigned int size, unsigned int deg, ID id,
+unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const std::span<const Lit>& data, unsigned int deg, ID id,
                                                   Lit toSubsume, const IntMap<int>& level, const std::vector<int>& pos,
                                                   IntSet& saturatedLits) {
   assert(isSaturated());
   assert(getCoef(-toSubsume) > 0);
-  global.stats.NADDEDLITERALS += size;
+  global.stats.NADDEDLITERALS += data.size();
 
   int weakenedDeg = deg;
   assert(weakenedDeg > 0);
-  for (int i = 0; i < (int)size; ++i) {
-    Lit l = data[i];
+  for (Lit l : data) {
     if (l != toSubsume && !isUnit(level, -l) && !saturatedLits.has(l)) {
       --weakenedDeg;
       if (weakenedDeg <= 0) {
@@ -1854,16 +1879,14 @@ unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const Lit* data, unsigned int 
 
   if (global.logger.isActive()) {
     proofBuffer << id << " ";
-    for (unsigned int i = 0; i < size; ++i) {
-      Lit l = data[i];
+    for (Lit l : data) {
       if (isUnit(level, l)) {
         Logger::proofWeaken(proofBuffer, l, -1);
       } else if (isUnit(level, -l)) {
         Logger::proofWeakenFalseUnit(proofBuffer, global.logger.getUnitID(l, pos), -1);
       }
     }
-    for (int i = 0; i < (int)size; ++i) {
-      Lit l = data[i];
+    for (Lit l : data) {
       if (l != toSubsume && !isUnit(level, -l) && !isUnit(level, l) && !saturatedLits.has(l)) {
         Logger::proofWeaken(proofBuffer, l, -1);
       }
@@ -1873,8 +1896,7 @@ unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const Lit* data, unsigned int 
   }
 
   IntSet& lbdSet = global.isPool.take();
-  for (int i = 0; i < (int)size; ++i) {
-    Lit l = data[i];
+  for (Lit l : data) {
     if (l == toSubsume || saturatedLits.has(l)) {
       lbdSet.add(level[-l] % INF);
     }

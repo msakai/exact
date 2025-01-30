@@ -3,7 +3,7 @@ sudo docker build docker_images/pypi_package/ -t holkann/pypi_docker
 sudo docker run --rm -it holkann/pypi_docker bash
 
 # in docker bash:
-git clone https://gitlab.com/JoD/exact-dev.git
+git clone https://gitlab.com/nonfiction-software/exact-dev.git
 
 # use clang:
 update-alternatives --config c++

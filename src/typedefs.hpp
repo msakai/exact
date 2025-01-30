@@ -1,7 +1,7 @@
 /**********************************************************************
 This file is part of Exact.
 
-Copyright (c) 2022-2024 Jo Devriendt, Nonfiction Software
+Copyright (c) 2022-2025 Jo Devriendt, Nonfiction Software
 
 Exact is free software: you can redistribute it and/or modify it under
 the terms of the GNU Affero General Public License version 3 as
@@ -71,7 +71,7 @@ constexpr ID ID_Undef = 0;
 constexpr ID ID_Trivial = 1;  // represents constraint 0 >= 0
 inline bool isValid(ID id) { return id != ID_Undef; }
 
-constexpr unsigned int MAXLBD = 1e5;
+constexpr unsigned int MAXLBD = 1e3;
 
 using Var = int32_t;
 using Lit = int32_t;
@@ -83,6 +83,9 @@ constexpr int32_t resize_factor = 2;
 
 constexpr int32_t INF =
     1e9 + 1;  // 1e9 < 30 bits is the maximum number of variables in the system, anything beyond is infinity
+constexpr uint32_t UINF = INF;
+constexpr uint32_t CLAUSE_IDX = 4 * UINF;
+constexpr uint32_t BINARY_IDX = 4 * UINF + 1;
 // NOTE: 31 bits is not possible due to the idx entry in the Watch struct
 constexpr long long INFLPINT = 4e15 + 1;  // 4e15 < 52 bits, based on max long long range captured by double
 
@@ -163,6 +166,10 @@ inline bool fits<int>(const bigint& x) {
 }
 template <>
 inline bool fits<long long>(const bigint& x) {
+  return aux::abs(x) <= static_cast<bigint>(limitAbs<long long, int128>());
+}
+template <>
+inline bool fits<int64_t>(const bigint& x) {
   return aux::abs(x) <= static_cast<bigint>(limitAbs<long long, int128>());
 }
 template <>
@@ -343,12 +350,11 @@ struct Cardinality;
 template <typename CF, typename DG>
 struct Watched;
 template <typename CF, typename DG>
-struct WatchedSafe;
-using Watched32 = Watched<int, long long>;
-using Watched64 = WatchedSafe<long long, int128>;
-using Watched96 = WatchedSafe<int128, int128>;
-using Watched128 = WatchedSafe<int128, int256>;
-using WatchedArb = WatchedSafe<bigint, bigint>;
+struct Watched;
+using Watched64 = Watched<long long, int128>;
+using Watched96 = Watched<int128, int128>;
+using Watched128 = Watched<int128, int256>;
+using WatchedArb = Watched<bigint, bigint>;
 
 template <typename CF>
 struct Term {
