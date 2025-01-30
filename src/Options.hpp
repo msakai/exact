@@ -247,14 +247,23 @@ struct Options {
       "0 =< float =< 1", [](const double& x) -> bool { return 0 <= x && x <= 1; }};
   BoolOption multWeaken{"ca-multweaken", "Multiply and weaken instead of division when possible.", true};
   BoolOption multBeforeDiv{"ca-multiply", "Multiply reason with the asserting literal's conflict coefficient", true};
+  EnumOption useActSet{"ca-act-set", "When to use actSet heuristic after learning constraints",
+  						"div-only",
+                       {"never", "div-only", "mw-only", "always"}};
   EnumOption division{"ca-division",
                       "Division method to round the reason to non-positive slack",
                       "mindiv",
                       {"rto", "slack+1", "mindiv"}};
+  EnumOption indWeakenThreshMethod{"ca-mwi-threshmethod", "How to take the threshhold for allowing mwi into account",
+  									"degree",
+  									{"degree", "weaken-amount"}};
   BoolOption weakenNonImplying{"ca-weaken-nonimplying",
                                "Weaken non-implying falsified literals from learned constraints", false};
   BoolOption learnedMin{"ca-min", "Minimize learned constraints through generalized self-subsumption.", true};
   BoolOption caCancelingUnkns{"ca-cancelingunknowns", "Exploit canceling unknowns", false};
+  ValOption<double> indWeakenThresh{"ca-mwi-thresh",
+                                    "threshhold for enabling mwi", 1.0,
+                                    "0 =< float =< 1", [](const float& x) -> bool { return 0 <= x && x <= 1; }};
   ValOption<int64_t> subsetSum{
       "ca-liftdegree",
       "Use subset sum calculation to lift the degree when the estimated cost is at most this value (0 disables)",
@@ -324,11 +333,13 @@ struct Options {
       &lpGomoryCuts,  &lpLearnedCuts,     &lpGomoryCutLimit, &lpMaxCutCos,
 #endif  // WITHSOPLEX
       &multWeaken,    &multBeforeDiv,     &division,         &weakenNonImplying,
-      &learnedMin,    &caCancelingUnkns,  &subsetSum,        &bitsOverflow,
-      &bitsReduced,   &bitsLearned,       &optRatio,         &optCoreguided,
-      &optReuseCores, &optStratification, &optPrecision,     &intEncoding,
-      &intContinuous, &intUnbounded,      &intDefaultBound,  &pureLits,
-      &domBreakLim,   &inpProbing,        &inpAMO,           &basetime,
+      &learnedMin,    &caCancelingUnkns,  &subsetSum,        &useActSet,
+      &indWeakenThresh, &indWeakenThreshMethod,
+      &bitsOverflow,  &bitsReduced,       &bitsLearned,      &optRatio,
+      &optCoreguided, &optReuseCores,     &optStratification,&optPrecision,
+      &intEncoding,   &intContinuous,     &intUnbounded,     &intDefaultBound,
+      &pureLits,      &domBreakLim,       &inpProbing,       &inpAMO,
+      &basetime,
       //      &test,
   };
   unordered_map<std::string, Option*> name2opt;

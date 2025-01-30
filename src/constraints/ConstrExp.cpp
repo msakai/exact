@@ -638,7 +638,10 @@ template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit asserting, const IntMap<int>& level) {
   assert(toWeaken >= 0);
   assert(toWeaken < getCoef(asserting));
-  if (isSaturated(asserting)) {  // indirect weakening
+  SMALL extraIndirectWeakenings = degree - getCoef(asserting);
+  if (aboveIndirectThreshhold(asserting, toWeaken, extraIndirectWeakenings)) {
+    toWeaken += extraIndirectWeakenings;
+  // if (isSaturated(asserting)) {  // indirect weakening # TODO: change to incorporate threshhold
     global.stats.NMULTWEAKENEDINDIRECT += 1;
     for (int64_t i = std::ssize(vars) - 1; toWeaken != 0 && i >= 0; --i) {
       Var v = vars[i];
@@ -860,6 +863,17 @@ void ConstrExp<SMALL, LARGE>::invert() {
   rhs = -rhs;
   for (Var v : vars) coefs[v] = -coefs[v];
   degree = calcDegree();
+}
+
+template <typename SMALL, typename LARGE>
+bool ConstrExp<SMALL, LARGE>::aboveIndirectThreshhold(Lit l, SMALL& toWeaken, SMALL& extraIndirectWeakenings) const {
+  if (toWeaken + extraIndirectWeakenings == 0) return true;
+  double threshhold = global.options.indWeakenThresh.get();
+  if (global.options.indWeakenThreshMethod.is("weaken-amount")) {
+    threshhold = 1 - threshhold;
+    return static_cast<double>(extraIndirectWeakenings / (extraIndirectWeakenings + toWeaken)) <= threshhold;
+  }
+  return (static_cast<double>(toWeaken) / static_cast<double>(toWeaken + extraIndirectWeakenings)) >= threshhold;
 }
 
 /*

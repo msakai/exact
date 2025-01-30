@@ -320,6 +320,7 @@ struct ConstrExp final : ConstrExpSuper {
   bool isSaturated(Lit l) const;
   bool isSaturated(const aux::predicate<Lit>& toWeaken) const;
   void getSaturatedLits(IntSet& out) const;
+  bool aboveIndirectThreshhold(Lit l, SMALL& toWeaken, SMALL& extraIndirectWeakenings) const;
   /*
    * Fixes overflow
    * @pre @post: hasNoZeroes()
@@ -532,6 +533,7 @@ struct ConstrExp final : ConstrExpSuper {
     assert(conflCoef > 0);
     bool fixed = false;
     bool multipliedConflict = false;
+    bool multWeakened = false;
     if (reason->getCoef(asserting) == 1) {
       // just multiply, nothing else matters as slack is =< 0
       fixed = true;
@@ -550,6 +552,7 @@ struct ConstrExp final : ConstrExpSuper {
         const SMALL mult = aux::ceildiv(conflCoef, reasonCoef);
         if (reason->getSlack(level) * mult + getSlack(level) < 0) {
           fixed = true;
+          multWeakened = true;
           global.stats.NMULTWEAKENEDREASON += 1;
           reason->multiply(mult);
           SMALL toWeaken = reasonCoef * mult - conflCoef;
@@ -561,6 +564,7 @@ struct ConstrExp final : ConstrExpSuper {
         if (reason->getSlack(level) + mult * getSlack(level) < 0) {
           fixed = true;
           multipliedConflict = true;
+          multWeakened = true;
           global.stats.NMULTWEAKENEDCONFLICT += 1;
           multiply(mult);
           SMALL toWeaken = reasonCoef - conflCoef * mult;
@@ -650,9 +654,11 @@ struct ConstrExp final : ConstrExpSuper {
 
     // In most cases, at this point, the reason coefficient is equal to the conflict coefficient
     // and the reason slack is at most zero, so we can safely add the reason to the conflict.
-    for (Var v : reason->vars) {
-      if (isFalse(level, reason->getLit(v))) {
-        actSet.add(v);
+    if (global.options.useActSet.is("always") || (!multWeakened && global.options.useActSet.is("div-only")) || (multWeakened && !global.options.useActSet.is("mw-only"))) {
+      for (Var v : reason->vars) {
+        if (isFalse(level, reason->getLit(v))) {
+          actSet.add(v);
+        }
       }
     }
 
