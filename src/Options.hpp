@@ -247,6 +247,10 @@ struct Options {
       "0 =< float =< 1", [](const double& x) -> bool { return 0 <= x && x <= 1; }};
   BoolOption multWeaken{"ca-multweaken", "Multiply and weaken instead of division when possible.", true};
   BoolOption multBeforeDiv{"ca-multiply", "Multiply reason with the asserting literal's conflict coefficient", true};
+  BoolOption partialWeakening{"ca-partial-weakening", "Weaken non divisible literals partially until divisible", true};
+  BoolOption weakenSuperfluous{"ca-weaken-superfluous", "Weaken superfluous literals before division", true};
+  BoolOption MWI{"ca-mwi", "Use MWI when free", true};
+  BoolOption aggressiveMWD{"ca-aggressive-mwd", "Use aggressive MWD instead of safe (note: this doesn't make use of free MWI)", false};
   EnumOption useActSet{"ca-act-set", "When to use actSet heuristic after learning constraints",
   						"div-only",
                        {"never", "div-only", "mw-only", "always"}};
@@ -254,9 +258,6 @@ struct Options {
                       "Division method to round the reason to non-positive slack",
                       "mindiv",
                       {"rto", "slack+1", "mindiv"}};
-  EnumOption indWeakenThreshMethod{"ca-mwi-threshmethod", "How to take the threshhold for allowing mwi into account",
-  									"degree",
-  									{"degree", "weaken-amount"}};
   BoolOption weakenNonImplying{"ca-weaken-nonimplying",
                                "Weaken non-implying falsified literals from learned constraints", false};
   BoolOption learnedMin{"ca-min", "Minimize learned constraints through generalized self-subsumption.", true};
@@ -334,7 +335,7 @@ struct Options {
 #endif  // WITHSOPLEX
       &multWeaken,    &multBeforeDiv,     &division,         &weakenNonImplying,
       &learnedMin,    &caCancelingUnkns,  &subsetSum,        &useActSet,
-      &indWeakenThresh, &indWeakenThreshMethod,
+      &indWeakenThresh, &partialWeakening, &weakenSuperfluous, &aggressiveMWD, &MWI,
       &bitsOverflow,  &bitsReduced,       &bitsLearned,      &optRatio,
       &optCoreguided, &optReuseCores,     &optStratification,&optPrecision,
       &intEncoding,   &intContinuous,     &intUnbounded,     &intDefaultBound,

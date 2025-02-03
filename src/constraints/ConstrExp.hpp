@@ -68,6 +68,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "../typedefs.hpp"
 #include "ConstrExpPools.hpp"
 #include "ConstrSimple.hpp"
+#include <span>
 
 namespace xct {
 
@@ -320,7 +321,7 @@ struct ConstrExp final : ConstrExpSuper {
   bool isSaturated(Lit l) const;
   bool isSaturated(const aux::predicate<Lit>& toWeaken) const;
   void getSaturatedLits(IntSet& out) const;
-  bool aboveIndirectThreshhold(Lit l, SMALL& toWeaken, SMALL& extraIndirectWeakenings) const;
+  bool aboveIndirectThreshhold(SMALL& toWeaken, LARGE& extraIndirectWeakenings, LARGE& possibleWeakenings) const;
   /*
    * Fixes overflow
    * @pre @post: hasNoZeroes()
@@ -357,6 +358,25 @@ struct ConstrExp final : ConstrExpSuper {
       add(v, val, true);
     }
   }
+
+  template <typename S, typename L>
+  void addAndCleanUp(const CePtr<S, L>& other, const IntMap<int>& level ) { //, SMALL& mult = 1) {
+    //assert(mult >= 1);
+    // assert(isSortedInDecreasingCoefOrder());
+    assert(other->isSortedInDecreasingCoefOrder());
+    //multiply(mult);
+    // LARGE oldDegree = degree;
+    addUp(other);
+    // std::vector<Var>& varsToCheck = oldDegree <= getDegree() ? other->vars : vars;
+    SMALL largestCF = getLargestCoef();
+    if (largestCF > getDegree()) {
+      // std::cout << "in clean up" << std::endl;
+      saturate(false, false);
+      largestCF = static_cast<SMALL>(getDegree());
+    }
+    fixOverflow(level, global.options.bitsOverflow.get(), global.options.bitsReduced.get(), largestCF, 0);
+  }
+
 
   void invert();
   void multiply(const SMALL& m);
@@ -548,12 +568,34 @@ struct ConstrExp final : ConstrExpSuper {
     if (!fixed && global.options.multWeaken) {
       // based on the work of Orestis Lomis in his 2024 master thesis
       const SMALL reasonCoef = reason->getCoef(asserting);
+      bool slackOk = false;
+      if (global.options.aggressiveMWD) {
+          CePtr<SMALL, LARGE> copyReason = global.cePools.take<SMALL, LARGE>();
+          reason->copyTo(copyReason);
+          CePtr<SMALL, LARGE> copyConfl = global.cePools.take<SMALL, LARGE>();
+          copyTo(copyConfl);
+          if (conflCoef >= reasonCoef) {
+          const SMALL mult = aux::ceildiv(conflCoef, reasonCoef);
+            copyReason->multiply(mult);
+            SMALL toWeaken = reasonCoef * mult - conflCoef;
+            copyReason->weakenCheckSaturated(toWeaken, asserting, level);
+          } else {
+            const SMALL mult = aux::floordiv(reasonCoef, conflCoef);
+            copyConfl->multiply(mult);
+            SMALL toWeaken = reasonCoef - conflCoef * mult;
+            copyReason->weakenCheckSaturated(toWeaken, asserting, level);
+          }
+          copyConfl->addAndCleanUp(copyReason, level);
+          if (copyConfl->getSlack(level) < 0) {
+            slackOk = true;
+          }
+        }
       if (conflCoef >= reasonCoef) {
         const SMALL mult = aux::ceildiv(conflCoef, reasonCoef);
-        if (reason->getSlack(level) * mult + getSlack(level) < 0) {
+        if ((reason->getSlack(level) * mult + getSlack(level) < 0) || slackOk) {
           fixed = true;
           multWeakened = true;
-          global.stats.NMULTWEAKENEDREASON.z += 1;
+          global.stats.NMULTWEAKENEDREASON += 1;
           reason->multiply(mult);
           SMALL toWeaken = reasonCoef * mult - conflCoef;
           reason->weakenCheckSaturated(toWeaken, asserting, level);
@@ -561,11 +603,11 @@ struct ConstrExp final : ConstrExpSuper {
         }
       } else {
         const SMALL mult = aux::floordiv(reasonCoef, conflCoef);
-        if (reason->getSlack(level) + mult * getSlack(level) < 0) {
+        if ((reason->getSlack(level) + mult * getSlack(level) < 0) || slackOk) {
           fixed = true;
           multipliedConflict = true;
           multWeakened = true;
-          global.stats.NMULTWEAKENEDCONFLICT.z += 1;
+          global.stats.NMULTWEAKENEDCONFLICT += 1;
           multiply(mult);
           SMALL toWeaken = reasonCoef - conflCoef * mult;
           reason->weakenCheckSaturated(toWeaken, asserting, level);
@@ -573,6 +615,7 @@ struct ConstrExp final : ConstrExpSuper {
         }
       }
     }
+
     if (!fixed && global.options.division.is("rto")) {
       fixed = true;
       reason->weakenDivideRoundOrdered(reason->getCoef(asserting), level);

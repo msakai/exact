@@ -667,26 +667,32 @@ template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit asserting, const IntMap<int>& level) {
   assert(toWeaken >= 0);
   assert(toWeaken < getCoef(asserting));
-  SMALL extraIndirectWeakenings = degree - getCoef(asserting);
-  if (aboveIndirectThreshhold(asserting, toWeaken, extraIndirectWeakenings)) {
-    toWeaken += extraIndirectWeakenings;
-  // if (isSaturated(asserting)) {  // indirect weakening # TODO: change to incorporate threshhold
-    global.stats.NMULTWEAKENEDINDIRECT.z += 1;
-    for (int64_t i = std::ssize(vars) - 1; toWeaken != 0 && i >= 0; --i) {
-      Var v = vars[i];
-      if (coefs[v] == 0) continue;
-      Lit l = getLit(v);
-      if (!isFalse(level, l)) {
-        if (toWeaken < absCoef(v)) {
-          weakenVar(toWeaken, v);
-          toWeaken = 0;
-        } else {
-          toWeaken -= aux::abs(coefs[v]);
-          weaken(v);
+  if (global.options.MWI) {
+    LARGE extraIndirectWeakenings = degree - static_cast<LARGE>(getCoef(asserting));
+    LARGE possibleWeakenings = getSlack(level) + degree - getCoef(asserting);
+    if (aboveIndirectThreshhold(toWeaken, extraIndirectWeakenings, possibleWeakenings)) {
+      LARGE largetoWeaken = static_cast<LARGE>(toWeaken);
+      largetoWeaken += extraIndirectWeakenings;
+    // if (isSaturated(asserting)) {  // indirect weakening # TODO: change to incorporate threshhold
+      global.stats.NMULTWEAKENEDINDIRECT.z += 1;
+      for (int64_t i = std::ssize(vars) - 1; largetoWeaken != 0 && i >= 0; --i) {
+        Var v = vars[i];
+        if (coefs[v] == 0) continue;
+        Lit l = getLit(v);
+        if (!isFalse(level, l)) {
+          if (largetoWeaken < absCoef(v)) {
+            toWeaken = static_cast<SMALL>(largetoWeaken);
+            weakenVar(toWeaken, v);
+            largetoWeaken = 0;
+          } else {
+            largetoWeaken -= aux::abs(coefs[v]);
+            weaken(v);
+          }
         }
       }
+      removeZeroes();
+      toWeaken = static_cast<SMALL>(largetoWeaken);
     }
-    removeZeroes();
   }
   assert(toWeaken >= 0);
   if (toWeaken > 0) {  // direct weakening
@@ -895,14 +901,12 @@ void ConstrExp<SMALL, LARGE>::invert() {
 }
 
 template <typename SMALL, typename LARGE>
-bool ConstrExp<SMALL, LARGE>::aboveIndirectThreshhold(Lit l, SMALL& toWeaken, SMALL& extraIndirectWeakenings) const {
+bool ConstrExp<SMALL, LARGE>::aboveIndirectThreshhold(SMALL& toWeaken, LARGE& extraIndirectWeakenings, LARGE& possibleWeakenings) const {
   if (toWeaken + extraIndirectWeakenings == 0) return true;
   double threshhold = global.options.indWeakenThresh.get();
-  if (global.options.indWeakenThreshMethod.is("weaken-amount")) {
-    threshhold = 1 - threshhold;
-    return static_cast<double>(extraIndirectWeakenings / (extraIndirectWeakenings + toWeaken)) <= threshhold;
-  }
-  return (static_cast<double>(toWeaken) / static_cast<double>(toWeaken + extraIndirectWeakenings)) >= threshhold;
+  bool over = (static_cast<double>(toWeaken) / static_cast<double>(toWeaken + extraIndirectWeakenings)) >= threshhold;
+  bool enough = possibleWeakenings >= extraIndirectWeakenings;
+  return over && enough;
 }
 
 /*
@@ -1106,7 +1110,7 @@ void ConstrExp<SMALL, LARGE>::weakenDivideRoundOrderedCanceling(const LARGE& div
   assert(div > 0);
   if (div == 1) return;
   weakenNonDivisibleCanceling(div, level, mult, confl);
-  weakenSuperfluousCanceling(div, pos);
+  if (global.options.weakenSuperfluous) weakenSuperfluousCanceling(div, pos);
   repairOrder();
   while (!vars.empty() && coefs[vars.back()] == 0) {
     popLast();
@@ -1130,7 +1134,11 @@ void ConstrExp<SMALL, LARGE>::weakenNonDivisible(const aux::predicate<Lit>& toWe
   if (div == 1) return;
   for (Var v : vars) {
     if (coefs[v] % div != 0 && toWeaken(getLit(v))) {
-      weaken(-static_cast<SMALL>(coefs[v] % div), v);
+      if (!global.options.partialWeakening) {
+        weaken(v);
+      } else {
+        weaken(-static_cast<SMALL>(coefs[v] % div), v);
+      }
     }
   }
 }
@@ -1143,7 +1151,11 @@ void ConstrExp<SMALL, LARGE>::weakenNonDivisible(const LARGE& div, const IntMap<
   if (div == 1) return;
   for (Var v : vars) {
     if (coefs[v] % div != 0 && !isFalse(level, getLit(v))) {
-      weaken(-static_cast<SMALL>(coefs[v] % div), v);
+      if (!global.options.partialWeakening) {
+        weaken(v);
+      } else {
+        weaken(-static_cast<SMALL>(coefs[v] % div), v);
+      }
     }
   }
 }
@@ -1159,7 +1171,11 @@ void ConstrExp<SMALL, LARGE>::weakenNonDivisible(const SMALL& div, const IntMap<
       if (slackdiff - div + mod >= 1) {  // we can safely round up non-falsified
         slackdiff -= div - mod;
       } else {
-        weaken(-static_cast<SMALL>(coefs[v] % div), v);
+        if (!global.options.partialWeakening) {
+          weaken(v);
+        } else {
+          weaken(-static_cast<SMALL>(coefs[v] % div), v);
+        }
       }
     }
   }
@@ -1175,7 +1191,11 @@ void ConstrExp<SMALL, LARGE>::weakenNonDivisibleCanceling(const LARGE& div, cons
   for (Var v : vars) {
     Lit l = getLit(v);
     if (coefs[v] % div != 0 && !isFalse(level, l) && (isTrue(level, l) || confl.getCoef(-l) < mult)) {
-      weaken(-static_cast<SMALL>(coefs[v] % div), v);
+      if (!global.options.partialWeakening) {
+        weaken(v);
+      } else {
+        weaken(-static_cast<SMALL>(coefs[v] % div), v);
+      }
     }
   }
 }
