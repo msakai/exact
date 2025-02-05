@@ -589,6 +589,8 @@ struct ConstrExp final : ConstrExpSuper {
           if (copyConfl->getSlack(level) < 0) {
             slackOk = true;
           }
+          global.cePools.release(copyReason);
+          global.cePools.release(copyConfl);
         }
       if (conflCoef >= reasonCoef) {
         const SMALL mult = aux::ceildiv(conflCoef, reasonCoef);
