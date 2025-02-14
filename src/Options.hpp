@@ -251,8 +251,15 @@ struct Options {
   BoolOption weakenSuperfluous{"ca-weaken-superfluous", "Weaken superfluous literals before division", true};
   BoolOption MWI{"ca-mwi", "Use MWI when free", true};
   BoolOption aggressiveMWD{"ca-aggressive-mwd", "Use aggressive MWD instead of safe (note: this doesn't make use of free MWI)", false};
+  BoolOption antiWeaken{"ca-anti-weaken", "Anti-weaken non-falsified literals whenever possible.", true};
+  EnumOption preserveCancellation{"ca-preserve-cancellation", "Control prioritisation of which literals to weaken freely (during MWI of weakening of superfluous)",
+                    "ascending",
+                    {"preserving-cancellation", "non-preserving-cancellation", "ascending", "strength-heuristic"}};
+  ValOption<double> cawThreshold{"ca-cawthreshold",
+        						"strength threshold for preservation of the cancellation", 0.5,
+                                 "0 =< float =< 1", [](const float& x) -> bool { return 0 <= x && x <= 1; }};
   EnumOption useActSet{"ca-act-set", "When to use actSet heuristic after learning constraints",
-  						"div-only",
+  						        "never",
                        {"never", "div-only", "mw-only", "always"}};
   EnumOption division{"ca-division",
                       "Division method to round the reason to non-positive slack",
@@ -335,7 +342,8 @@ struct Options {
 #endif  // WITHSOPLEX
       &multWeaken,    &multBeforeDiv,     &division,         &weakenNonImplying,
       &learnedMin,    &caCancelingUnkns,  &subsetSum,        &useActSet,
-      &indWeakenThresh, &partialWeakening, &weakenSuperfluous, &aggressiveMWD, &MWI,
+      &indWeakenThresh, &partialWeakening, &weakenSuperfluous, &aggressiveMWD, 
+      &MWI,           &antiWeaken,        &preserveCancellation, &cawThreshold,
       &bitsOverflow,  &bitsReduced,       &bitsLearned,      &optRatio,
       &optCoreguided, &optReuseCores,     &optStratification,&optPrecision,
       &intEncoding,   &intContinuous,     &intUnbounded,     &intDefaultBound,

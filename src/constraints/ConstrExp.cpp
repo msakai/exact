@@ -664,7 +664,7 @@ void ConstrExp<SMALL, LARGE>::weaken(const aux::predicate<Lit>& toWeaken) {
 }
 
 template <typename SMALL, typename LARGE>
-void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit asserting, const IntMap<int>& level) {
+void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit asserting, const IntMap<int>& level, const ConstrExp<SMALL, LARGE>& confl) {
   assert(toWeaken >= 0);
   assert(toWeaken < getCoef(asserting));
   if (global.options.MWI) {
@@ -675,6 +675,45 @@ void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit assertin
       largetoWeaken += extraIndirectWeakenings;
     // if (isSaturated(asserting)) {  // indirect weakening # TODO: change to incorporate threshhold
       global.stats.NMULTWEAKENEDINDIRECT.z += 1;
+      if (global.options.preserveCancellation.is("preserving-cancellation") ||
+          (global.options.preserveCancellation.is("strength-heuristic") && getStrength() >= global.options.cawThreshold.get())
+          ) {
+        for (int64_t i = std::ssize(vars) - 1; largetoWeaken != 0 && i >= 0; --i) {
+          Var v = vars[i];
+          if (coefs[v] == 0) continue;
+          Lit l = getLit(v);
+          if (!isFalse(level, l) && confl.getCoef(-l) <= 0) {
+            if (largetoWeaken < absCoef(v)) {
+              toWeaken = static_cast<SMALL>(largetoWeaken);
+              weakenVar(toWeaken, v);
+              largetoWeaken = 0;
+            } else {
+              largetoWeaken -= aux::abs(coefs[v]);
+              weaken(v);
+            }
+          }
+        }
+      }
+      if (global.options.preserveCancellation.is("non-preserving-cancellation") ||
+          (global.options.preserveCancellation.is("strength-heuristic") && getStrength() < global.options.cawThreshold.get())
+          ) {
+        for (int64_t i = std::ssize(vars) - 1; largetoWeaken != 0 && i >= 0; --i) {
+          Var v = vars[i];
+          if (coefs[v] == 0) continue;
+          Lit l = getLit(v);
+          if (!isFalse(level, l) && confl.getCoef(-l) > 0) {
+            if (largetoWeaken < absCoef(v)) {
+              toWeaken = static_cast<SMALL>(largetoWeaken);
+              weakenVar(toWeaken, v);
+              largetoWeaken = 0;
+            } else {
+              largetoWeaken -= aux::abs(coefs[v]);
+              weaken(v);
+            }
+          }
+        }
+      }
+
       for (int64_t i = std::ssize(vars) - 1; largetoWeaken != 0 && i >= 0; --i) {
         Var v = vars[i];
         if (coefs[v] == 0) continue;
@@ -1060,7 +1099,7 @@ void ConstrExp<SMALL, LARGE>::weakenDivideRound(const LARGE& div, const aux::pre
     saturate(false, false);
     removeZeroes();
   } else {
-    weakenSuperfluous(div, false, []([[maybe_unused]] Var v) { return true; });
+    if (global.options.weakenSuperfluous) weakenSuperfluous(div, false, []([[maybe_unused]] Var v) { return true; });
     removeZeroes();
     divideRoundUp(div);
     saturate(true, false);
@@ -1070,12 +1109,12 @@ void ConstrExp<SMALL, LARGE>::weakenDivideRound(const LARGE& div, const aux::pre
 // NOTE: preserves ordered-ness
 // div is a divisor
 template <typename SMALL, typename LARGE>
-void ConstrExp<SMALL, LARGE>::weakenDivideRoundOrdered(const LARGE& div, const IntMap<int>& level) {
+void ConstrExp<SMALL, LARGE>::weakenDivideRoundOrdered(const LARGE& div, const IntMap<int>& level, const ConstrExp<SMALL, LARGE>& confl) {
   assert(isSortedInDecreasingCoefOrder());
   assert(div > 0);
   if (div == 1) return;
   weakenNonDivisible(div, level);
-  weakenSuperfluous(div);
+  if (global.options.weakenSuperfluous) weakenSuperfluous(div, confl);
   repairOrder();
   while (!vars.empty() && coefs[vars.back()] == 0) {
     popLast();
@@ -1094,12 +1133,12 @@ void ConstrExp<SMALL, LARGE>::weakenDivideRoundOrdered(const LARGE& div, const I
 // NOTE: preserves ordered-ness
 // div is a divisor
 template <typename SMALL, typename LARGE>
-void ConstrExp<SMALL, LARGE>::weakenDivideRoundOrdered(const SMALL& div, const IntMap<int>& level, SMALL& slackdiff) {
+void ConstrExp<SMALL, LARGE>::weakenDivideRoundOrdered(const SMALL& div, const IntMap<int>& level, SMALL& slackdiff, const ConstrExp<SMALL, LARGE>& confl) {
   assert(isSortedInDecreasingCoefOrder());
   assert(div > 0);
   if (div == 1) return;
   weakenNonDivisible(div, level, slackdiff);
-  weakenSuperfluous(div);
+  if (global.options.weakenSuperfluous) weakenSuperfluous(div, confl);
   repairOrder();
   while (!vars.empty() && coefs[vars.back()] == 0) {
     popLast();
@@ -1124,7 +1163,7 @@ void ConstrExp<SMALL, LARGE>::weakenDivideRoundOrderedCanceling(const LARGE& div
   assert(div > 0);
   if (div == 1) return;
   weakenNonDivisibleCanceling(div, level, mult, confl);
-  if (global.options.weakenSuperfluous) weakenSuperfluousCanceling(div, pos);
+  if (global.options.weakenSuperfluous) weakenSuperfluousCanceling(div, pos, confl);
   repairOrder();
   while (!vars.empty() && coefs[vars.back()] == 0) {
     popLast();
@@ -1188,7 +1227,7 @@ void ConstrExp<SMALL, LARGE>::weakenNonDivisible(const SMALL& div, const IntMap<
         if (!global.options.partialWeakening) {
           weaken(v);
         } else {
-          weaken(-static_cast<SMALL>(coefs[v] % div), v);
+          weaken(-static_cast<SMALL>(mod), v);
         }
       }
     }
@@ -1241,7 +1280,7 @@ void ConstrExp<SMALL, LARGE>::weakenSuperfluous(const LARGE& div, bool sorted, c
   assert(!isTautology());
   [[maybe_unused]] LARGE quot = aux::ceildiv(degree, div);
   LARGE rem = (degree - 1) % div;
-  if (!sorted) {                                             // extra iteration to weaken literals fully
+  if (!sorted) { // extra iteration to weaken literals fully                                        
     for (int i = vars.size() - 1; i >= 0 && rem > 0; --i) {  // going back to front in case the coefficients are sorted
       Var v = vars[i];
       if (!toWeaken(v) || coefs[v] == 0) continue;
@@ -1265,11 +1304,41 @@ void ConstrExp<SMALL, LARGE>::weakenSuperfluous(const LARGE& div, bool sorted, c
 }
 
 template <typename SMALL, typename LARGE>
-void ConstrExp<SMALL, LARGE>::weakenSuperfluous(const LARGE& div) {
+void ConstrExp<SMALL, LARGE>::weakenSuperfluous(const LARGE& div, const ConstrExp<SMALL, LARGE>& confl) {
   assert(div > 1);
   assert(!isTautology());
   [[maybe_unused]] LARGE quot = aux::ceildiv(degree, div);
   LARGE rem = (degree - 1) % div;
+  if (global.options.preserveCancellation.is("preserving-cancellation") ||
+      (global.options.preserveCancellation.is("strength-heuristic") && getStrength() >= global.options.cawThreshold.get())
+      ) {
+    for (int i = vars.size() - 1; i >= 0 && rem > 0; --i) {  // going back to front in case the coefficients are sorted
+      Var v = vars[i];
+      Lit l = getLit(v);
+      if ((coefs[v] == 0) || confl.getCoef(-l) > 0) continue;
+      if (saturatedVar(v)) break;
+      SMALL r = static_cast<SMALL>(static_cast<LARGE>(aux::abs(coefs[v])) % div);
+      if (r > 0 && r <= rem) {
+        rem -= r;
+        weakenVar(r, v);
+      }
+    }
+  }
+  if (global.options.preserveCancellation.is("non-preserving-cancellation") ||
+  		(global.options.preserveCancellation.is("strength-heuristic") && getStrength() < global.options.cawThreshold.get())
+  ) {
+    for (int i = vars.size() - 1; i >= 0 && rem > 0; --i) {  // going back to front in case the coefficients are sorted
+      Var v = vars[i];
+      Lit l = getLit(v);
+      if ((coefs[v] == 0) || confl.getCoef(-l) <= 0) continue;
+      if (saturatedVar(v)) break;
+      SMALL r = static_cast<SMALL>(static_cast<LARGE>(aux::abs(coefs[v])) % div);
+      if (r > 0 && r <= rem) {
+        rem -= r;
+        weakenVar(r, v);
+      }
+    }
+  }
   for (int i = vars.size() - 1; i >= 0 && rem > 0; --i) {  // going back to front in case the coefficients are sorted
     Var v = vars[i];
     if (coefs[v] == 0) continue;
@@ -1284,11 +1353,35 @@ void ConstrExp<SMALL, LARGE>::weakenSuperfluous(const LARGE& div) {
 }
 
 template <typename SMALL, typename LARGE>
-void ConstrExp<SMALL, LARGE>::weakenSuperfluousCanceling(const LARGE& div, const std::vector<int>& pos) {
+void ConstrExp<SMALL, LARGE>::weakenSuperfluousCanceling(const LARGE& div, const std::vector<int>& pos, const ConstrExp<SMALL, LARGE>& confl) {
   assert(div > 1);
   assert(!isTautology());
   [[maybe_unused]] LARGE quot = aux::ceildiv(degree, div);
   LARGE rem = (degree - 1) % div;
+  if (global.options.preserveCancellation.is("preserving-cancellation")) {
+    for (int i = vars.size() - 1; i >= 0 && rem > 0; --i) {  // going back to front in case the coefficients are sorted
+      Var v = vars[i];
+      Lit l = getLit(v);
+      if (pos[v] == INF || coefs[v] == 0 || saturatedVar(v) || confl.getCoef(-l) > 0) continue;
+      SMALL r = static_cast<SMALL>(static_cast<LARGE>(aux::abs(coefs[v])) % div);
+      if (r > 0 && r <= rem) {
+        rem -= r;
+        weakenVar(r, v);
+      }
+    }
+  }
+  if (global.options.preserveCancellation.is("non-preserving-cancellation")) {
+    for (int i = vars.size() - 1; i >= 0 && rem > 0; --i) {  // going back to front in case the coefficients are sorted
+      Var v = vars[i];
+      Lit l = getLit(v);
+      if (pos[v] == INF || coefs[v] == 0 || saturatedVar(v) || confl.getCoef(-l) <= 0) continue;
+      SMALL r = static_cast<SMALL>(static_cast<LARGE>(aux::abs(coefs[v])) % div);
+      if (r > 0 && r <= rem) {
+        rem -= r;
+        weakenVar(r, v);
+      }
+    }
+  }
   for (int i = vars.size() - 1; i >= 0 && rem > 0; --i) {  // going back to front in case the coefficients are sorted
     Var v = vars[i];
     if (pos[v] == INF || coefs[v] == 0 || saturatedVar(v)) continue;
