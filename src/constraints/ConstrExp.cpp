@@ -782,13 +782,41 @@ void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit assertin
   copy->saturate(true, true);
 
   // Debug output
-  std::cout << "=== MWD Learned ===\n";
+  std::cout << "=== MWD REDUCED ===\n";
   copy->toStreamPure(std::cout);
   std::cout << "\n";
 
-  std::cout << "=== MWI Learned ===\n";
+  std::cout << "=== MWI REDUCED ===\n";
   this->toStreamPure(std::cout);
   std::cout << "\n";
+
+  // Create copies of both constraints
+  CePtr<SMALL, LARGE> MWIconfl = global.cePools.take<SMALL, LARGE>();
+	confl.copyTo(MWIconfl);
+  CePtr<SMALL, LARGE> MWDconfl = global.cePools.take<SMALL, LARGE>();
+  confl.copyTo(MWDconfl);  // Convert const ref to mutable ptr
+
+
+	// add reason to conflict
+	MWDconfl->addUp(copy);
+  CePtr<SMALL,LARGE> thisPtr = global.cePools.take<SMALL,LARGE>();
+  this->copyTo(thisPtr);
+  MWIconfl->addUp(thisPtr);
+
+
+	MWDconfl->saturate(confl.vars, false, false);
+  MWIconfl->saturate(MWIconfl->vars, false, false);
+
+
+	MWDconfl->fixOverflow(level, global.options.bitsOverflow.get(), global.options.bitsReduced.get(), static_cast<SMALL>(MWDconfl->getDegree()), 0);
+    MWIconfl->fixOverflow(level, global.options.bitsOverflow.get(), global.options.bitsReduced.get(), static_cast<SMALL>(MWIconfl->getDegree()), 0);
+
+    std::cout << "====== LEARNED MWD ======\n";
+    MWDconfl->toStreamAsOPB(std::cout);
+    std::cout << "\n";
+    std::cout << "====== LEARNED MWI ======\n";
+    MWIconfl->toStreamAsOPB(std::cout);
+    std::cout << "\n";
   }
 }
 
