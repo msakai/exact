@@ -670,7 +670,7 @@ void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit assertin
   if (global.options.MWI) {
     LARGE extraIndirectWeakenings = degree - static_cast<LARGE>(getCoef(asserting));
     LARGE possibleWeakenings = getSlack(level) + degree - getCoef(asserting);
-    if (aboveIndirectThreshhold(toWeaken, extraIndirectWeakenings, possibleWeakenings)) {
+    if (getSlack(level) > 0 && aboveIndirectThreshhold(toWeaken, extraIndirectWeakenings, possibleWeakenings)) {
       LARGE largetoWeaken = static_cast<LARGE>(toWeaken);
       largetoWeaken += extraIndirectWeakenings;
     // if (isSaturated(asserting)) {  // indirect weakening # TODO: change to incorporate threshhold
@@ -730,13 +730,15 @@ void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit assertin
         }
       }
       removeZeroes();
-      toWeaken = static_cast<SMALL>(largetoWeaken);
+      // toWeaken = static_cast<SMALL>(largetoWeaken);
     }
-  }
-  assert(toWeaken >= 0);
-  if (toWeaken > 0) {  // direct weakening
-    global.stats.NMULTWEAKENEDDIRECT.z += 1;
-    weakenVar(toWeaken, toVar(asserting));
+    assert(toWeaken == 0);
+  } else {
+  	assert(toWeaken >= 0);
+  	if (toWeaken > 0) {  // direct weakening
+    	global.stats.NMULTWEAKENEDDIRECT.z += 1;
+    	weakenVar(toWeaken, toVar(asserting));
+  	}
   }
   repairOrder();
   saturate(true, true);
