@@ -383,8 +383,8 @@ struct ConstrExp final : ConstrExpSuper {
   void divideRoundUp(const LARGE& d);
   void divideRoundDown(const LARGE& d);
   void weakenDivideRound(const LARGE& div, const aux::predicate<Lit>& toWeaken);
-  void weakenDivideRoundOrdered(const LARGE& div, const IntMap<int>& level, const ConstrExp<SMALL, LARGE>& confl);
-  void weakenDivideRoundOrdered(const SMALL& div, const IntMap<int>& level, SMALL& slackdiff, const ConstrExp<SMALL, LARGE>& confl);
+  void weakenDivideRoundOrdered(const LARGE& div, const IntMap<int>& level, const ConstrExp<SMALL, LARGE>& confl, const SMALL& mult);
+  void weakenDivideRoundOrdered(const SMALL& div, const IntMap<int>& level, SMALL& slackdiff, const ConstrExp<SMALL, LARGE>& confl, const SMALL& mult);
   void weakenDivideRoundOrderedCanceling(const LARGE& div, const IntMap<int>& level, const std::vector<int>& pos,
                                          const SMALL& mult, const ConstrExp<SMALL, LARGE>& confl);
   void weakenNonDivisible(const aux::predicate<Lit>& toWeaken, const LARGE& div);
@@ -394,10 +394,11 @@ struct ConstrExp final : ConstrExpSuper {
                                    const ConstrExp<SMALL, LARGE>& confl);
   void repairOrder();
   void weakenSuperfluous(const LARGE& div, bool sorted, const aux::predicate<Var>& toWeaken);
-  void weakenSuperfluous(const LARGE& div, const ConstrExp<SMALL, LARGE>& confl);
-  void weakenSuperfluousCanceling(const LARGE& div, const std::vector<int>& pos, const ConstrExp<SMALL, LARGE>& confl);
+  void weakenSuperfluous(const LARGE& div, const ConstrExp<SMALL, LARGE>& confl, const SMALL& mult);
+  void weakenSuperfluousCanceling(const LARGE& div, const std::vector<int>& pos, const ConstrExp<SMALL, LARGE>& confl, const SMALL& mult);
   void applyMIR(const LARGE& d, const std::function<Lit(Var)>& toLit);
 
+  double getCombinedStrength(const ConstrExp<SMALL, LARGE>& confl, const LARGE& div = 1, const SMALL& mult = 1) const;
   bool divideByGCD();
   bool divideTo(double limit, const aux::predicate<Lit>& toWeaken);
   AssertionStatus isAssertingBefore(const IntMap<int>& level, int lvl) const;
@@ -618,7 +619,7 @@ struct ConstrExp final : ConstrExpSuper {
 
     if (!fixed && global.options.division.is("rto")) {
       fixed = true;
-      reason->weakenDivideRoundOrdered(reason->getCoef(asserting), level, *this);
+      reason->weakenDivideRoundOrdered(reason->getCoef(asserting), level, *this, conflCoef);
       reason->multiply(conflCoef);
       assert(reason->getSlack(level) <= 0);
     }
@@ -632,20 +633,22 @@ struct ConstrExp final : ConstrExpSuper {
       SMALL gcd = global.options.multBeforeDiv ? conflCoef : aux::gcd(conflCoef, reasonCoef);
       const SMALL minDiv = reasonCoef / gcd;
       if (minDiv > reasonSlack) {
+        SMALL mult = aux::ceildiv(conflCoef, aux::ceildiv(reason->getCoef(asserting), minDiv));
         if (global.options.antiWeaken) {  
           SMALL diff = minDiv - reasonSlack;
-          reason->weakenDivideRoundOrdered(minDiv, level, diff, *this);
+          reason->weakenDivideRoundOrdered(minDiv, level, diff, *this, mult);
         } else {
-          reason->weakenDivideRoundOrdered(minDiv, level, *this);
+          reason->weakenDivideRoundOrdered(minDiv, level, *this, mult);
         }
         assert(conflCoef % reason->getCoef(asserting) == 0);
         reason->multiply(conflCoef / reason->getCoef(asserting));
       } else {
         assert(reasonSlack > 0);  // otherwise if clause would have triggered
         if (global.options.division.is("slack+1")) {
-          reason->weakenDivideRoundOrdered(reasonSlack + 1, level, *this);
+          SMALL mult = aux::ceildiv(conflCoef, aux::ceildiv(reason->getCoef(asserting), static_cast<SMALL>(reasonSlack + 1)));
+          reason->weakenDivideRoundOrdered(reasonSlack + 1, level, *this, mult);
           const SMALL reasonCoef = reason->getCoef(asserting);
-          const SMALL mult = aux::ceildiv(conflCoef, reasonCoef);
+          mult = aux::ceildiv(conflCoef, reasonCoef);
           reason->multiply(mult);
           SMALL toWeaken = reasonCoef * mult - conflCoef;
           reason->weakenCheckSaturated(toWeaken, asserting, level, *this);
@@ -690,7 +693,7 @@ struct ConstrExp final : ConstrExpSuper {
           } else {
             assert(bestDiv <= reasonCoef);
             SMALL diff = bestDiv - reasonSlack;
-            reason->weakenDivideRoundOrdered(bestDiv, level, diff, *this);
+            reason->weakenDivideRoundOrdered(bestDiv, level, diff, *this, mult);
             reason->multiply(mult);
             assert(reason->getSlack(level) <= 0);
           }
