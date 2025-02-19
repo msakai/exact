@@ -673,7 +673,7 @@ void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit assertin
     if (getSlack(level) > 0 && aboveIndirectThreshhold(toWeaken, extraIndirectWeakenings, possibleWeakenings)) {
       LARGE largetoWeaken = static_cast<LARGE>(toWeaken);
       largetoWeaken += extraIndirectWeakenings;
-    // if (isSaturated(asserting)) {  // indirect weakening # TODO: change to incorporate threshhold
+//     if (getSlack(level) > 0 && isSaturated(asserting)) {  // indirect weakening
       global.stats.NMULTWEAKENEDINDIRECT.z += 1;
       if (global.options.preserveCancellation.is("preserving-cancellation") ||
           (global.options.preserveCancellation.is("strength-heuristic") && getStrength() >= global.options.cawThreshold.get())
@@ -682,6 +682,7 @@ void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit assertin
           Var v = vars[i];
           if (coefs[v] == 0) continue;
           Lit l = getLit(v);
+//          if (l == asserting) continue;
           if (!isFalse(level, l) && confl.getCoef(-l) <= 0) {
             if (largetoWeaken < absCoef(v)) {
               toWeaken = static_cast<SMALL>(largetoWeaken);
@@ -701,6 +702,7 @@ void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit assertin
           Var v = vars[i];
           if (coefs[v] == 0) continue;
           Lit l = getLit(v);
+//          if (l == asserting) continue;
           if (!isFalse(level, l) && confl.getCoef(-l) > 0) {
             if (largetoWeaken < absCoef(v)) {
               toWeaken = static_cast<SMALL>(largetoWeaken);
@@ -718,6 +720,7 @@ void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit assertin
         Var v = vars[i];
         if (coefs[v] == 0) continue;
         Lit l = getLit(v);
+//        if (l == asserting) continue;
         if (!isFalse(level, l)) {
           if (largetoWeaken < absCoef(v)) {
             toWeaken = static_cast<SMALL>(largetoWeaken);
@@ -730,7 +733,7 @@ void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit assertin
         }
       }
       removeZeroes();
-      // toWeaken = static_cast<SMALL>(largetoWeaken);
+//       toWeaken = static_cast<SMALL>(largetoWeaken);
     }
     assert(toWeaken == 0);
   } else {
@@ -1224,6 +1227,7 @@ void ConstrExp<SMALL, LARGE>::weakenNonDivisible(const SMALL& div, const IntMap<
   for (Var v : vars) {
     if (SMALL mod = coefs[v] % div; mod != 0 && !isFalse(level, getLit(v))) {
       if (slackdiff - div + mod >= 1) {  // we can safely round up non-falsified
+        // TODO: can this not be done conflict aware?
         slackdiff -= div - mod;
       } else {
         if (!global.options.partialWeakening) {

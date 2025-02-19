@@ -690,7 +690,12 @@ struct ConstrExp final : ConstrExpSuper {
           } else {
             assert(bestDiv <= reasonCoef);
             SMALL diff = bestDiv - reasonSlack;
-            reason->weakenDivideRoundOrdered(bestDiv, level, diff, *this);
+            if (global.options.antiWeaken) {
+          		SMALL diff = minDiv - reasonSlack;
+         		reason->weakenDivideRoundOrdered(minDiv, level, diff, *this);
+        	} else {
+          		reason->weakenDivideRoundOrdered(minDiv, level, *this);
+        	}
             reason->multiply(mult);
             assert(reason->getSlack(level) <= 0);
           }
