@@ -389,7 +389,7 @@ struct ConstrExp final : ConstrExpSuper {
                                          const SMALL& mult, const ConstrExp<SMALL, LARGE>& confl);
   void weakenNonDivisible(const aux::predicate<Lit>& toWeaken, const LARGE& div);
   void weakenNonDivisible(const LARGE& div, const IntMap<int>& level);
-  void weakenNonDivisible(const SMALL& div, const IntMap<int>& level, SMALL& slackdiff);
+  void weakenNonDivisible(const SMALL& div, const IntMap<int>& level, SMALL& slackdiff, const ConstrExp<SMALL, LARGE>& confl);
   void weakenNonDivisibleCanceling(const LARGE& div, const IntMap<int>& level, const SMALL& mult,
                                    const ConstrExp<SMALL, LARGE>& confl);
   void repairOrder();
@@ -689,12 +689,11 @@ struct ConstrExp final : ConstrExpSuper {
             // NOTE: since canceling unknowns are rounded up, the reason may have positive slack
           } else {
             assert(bestDiv <= reasonCoef);
-            SMALL diff = bestDiv - reasonSlack;
             if (global.options.antiWeaken) {
-          		SMALL diff = minDiv - reasonSlack;
-         		reason->weakenDivideRoundOrdered(minDiv, level, diff, *this);
+            	SMALL diff = bestDiv - reasonSlack;
+         		reason->weakenDivideRoundOrdered(bestDiv, level, diff, *this);
         	} else {
-          		reason->weakenDivideRoundOrdered(minDiv, level, *this);
+          		reason->weakenDivideRoundOrdered(bestDiv, level, *this);
         	}
             reason->multiply(mult);
             assert(reason->getSlack(level) <= 0);

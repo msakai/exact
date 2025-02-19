@@ -1142,7 +1142,7 @@ void ConstrExp<SMALL, LARGE>::weakenDivideRoundOrdered(const SMALL& div, const I
   assert(isSortedInDecreasingCoefOrder());
   assert(div > 0);
   if (div == 1) return;
-  weakenNonDivisible(div, level, slackdiff);
+  weakenNonDivisible(div, level, slackdiff, confl);
   if (global.options.weakenSuperfluous) weakenSuperfluous(div, confl);
   repairOrder();
   while (!vars.empty() && coefs[vars.back()] == 0) {
@@ -1221,13 +1221,54 @@ void ConstrExp<SMALL, LARGE>::weakenNonDivisible(const LARGE& div, const IntMap<
 // NOTE: does not preserve order, as the asserting literal is skipped and some literals are partially weakened
 // NOTE: after call to weakenNonDivisible, order can be re repaired by call to repairOrder
 template <typename SMALL, typename LARGE>
-void ConstrExp<SMALL, LARGE>::weakenNonDivisible(const SMALL& div, const IntMap<int>& level, SMALL& slackdiff) {
+void ConstrExp<SMALL, LARGE>::weakenNonDivisible(const SMALL& div, const IntMap<int>& level, SMALL& slackdiff, const ConstrExp<SMALL, LARGE>& confl) {
   assert(div > 0);
   if (div == 1) return;
+
+  if (global.options.preserveCancellation.is("preserving-cancellation") ||
+      (global.options.preserveCancellation.is("strength-heuristic") && getStrength() >= global.options.cawThreshold.get())
+      ) {
+    for (Var v : vars) {  // going back to front in case the coefficients are sorted
+      Lit l = getLit(v);
+      if ((coefs[v] == 0) || confl.getCoef(-l) > 0) continue;
+
+    	if (SMALL mod = coefs[v] % div; mod != 0 && !isFalse(level, getLit(v))) {
+      		if (slackdiff - div + mod >= 1) {  // we can safely round up non-falsified
+        		slackdiff -= div - mod;
+      		} else {
+        		if (!global.options.partialWeakening) {
+          			weaken(v);
+        		} else {
+          			weaken(-static_cast<SMALL>(mod), v);
+        		}
+      		}
+    	}
+    }
+  }
+  if (global.options.preserveCancellation.is("non-preserving-cancellation") ||
+  		(global.options.preserveCancellation.is("strength-heuristic") && getStrength() < global.options.cawThreshold.get())
+  ) {
+    for (Var v : vars) {  // going back to front in case the coefficients are sorted
+      Lit l = getLit(v);
+      if ((coefs[v] == 0) || confl.getCoef(-l) <= 0) continue;
+
+    	if (SMALL mod = coefs[v] % div; mod != 0 && !isFalse(level, getLit(v))) {
+      		if (slackdiff - div + mod >= 1) {  // we can safely round up non-falsified
+        		slackdiff -= div - mod;
+      		} else {
+        		if (!global.options.partialWeakening) {
+          			weaken(v);
+        		} else {
+          			weaken(-static_cast<SMALL>(mod), v);
+        		}
+      		}
+    	}
+    }
+  }
+
   for (Var v : vars) {
     if (SMALL mod = coefs[v] % div; mod != 0 && !isFalse(level, getLit(v))) {
       if (slackdiff - div + mod >= 1) {  // we can safely round up non-falsified
-        // TODO: can this not be done conflict aware?
         slackdiff -= div - mod;
       } else {
         if (!global.options.partialWeakening) {
