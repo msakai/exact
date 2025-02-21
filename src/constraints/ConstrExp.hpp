@@ -632,14 +632,16 @@ struct ConstrExp final : ConstrExpSuper {
       SMALL gcd = global.options.multBeforeDiv ? conflCoef : aux::gcd(conflCoef, reasonCoef);
       const SMALL minDiv = reasonCoef / gcd;
       if (minDiv > reasonSlack) {
+        const SMALL mult = conflCoef / (reasonCoef / minDiv);
         if (global.options.antiWeaken) {  
           SMALL diff = minDiv - reasonSlack;
+          if (global.options.nonZeroSlack) diff -= minDiv*(1+aux::floordiv_safe(static_cast<SMALL>(getSlack(level)), mult));
           reason->weakenDivideRoundOrdered(minDiv, level, diff, *this);
         } else {
           reason->weakenDivideRoundOrdered(minDiv, level, *this);
         }
         assert(conflCoef % reason->getCoef(asserting) == 0);
-        reason->multiply(conflCoef / reason->getCoef(asserting));
+        reason->multiply(mult);
       } else {
         assert(reasonSlack > 0);  // otherwise if clause would have triggered
         if (global.options.division.is("slack+1")) {
@@ -664,14 +666,34 @@ struct ConstrExp final : ConstrExpSuper {
             while (gcd % p == 0) {
               gcd /= p;
               tmp = reasonCoef / gcd;
-              if (tmp < bestDiv && tmp > reasonSlack) bestDiv = tmp;
+              if (global.options.nonZeroSlack) {
+                SMALL mult = conflCoef / (reasonCoef / tmp);
+                if (tmp < bestDiv && aux::floordiv(reasonSlack, tmp)*mult < getSlack(level)) bestDiv = tmp;
+              } else {
+                if (tmp < bestDiv && tmp > reasonSlack) bestDiv = tmp;
+              }
               tmp = minDiv * gcd;
-              if (tmp < bestDiv && tmp > reasonSlack) bestDiv = tmp;
+              if (global.options.nonZeroSlack) {
+                SMALL mult = conflCoef / (reasonCoef / tmp);
+                if (tmp < bestDiv && aux::floordiv(reasonSlack, tmp)*mult < getSlack(level)) bestDiv = tmp;
+              } else {
+                if (tmp < bestDiv && tmp > reasonSlack) bestDiv = tmp;
+              }
               pp *= p;
               tmp = reasonCoef / pp;
-              if (tmp < bestDiv && tmp > reasonSlack) bestDiv = tmp;
+              if (global.options.nonZeroSlack) {
+                SMALL mult = conflCoef / (reasonCoef / tmp);
+                if (tmp < bestDiv && aux::floordiv(reasonSlack, tmp)*mult < getSlack(level)) bestDiv = tmp;
+              } else {
+                if (tmp < bestDiv && tmp > reasonSlack) bestDiv = tmp;
+              }
               tmp = minDiv * pp;
-              if (tmp < bestDiv && tmp > reasonSlack) bestDiv = tmp;
+              if (global.options.nonZeroSlack) {
+                SMALL mult = conflCoef / (reasonCoef / tmp);
+                if (tmp < bestDiv && aux::floordiv(reasonSlack, tmp)*mult < getSlack(level)) bestDiv = tmp;
+              } else {
+                if (tmp < bestDiv && tmp > reasonSlack) bestDiv = tmp;
+              }
             }
           }
 
@@ -691,12 +713,13 @@ struct ConstrExp final : ConstrExpSuper {
             assert(bestDiv <= reasonCoef);
             if (global.options.antiWeaken) {
             	SMALL diff = bestDiv - reasonSlack;
+                if (global.options.nonZeroSlack) diff -= bestDiv*(1+aux::floordiv_safe(static_cast<SMALL>(getSlack(level)), mult)-aux::floordiv_safe(reasonSlack, bestDiv)*mult);
          		reason->weakenDivideRoundOrdered(bestDiv, level, diff, *this);
         	} else {
           		reason->weakenDivideRoundOrdered(bestDiv, level, *this);
         	}
             reason->multiply(mult);
-            assert(reason->getSlack(level) <= 0);
+            assert(reason->getSlack(level) + getSlack(level) < 0);
           }
         }
       }

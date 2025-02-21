@@ -252,6 +252,7 @@ struct Options {
   BoolOption MWI{"ca-mwi", "Use MWI when free", true};
   BoolOption aggressiveMWD{"ca-aggressive-mwd", "Use aggressive MWD instead of safe (note: this doesn't make use of free MWI)", false};
   BoolOption antiWeaken{"ca-anti-weaken", "Anti-weaken non-falsified literals whenever possible.", true};
+  BoolOption nonZeroSlack{"ca-non-zero-slack", "Allow for non zero slack after division, when conflict slack is very negative.", false};
   EnumOption preserveCancellation{"ca-preserve-cancellation", "Control prioritisation of which literals to weaken freely (during MWI of weakening of superfluous)",
                     "ascending",
                     {"preserving-cancellation", "non-preserving-cancellation", "ascending", "strength-heuristic"}};
@@ -343,7 +344,7 @@ struct Options {
       &multWeaken,    &multBeforeDiv,     &division,         &weakenNonImplying,
       &learnedMin,    &caCancelingUnkns,  &subsetSum,        &useActSet,
       &indWeakenThresh, &partialWeakening, &weakenSuperfluous, &aggressiveMWD, 
-      &MWI,           &antiWeaken,        &preserveCancellation, &cawThreshold,
+      &MWI,           &antiWeaken,        &nonZeroSlack, 	&preserveCancellation, &cawThreshold,
       &bitsOverflow,  &bitsReduced,       &bitsLearned,      &optRatio,
       &optCoreguided, &optReuseCores,     &optStratification,&optPrecision,
       &intEncoding,   &intContinuous,     &intUnbounded,     &intDefaultBound,
