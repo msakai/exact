@@ -631,9 +631,9 @@ struct ConstrExp final : ConstrExpSuper {
       // SMALL cast possible because slack < reasonCoef
       SMALL gcd = global.options.multBeforeDiv ? conflCoef : aux::gcd(conflCoef, reasonCoef);
       const SMALL minDiv = reasonCoef / gcd;
-      if (minDiv > reasonSlack) {
-        const SMALL mult = conflCoef / (reasonCoef / minDiv);
-        if (global.options.antiWeaken) {  
+      SMALL mult = conflCoef / (reasonCoef / minDiv);
+      if (minDiv > reasonSlack || (global.options.nonZeroSlack && aux::floordiv_safe(reasonSlack, minDiv)*mult < getSlack(level))) {
+        if (global.options.antiWeaken) {
           SMALL diff = minDiv - reasonSlack;
           if (global.options.nonZeroSlack) diff -= minDiv*(1+aux::floordiv_safe(static_cast<SMALL>(getSlack(level)), mult));
           reason->weakenDivideRoundOrdered(minDiv, level, diff, *this);
