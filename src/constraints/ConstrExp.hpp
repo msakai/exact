@@ -62,6 +62,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #pragma once
 
 #include <memory>
+#include <span>
 #include <sstream>
 #include "../Global.hpp"
 #include "../datastructures/SolverStructs.hpp"

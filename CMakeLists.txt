@@ -2,9 +2,10 @@ cmake_minimum_required(VERSION 3.5)
 project(Exact)
 
 set(CMAKE_CXX_STANDARD 20)
-find_package(Boost 1.70.0 REQUIRED) # 1.81 for the fastest hash maps
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/Modules/")
+
+find_package(Boost 1.70 CONFIG REQUIRED) # 1.81 for the fastest hash maps
 
 set(CMAKE_CXX_FLAGS_TESTRUNS "${CMAKE_CXX_FLAGS_TESTRUNS} -O3")
 
@@ -237,7 +238,11 @@ if(soplex)
     if(build_static)
         target_link_libraries(Exact "${soplex_build}/lib/libsoplex.a")
     else()
-        target_link_libraries(Exact "${soplex_build}/lib/libsoplexshared.so")
+        if(APPLE)
+            target_link_libraries(Exact "${soplex_build}/lib/libsoplexshared.dylib")
+        else()
+            target_link_libraries(Exact "${soplex_build}/lib/libsoplexshared.so")
+        endif()
     endif()
     target_compile_definitions(Exact PUBLIC WITHSOPLEX=1)
 endif()
@@ -247,7 +252,7 @@ if(coinutils)
     find_package(ZLIB REQUIRED)
     find_package(BZip2 REQUIRED)
     target_include_directories(Exact PUBLIC ${CoinUtils_INCLUDE_DIR})
-    target_link_libraries(Exact CoinUtils z bz2)
+    target_link_libraries(Exact ${CoinUtils_LIBRARIES}/libCoinUtils.3.dylib z bz2)
     target_compile_definitions(Exact PUBLIC WITHCOINUTILS=1)
 endif()
 
