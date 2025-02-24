@@ -252,7 +252,7 @@ if(coinutils)
     find_package(ZLIB REQUIRED)
     find_package(BZip2 REQUIRED)
     target_include_directories(Exact PUBLIC ${CoinUtils_INCLUDE_DIR})
-    target_link_libraries(Exact ${CoinUtils_LIBRARIES}/libCoinUtils.3.dylib z bz2)
+    target_link_libraries(Exact CoinUtils z bz2)
     target_compile_definitions(Exact PUBLIC WITHCOINUTILS=1)
 endif()
 
