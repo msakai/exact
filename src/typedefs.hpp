@@ -87,7 +87,7 @@ constexpr uint32_t UINF = INF;
 constexpr uint32_t CLAUSE_IDX = 4 * UINF;
 constexpr uint32_t BINARY_IDX = 4 * UINF + 1;
 // NOTE: 31 bits is not possible due to the idx entry in the Watch struct
-constexpr long long INFLPINT = 4e15 + 1;  // 4e15 < 52 bits, based on max long long range captured by double
+constexpr int64_t INFLPINT = 4e15 + 1;  // 4e15 < 52 bits, based on max int64_t range captured by double
 
 template <typename CF, typename DG>
 inline double limitAbs() {
@@ -100,11 +100,11 @@ inline double limitAbs<bigint, bigint>() {
   return 0;
 }
 template <>
-inline double limitAbs<int, long long>() {
+inline double limitAbs<int, int64_t>() {
   return 1e9;  // 2^29-2^30
 }
 template <>
-inline double limitAbs<long long, int128>() {
+inline double limitAbs<int64_t, int128>() {
   return 2e18;  // 2^60-2^61
 }
 template <>
@@ -127,11 +127,11 @@ inline int limitBit() {
   return -1;
 }
 template <>
-inline int limitBit<int, long long>() {
+inline int limitBit<int, int64_t>() {
   return 29;
 }
 template <>
-inline int limitBit<long long, int128>() {
+inline int limitBit<int64_t, int128>() {
   return 60;
 }
 template <>
@@ -162,15 +162,16 @@ bool fits([[maybe_unused]] const bigint& x) {
 }
 template <>
 inline bool fits<int>(const bigint& x) {
-  return aux::abs(x) <= static_cast<bigint>(limitAbs<int, long long>());
+  return aux::abs(x) <= static_cast<bigint>(limitAbs<int, int64_t>());
 }
-template <>
-inline bool fits<long long>(const bigint& x) {
-  return aux::abs(x) <= static_cast<bigint>(limitAbs<long long, int128>());
-}
+// OSX compile fails here
+// template <>
+// inline bool fits<int64_t>(const bigint& x) {
+//   return aux::abs(x) <= static_cast<bigint>(limitAbs<int64_t, int128>());
+// }
 template <>
 inline bool fits<int64_t>(const bigint& x) {
-  return aux::abs(x) <= static_cast<bigint>(limitAbs<long long, int128>());
+  return aux::abs(x) <= static_cast<bigint>(limitAbs<int64_t, int128>());
 }
 template <>
 inline bool fits<int128>(const bigint& x) {
@@ -195,11 +196,11 @@ bool stillFits([[maybe_unused]] const T& x) {
 }
 template <>
 inline bool stillFits<int>(const int& x) {
-  return aux::abs(x) <= limitAbs<int, long long>();
+  return aux::abs(x) <= limitAbs<int, int64_t>();
 }
 template <>
-inline bool stillFits<long long>(const long long& x) {
-  return aux::abs(x) <= limitAbs<long long, int128>();
+inline bool stillFits<int64_t>(const int64_t& x) {
+  return aux::abs(x) <= limitAbs<int64_t, int128>();
 }
 template <>
 inline bool stillFits<int128>(const int128& x) {
@@ -317,8 +318,8 @@ inline bool isLearned(Origin o) { return o >= Origin::LEARNED; }
 
 template <typename SMALL, typename LARGE>
 struct ConstrExp;
-using ConstrExp32 = ConstrExp<int, long long>;
-using ConstrExp64 = ConstrExp<long long, int128>;
+using ConstrExp32 = ConstrExp<int, int64_t>;
+using ConstrExp64 = ConstrExp<int64_t, int128>;
 using ConstrExp96 = ConstrExp<int128, int128>;
 using ConstrExp128 = ConstrExp<int128, int256>;
 using ConstrExpArb = ConstrExp<bigint, bigint>;
@@ -336,8 +337,8 @@ using CeNull = std::shared_ptr<ConstrExp32>;
 
 template <typename CF, typename DG>
 struct ConstrSimple;
-using ConstrSimple32 = ConstrSimple<int, long long>;
-using ConstrSimple64 = ConstrSimple<long long, int128>;
+using ConstrSimple32 = ConstrSimple<int, int64_t>;
+using ConstrSimple64 = ConstrSimple<int64_t, int128>;
 using ConstrSimple96 = ConstrSimple<int128, int128>;
 using ConstrSimple128 = ConstrSimple<int128, int256>;
 using ConstrSimpleArb = ConstrSimple<bigint, bigint>;
@@ -351,7 +352,7 @@ template <typename CF, typename DG>
 struct Watched;
 template <typename CF, typename DG>
 struct Watched;
-using Watched64 = Watched<long long, int128>;
+using Watched64 = Watched<int64_t, int128>;
 using Watched96 = Watched<int128, int128>;
 using Watched128 = Watched<int128, int256>;
 using WatchedArb = Watched<bigint, bigint>;
@@ -366,7 +367,7 @@ struct Term {
 };
 
 using Term32 = Term<int>;
-using Term64 = Term<long long>;
+using Term64 = Term<int64_t>;
 using Term128 = Term<int128>;
 using TermArb = Term<bigint>;
 

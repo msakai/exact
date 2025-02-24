@@ -213,11 +213,11 @@ void ConstrExp<SMALL, LARGE>::copyTo(const CeArb& ce) const {
 template <typename SMALL, typename LARGE>
 CeSuper ConstrExp<SMALL, LARGE>::clone(ConstrExpPools& cePools) const {
   LARGE maxVal = getCutoffVal();
-  if (maxVal <= static_cast<LARGE>(limitAbs<int, long long>())) {
+  if (maxVal <= static_cast<LARGE>(limitAbs<int, int64_t>())) {
     Ce32 result = cePools.take32();
     copyTo(result);
     return result;
-  } else if (maxVal <= static_cast<LARGE>(limitAbs<long long, int128>())) {
+  } else if (maxVal <= static_cast<LARGE>(limitAbs<int64_t, int128>())) {
     Ce64 result = cePools.take64();
     copyTo(result);
     return result;
@@ -262,11 +262,11 @@ CRef ConstrExp<SMALL, LARGE>::toConstr(ConstraintAllocator& ca, bool locked, ID 
     new (ca.alloc<Cardinality>(vars.size())) Cardinality(this, locked, id);
   } else {
     double strngth = getStrength();
-    if (maxCoef <= static_cast<LARGE>(limitAbs<int, long long>())) {
+    if (maxCoef <= static_cast<LARGE>(limitAbs<int, int64_t>())) {
       global.stats.NSMALL.z += 1;
       assert(degree >= maxCoef);
       new (ca.alloc<Watched32>(vars.size())) Watched32(this, locked, id, strngth);
-    } else if (maxCoef <= static_cast<LARGE>(limitAbs<long long, int128>())) {
+    } else if (maxCoef <= static_cast<LARGE>(limitAbs<int64_t, int128>())) {
       global.stats.NLARGE.z += 1;
       new (ca.alloc<Watched64>(vars.size())) Watched64(this, locked, id, strngth);
     } else if (maxCoef <= static_cast<LARGE>(limitAbs<int128, int128>())) {
@@ -1896,13 +1896,12 @@ unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const std::span<const Lit>& da
 
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* lits, const int* cfs, unsigned int size,
-                                                  const long long& degr, ID id, Origin o, Lit l,
-                                                  const IntMap<int>& level, const std::vector<int>& pos,
-                                                  IntSet& actSet) {
+                                                  const int64_t& degr, ID id, Origin o, Lit l, const IntMap<int>& level,
+                                                  const std::vector<int>& pos, IntSet& actSet) {
   return genericResolve(lits, cfs, size, degr, id, o, l, level, pos, actSet);
 }
 template <typename SMALL, typename LARGE>
-unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* lits, const long long* cfs, unsigned int size,
+unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* lits, const int64_t* cfs, unsigned int size,
                                                   const int128& degr, ID id, Origin o, Lit l, const IntMap<int>& level,
                                                   const std::vector<int>& pos, IntSet& actSet) {
   return genericResolve(lits, cfs, size, degr, id, o, l, level, pos, actSet);
@@ -1928,12 +1927,12 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* lits, const bigint*
 
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const Lit* lits, const int* cfs, unsigned int size,
-                                                  const long long& degr, ID id, Lit l, const IntMap<int>& level,
+                                                  const int64_t& degr, ID id, Lit l, const IntMap<int>& level,
                                                   const std::vector<int>& pos, IntSet& saturatedLits) {
   return genericSubsume(lits, cfs, size, degr, id, l, level, pos, saturatedLits);
 }
 template <typename SMALL, typename LARGE>
-unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const Lit* lits, const long long* cfs, unsigned int size,
+unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const Lit* lits, const int64_t* cfs, unsigned int size,
                                                   const int128& degr, ID id, Lit l, const IntMap<int>& level,
                                                   const std::vector<int>& pos, IntSet& saturatedLits) {
   return genericSubsume(lits, cfs, size, degr, id, l, level, pos, saturatedLits);
@@ -1957,8 +1956,8 @@ unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const Lit* lits, const bigint*
   return genericSubsume(lits, cfs, size, degr, id, l, level, pos, saturatedLits);
 }
 
-template struct ConstrExp<int, long long>;
-template struct ConstrExp<long long, int128>;
+template struct ConstrExp<int, int64_t>;
+template struct ConstrExp<int64_t, int128>;
 template struct ConstrExp<int128, int128>;
 template struct ConstrExp<int128, int256>;
 template struct ConstrExp<bigint, bigint>;

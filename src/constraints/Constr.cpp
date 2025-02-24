@@ -1107,7 +1107,7 @@ bool Watched<CF, DG>::hasCorrectWatches(const Solver& solver) {
   return true;
 }
 
-template struct Watched<long long, int128>;
+template struct Watched<int64_t, int128>;
 template struct Watched<int128, int128>;
 template struct Watched<int128, int256>;
 template struct Watched<bigint, bigint>;

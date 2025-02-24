@@ -52,8 +52,8 @@ class IntMap {
 
   void resize(int size, const T& init) {  // should always be called before use, as int2type is not set otherwise
     assert(size >= 0);
-    long long oldsize = -1;  // NOTE: oldsize can be -1, which is useful in for loops below
-    long long newsize = 0;
+    int64_t oldsize = -1;  // NOTE: oldsize can be -1, which is useful in for loops below
+    int64_t newsize = 0;
     if (!_int2type.empty()) {
       assert(_int2type.size() % 2 == 1);
       oldsize = (std::ssize(_int2type) - 1) / 2;
@@ -65,7 +65,7 @@ class IntMap {
     }
     _int2type.resize(2 * newsize + 1);
     int2type = _int2type.begin() + newsize;
-    long long i = _int2type.size() - 1;
+    int64_t i = _int2type.size() - 1;
     for (; i > newsize + oldsize; --i) _int2type[i] = init;
     for (; i >= newsize - oldsize; --i) _int2type[i] = std::move(_int2type[i - newsize + oldsize]);
     for (; i >= 0; --i) _int2type[i] = init;

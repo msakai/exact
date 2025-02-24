@@ -411,7 +411,7 @@ Ce64 LpSolver::rowToConstraint(int row) {
   double rhs = lp.lhsReal(row);
   assert(aux::abs(rhs) != INFTY);
   assert(validVal(rhs));
-  ce->addRhs((long long)rhs);
+  ce->addRhs((int64_t)rhs);
 
   lpRow.clear();
   lp.getRowVectorReal(row, lpRow);
@@ -419,7 +419,7 @@ Ce64 LpSolver::rowToConstraint(int row) {
     const soplex::Nonzero<double>& el = lpRow.element(i);
     assert(validVal(el.val));
     assert(el.val != 0);
-    ce->addLhs((long long)el.val, el.idx);
+    ce->addLhs((int64_t)el.val, el.idx);
   }
   ce->resetBuffer(row2data[row].id);
   return ce;
@@ -457,7 +457,7 @@ std::pair<LpStatus, CeSuper> LpSolver::checkFeasibility(bool inProcessing) {
   ++global.stats.NLPCALLS.z;
   int pivots = lp.numIterations();
   global.stats.NLPPIVOTS.z += pivots;
-  global.stats.NLPOPERATIONS.z += pivots * (long long)lp.numNonzeros();
+  global.stats.NLPOPERATIONS.z += pivots * (int64_t)lp.numNonzeros();
   global.stats.LPSOLVETIME.z += lp.solveTime();
   global.stats.NLPNOPIVOT.z += pivots == 0;
 

@@ -106,7 +106,7 @@ By default, the following commands in Exact's root directory should work with a 
     cmake ../soplex -DBUILD_TESTING="0" -DSANITIZE_UNDEFINED="0" -DCMAKE_BUILD_TYPE="Release" -DBOOST="0" -DGMP="0" -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS="0" -DZLIB="0"
     make -j 8
 
-    cd ../build_debug
+    cd ../build
     cmake .. -DCMAKE_BUILD_TYPE="Release" -Dsoplex="ON"
     make -j 8
 ```

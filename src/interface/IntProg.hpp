@@ -164,8 +164,8 @@ class IntProg {
   std::ostream& printFormula(std::ostream& out);
   std::ostream& printInput(std::ostream& out) const;
   std::ostream& printVars(std::ostream& out) const;
-  long long getNbVars() const;
-  long long getNbConstraints() const;
+  int64_t getNbVars() const;
+  int64_t getNbConstraints() const;
 
   OptRes toOptimum(IntConstraint& objective, bool keepstate, const TimeOut& to = {false, 0});
   WithState<Ce32> getSolIntersection(const std::vector<IntVar*>& ivs, bool keepstate, const TimeOut& to = {false, 0});
