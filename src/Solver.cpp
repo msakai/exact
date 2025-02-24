@@ -397,11 +397,11 @@ CeSuper Solver::getAnalysisCE(const CeSuper& conflict) const {
     Ce128 confl = global.cePools.take128();
     conflict->copyTo(confl);
     return confl;
-  } else if (global.options.bitsOverflow.get() > limitBitConfl<long long, int128>()) {
+  } else if (global.options.bitsOverflow.get() > limitBitConfl<int64_t, int128>()) {
     Ce96 confl = global.cePools.take96();
     conflict->copyTo(confl);
     return confl;
-  } else if (global.options.bitsOverflow.get() > limitBitConfl<int, long long>()) {
+  } else if (global.options.bitsOverflow.get() > limitBitConfl<int, int64_t>()) {
     Ce64 confl = global.cePools.take64();
     conflict->copyTo(confl);
     return confl;
@@ -1297,7 +1297,7 @@ SolveState Solver::solve() {
       assert(confl->hasNegativeSlack(level));
       ++global.stats.NCONFL;
       nconfl_to_restart--;
-      long long nconfl = static_cast<long long>(global.stats.NCONFL.z);
+      int64_t nconfl = static_cast<int64_t>(global.stats.NCONFL.z);
       if (nconfl % 1000 == 0 && global.options.verbosity.get() > 0) {
         std::cout << "c " << nconfl << " confls " << constraints.size() << " constrs "
                   << getNbVars() - static_cast<int64_t>(global.stats.NUNITS.z) << " vars" << std::endl;
@@ -1305,8 +1305,8 @@ SolveState Solver::solve() {
           // memory usage
           std::cout << "c total constraint space: " << ca.cap * 4 / 1024. / 1024. << "MB" << std::endl;
           std::cout << "c total #watches: ";
-          long long cnt = 0;
-          for (Lit l = -n; l <= n; l++) cnt += (long long)adj[l].size();
+          int64_t cnt = 0;
+          for (Lit l = -n; l <= n; l++) cnt += (int64_t)adj[l].size();
           std::cout << cnt << std::endl;
         }
       }
@@ -1329,7 +1329,7 @@ SolveState Solver::solve() {
         backjumpTo(assumptionLevel());
         ++global.stats.NRESTARTS;
         double rest_base = luby(global.options.lubyBase.get(), static_cast<int>(global.stats.NRESTARTS.z));
-        nconfl_to_restart = (long long)rest_base * global.options.lubyMult.get();
+        nconfl_to_restart = (int64_t)rest_base * global.options.lubyMult.get();
       }
       if (global.stats.NCONFL >= nconfl_to_reduce) {
         ++global.stats.NCLEANUP;

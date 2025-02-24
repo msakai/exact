@@ -186,7 +186,7 @@ void opb_read(std::istream& in, IntProg& intprog) {
   ConstrSimpleArb constr;
   constr.orig = Origin::FORMULA;
   LitVec subTerms;
-  long long lineNr = -1;
+  int64_t lineNr = -1;
   bool wbo = false;
   std::optional<bigint> topcost;
   IntTermVec obj;

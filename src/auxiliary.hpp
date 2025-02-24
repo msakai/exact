@@ -432,7 +432,7 @@ T powtwo(unsigned y) {
   return uint32_t(1) << y;
 }
 template <>
-inline long long powtwo(unsigned y) {
+inline int64_t powtwo(unsigned y) {
   return uint64_t(1) << y;
 }
 template <>
@@ -467,7 +467,7 @@ void timeCallVoid(const std::function<void(void)>& f, U& to) {
 }
 
 inline std::ostream& prettyPrint(std::ostream& o, const long double& z) {
-  long long iz = static_cast<long long>(z);
+  int64_t iz = static_cast<int64_t>(z);
   if (iz == z) {
     return o << iz;
   } else {

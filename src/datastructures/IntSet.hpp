@@ -65,7 +65,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 namespace xct {
 
-struct IntSet {  // TODO: template to long long, int128, ...?
+struct IntSet {  // TODO: template to int64_t, int128, ...?
  private:
   std::vector<int> keys;
   IntMap<int> index;

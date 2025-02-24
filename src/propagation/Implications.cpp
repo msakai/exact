@@ -51,7 +51,7 @@ const unordered_set<Lit>& Implications::getImplieds(Lit a) const { return implie
 
 bool Implications::hasImplieds(Lit a) const { return !implieds[a].empty(); }
 
-long long Implications::nImpliedsInMemory() const { return implInMem; }
+int64_t Implications::nImpliedsInMemory() const { return implInMem; }
 
 State Implications::propagate() {
   for (; nextTrailPos < std::ssize(solver.trail); ++nextTrailPos) {

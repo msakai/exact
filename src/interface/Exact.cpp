@@ -61,7 +61,7 @@ struct type_caster<bigint> {
    * second argument indicates whether implicit conversions should be applied.
    */
   bool load(handle src, bool) {
-    // First try to use the builtin long long conversion
+    // First try to use the builtin int64_t conversion
     int overflow = 0;
     value = PyLong_AsLongLongAndOverflow(src.ptr(), &overflow);
     if (overflow == 0) {
@@ -93,9 +93,9 @@ struct type_caster<bigint> {
    * and are generally ignored by implicit casters.
    */
   static handle cast(const bigint& src, return_value_policy, handle) {
-    // First try to use the builtin long long conversion
-    if (src <= std::numeric_limits<long long>::max() && src >= std::numeric_limits<long long>::min()) {
-      return PyLong_FromLongLong(static_cast<long long>(src));
+    // First try to use the builtin int64_t conversion
+    if (src <= std::numeric_limits<int64_t>::max() && src >= std::numeric_limits<int64_t>::min()) {
+      return PyLong_FromLongLong(static_cast<int64_t>(src));
     }
 
     // Otherwise convert to hex string and create Python int from there

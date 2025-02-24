@@ -121,8 +121,8 @@ void ConstrSimple<CF, DG>::toStreamAsOPB(std::ostream& o) const {
   o << ">= " << rhs << " ;";
 }
 
-template struct ConstrSimple<int, long long>;
-template struct ConstrSimple<long long, int128>;
+template struct ConstrSimple<int, int64_t>;
+template struct ConstrSimple<int64_t, int128>;
 template struct ConstrSimple<int128, int128>;
 template struct ConstrSimple<int128, int256>;
 template struct ConstrSimple<bigint, bigint>;

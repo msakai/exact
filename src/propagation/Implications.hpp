@@ -39,7 +39,7 @@ class Solver;
 
 class Implications : public Propagator {
   IntMap<unordered_set<Lit>> implieds;
-  long long implInMem = 0;
+  int64_t implInMem = 0;
 
  public:
   Implications(Solver& s) : Propagator(s) {}
@@ -49,7 +49,7 @@ class Implications : public Propagator {
   void removeImplied(Lit a);
   const unordered_set<Lit>& getImplieds(Lit a) const;
   bool hasImplieds(Lit a) const;
-  long long nImpliedsInMemory() const;
+  int64_t nImpliedsInMemory() const;
 
   State propagate();
 };

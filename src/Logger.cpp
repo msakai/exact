@@ -156,7 +156,7 @@ ID Logger::logProofLine(const CeSuper& ce) {
   if (!active) return ++last_proofID;
   std::string buffer = ce->proofBuffer.str();
   assert(buffer.back() == ' ');
-  long long spacecount = 0;
+  int64_t spacecount = 0;
   for (char const& c : buffer) {
     spacecount += (c == ' ');
     if (spacecount > 1) break;

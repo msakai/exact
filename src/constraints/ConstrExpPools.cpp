@@ -76,11 +76,11 @@ void ConstrExpPools::resize(size_t newn) {
 }
 
 template <>
-Ce32 ConstrExpPools::take<int, long long>() {
+Ce32 ConstrExpPools::take<int, int64_t>() {
   return ce32s.take();
 }
 template <>
-Ce64 ConstrExpPools::take<long long, int128>() {
+Ce64 ConstrExpPools::take<int64_t, int128>() {
   return ce64s.take();
 }
 template <>
@@ -96,8 +96,8 @@ CeArb ConstrExpPools::take<bigint, bigint>() {
   return ceArbs.take();
 }
 
-Ce32 ConstrExpPools::take32() { return take<int, long long>(); }
-Ce64 ConstrExpPools::take64() { return take<long long, int128>(); }
+Ce32 ConstrExpPools::take32() { return take<int, int64_t>(); }
+Ce64 ConstrExpPools::take64() { return take<int64_t, int128>(); }
 Ce96 ConstrExpPools::take96() { return take<int128, int128>(); }
 Ce128 ConstrExpPools::take128() { return take<int128, int256>(); }
 CeArb ConstrExpPools::takeArb() { return take<bigint, bigint>(); }
@@ -130,8 +130,8 @@ CePtr<SMALL, LARGE> ConstrExpPool<SMALL, LARGE>::take() {
   return fresh;
 }
 
-template class ConstrExpPool<int, long long>;
-template class ConstrExpPool<long long, int128>;
+template class ConstrExpPool<int, int64_t>;
+template class ConstrExpPool<int64_t, int128>;
 template class ConstrExpPool<int128, int128>;
 template class ConstrExpPool<int128, int256>;
 template class ConstrExpPool<bigint, bigint>;
