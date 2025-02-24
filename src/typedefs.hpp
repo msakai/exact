@@ -164,11 +164,6 @@ template <>
 inline bool fits<int>(const bigint& x) {
   return aux::abs(x) <= static_cast<bigint>(limitAbs<int, int64_t>());
 }
-// OSX compile fails here
-// template <>
-// inline bool fits<int64_t>(const bigint& x) {
-//   return aux::abs(x) <= static_cast<bigint>(limitAbs<int64_t, int128>());
-// }
 template <>
 inline bool fits<int64_t>(const bigint& x) {
   return aux::abs(x) <= static_cast<bigint>(limitAbs<int64_t, int128>());
