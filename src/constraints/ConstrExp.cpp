@@ -670,7 +670,7 @@ void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit assertin
   if (global.options.MWI) {
     LARGE extraIndirectWeakenings = degree - static_cast<LARGE>(getCoef(asserting));
     LARGE possibleWeakenings = getSlack(level) + degree - getCoef(asserting);
-    if (aboveIndirectThreshhold(toWeaken, extraIndirectWeakenings, possibleWeakenings)) {
+    if (getSlack(level) > 0 && aboveIndirectThreshhold(toWeaken, extraIndirectWeakenings, possibleWeakenings)) {
       LARGE largetoWeaken = static_cast<LARGE>(toWeaken);
       largetoWeaken += extraIndirectWeakenings;
     // if (isSaturated(asserting)) {  // indirect weakening # TODO: change to incorporate threshhold
@@ -1227,7 +1227,7 @@ void ConstrExp<SMALL, LARGE>::weakenNonDivisible(const SMALL& div, const IntMap<
   if (div == 1) return;
 
   if (global.options.preserveCancellation.is("preserving-cancellation") ||
-      (global.options.preserveCancellation.is("strength-heuristic") && getStrength() >= global.options.cawThreshold.get())
+      (global.options.preserveCancellation.is("strength-heuristic") && getCombinedStrength(confl, div, mult) >= global.options.cawThreshold.get())
       ) {
     for (Var v : vars) {  // going back to front in case the coefficients are sorted
       Lit l = getLit(v);
@@ -1247,7 +1247,7 @@ void ConstrExp<SMALL, LARGE>::weakenNonDivisible(const SMALL& div, const IntMap<
     }
   }
   if (global.options.preserveCancellation.is("non-preserving-cancellation") ||
-  		(global.options.preserveCancellation.is("strength-heuristic") && getStrength() < global.options.cawThreshold.get())
+  		(global.options.preserveCancellation.is("strength-heuristic") && getCombinedStrength(confl, div, mult) < global.options.cawThreshold.get())
   ) {
     for (Var v : vars) {  // going back to front in case the coefficients are sorted
       Lit l = getLit(v);
