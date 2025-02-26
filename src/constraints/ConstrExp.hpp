@@ -389,7 +389,7 @@ struct ConstrExp final : ConstrExpSuper {
                                          const SMALL& mult, const ConstrExp<SMALL, LARGE>& confl);
   void weakenNonDivisible(const aux::predicate<Lit>& toWeaken, const LARGE& div);
   void weakenNonDivisible(const LARGE& div, const IntMap<int>& level);
-  void weakenNonDivisible(const SMALL& div, const IntMap<int>& level, SMALL& slackdiff, const ConstrExp<SMALL, LARGE>& confl);
+  void weakenNonDivisible(const SMALL& div, const IntMap<int>& level, SMALL& slackdiff, const ConstrExp<SMALL, LARGE>& confl, const SMALL& mult);
   void weakenNonDivisibleCanceling(const LARGE& div, const IntMap<int>& level, const SMALL& mult,
                                    const ConstrExp<SMALL, LARGE>& confl);
   void repairOrder();
