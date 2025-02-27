@@ -682,7 +682,7 @@ void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit assertin
           Var v = vars[i];
           if (coefs[v] == 0) continue;
           Lit l = getLit(v);
-//          if (l == asserting) continue;
+         if (l == asserting) continue;
           if (!isFalse(level, l) && confl.getCoef(-l) <= 0) {
             if (largetoWeaken < absCoef(v)) {
               toWeaken = static_cast<SMALL>(largetoWeaken);
@@ -702,7 +702,7 @@ void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit assertin
           Var v = vars[i];
           if (coefs[v] == 0) continue;
           Lit l = getLit(v);
-//          if (l == asserting) continue;
+         if (l == asserting) continue;
           if (!isFalse(level, l) && confl.getCoef(-l) > 0) {
             if (largetoWeaken < absCoef(v)) {
               toWeaken = static_cast<SMALL>(largetoWeaken);
@@ -720,7 +720,7 @@ void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit assertin
         Var v = vars[i];
         if (coefs[v] == 0) continue;
         Lit l = getLit(v);
-//        if (l == asserting) continue;
+       if (l == asserting) continue;
         if (!isFalse(level, l)) {
           if (largetoWeaken < absCoef(v)) {
             toWeaken = static_cast<SMALL>(largetoWeaken);
@@ -734,7 +734,6 @@ void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit assertin
       }
       removeZeroes();
       toWeaken = static_cast<SMALL>(largetoWeaken);
-	  assert(toWeaken == 0);
     }
   }
   assert(toWeaken >= 0);
