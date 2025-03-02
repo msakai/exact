@@ -51,13 +51,18 @@ void IntConstraint::lhs2str(std::ostream& o) const {
     terms.push_back(aux::str(t));
   }
   std::sort(terms.begin(), terms.end());
-  for (const std::string& s : terms) o << s << " ";
+  bool first = true;
+  for (const std::string& s : terms) {
+    if (!first) o << " ";
+    first = false;
+    o << s;
+  }
 }
 
 std::ostream& operator<<(std::ostream& o, const IntConstraint& x) {
   if (x.upperBound.has_value()) o << x.upperBound.value() << " >= ";
   x.lhs2str(o);
-  if (x.lowerBound.has_value()) o << ">= " << x.lowerBound.value();
+  if (x.lowerBound.has_value()) o << " >= " << x.lowerBound.value();
   return o;
 }
 
