@@ -758,6 +758,7 @@ bigint IntProg::getLowerBound() const { return minimize ? optim->getLowerBound()
 bigint IntProg::getUpperBound() const { return minimize ? optim->getUpperBound() : -optim->getUpperBound(); }
 ratio IntProg::getUpperBoundRatio() const {
   if (obj_denominator < 0) {
+    // fix for some versions of Boost that do not allow negative denominators
     return ratio{-getUpperBound(), -obj_denominator};
   } else {
     return ratio{getUpperBound(), obj_denominator};
