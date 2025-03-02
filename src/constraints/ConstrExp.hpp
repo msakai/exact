@@ -62,6 +62,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #pragma once
 
 #include <memory>
+#include <span>
 #include <sstream>
 #include "../Global.hpp"
 #include "../datastructures/SolverStructs.hpp"
@@ -200,11 +201,11 @@ struct ConstrExpSuper {
 
   virtual unsigned int resolveWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit l,
                                    const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet) = 0;
-  virtual unsigned int resolveWith(const Lit* lits, const int* coefs, unsigned int size, const long long& degr, ID id,
+  virtual unsigned int resolveWith(const Lit* lits, const int* coefs, unsigned int size, const int64_t& degr, ID id,
                                    Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos,
                                    IntSet& actSet) = 0;
-  virtual unsigned int resolveWith(const Lit* lits, const long long* coefs, unsigned int size, const int128& degr,
-                                   ID id, Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos,
+  virtual unsigned int resolveWith(const Lit* lits, const int64_t* coefs, unsigned int size, const int128& degr, ID id,
+                                   Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos,
                                    IntSet& actSet) = 0;
   virtual unsigned int resolveWith(const Lit* lits, const int128* coefs, unsigned int size, const int128& degr, ID id,
                                    Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos,
@@ -217,11 +218,11 @@ struct ConstrExpSuper {
                                    IntSet& actSet) = 0;
   virtual unsigned int subsumeWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit l,
                                    const IntMap<int>& level, const std::vector<int>& pos, IntSet& saturatedLits) = 0;
-  virtual unsigned int subsumeWith(const Lit* lits, const int* coefs, unsigned int size, const long long& degr, ID id,
+  virtual unsigned int subsumeWith(const Lit* lits, const int* coefs, unsigned int size, const int64_t& degr, ID id,
                                    Lit l, const IntMap<int>& level, const std::vector<int>& pos,
                                    IntSet& saturatedLits) = 0;
-  virtual unsigned int subsumeWith(const Lit* lits, const long long* coefs, unsigned int size, const int128& degr,
-                                   ID id, Lit l, const IntMap<int>& level, const std::vector<int>& pos,
+  virtual unsigned int subsumeWith(const Lit* lits, const int64_t* coefs, unsigned int size, const int128& degr, ID id,
+                                   Lit l, const IntMap<int>& level, const std::vector<int>& pos,
                                    IntSet& saturatedLits) = 0;
   virtual unsigned int subsumeWith(const Lit* lits, const int128* coefs, unsigned int size, const int128& degr, ID id,
                                    Lit l, const IntMap<int>& level, const std::vector<int>& pos,
@@ -428,9 +429,9 @@ struct ConstrExp final : ConstrExpSuper {
 
   unsigned int resolveWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit l, const IntMap<int>& level,
                            const std::vector<int>& pos, IntSet& actSet);
-  unsigned int resolveWith(const Lit* lits, const int* coefs, unsigned int size, const long long& degr, ID id, Origin o,
+  unsigned int resolveWith(const Lit* lits, const int* coefs, unsigned int size, const int64_t& degr, ID id, Origin o,
                            Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet);
-  unsigned int resolveWith(const Lit* lits, const long long* coefs, unsigned int size, const int128& degr, ID id,
+  unsigned int resolveWith(const Lit* lits, const int64_t* coefs, unsigned int size, const int128& degr, ID id,
                            Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet);
   unsigned int resolveWith(const Lit* lits, const int128* coefs, unsigned int size, const int128& degr, ID id, Origin o,
                            Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet);
@@ -440,9 +441,9 @@ struct ConstrExp final : ConstrExpSuper {
                            Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet);
   unsigned int subsumeWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit l, const IntMap<int>& level,
                            const std::vector<int>& pos, IntSet& saturatedLits);
-  unsigned int subsumeWith(const Lit* lits, const int* coefs, unsigned int size, const long long& degr, ID id, Lit l,
+  unsigned int subsumeWith(const Lit* lits, const int* coefs, unsigned int size, const int64_t& degr, ID id, Lit l,
                            const IntMap<int>& level, const std::vector<int>& pos, IntSet& saturatedLits);
-  unsigned int subsumeWith(const Lit* lits, const long long* coefs, unsigned int size, const int128& degr, ID id, Lit l,
+  unsigned int subsumeWith(const Lit* lits, const int64_t* coefs, unsigned int size, const int128& degr, ID id, Lit l,
                            const IntMap<int>& level, const std::vector<int>& pos, IntSet& saturatedLits);
   unsigned int subsumeWith(const Lit* lits, const int128* coefs, unsigned int size, const int128& degr, ID id, Lit l,
                            const IntMap<int>& level, const std::vector<int>& pos, IntSet& saturatedLits);

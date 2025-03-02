@@ -85,8 +85,8 @@ class ConstrExpPool {  // TODO: private constructor for ConstrExp, only accessib
 };
 
 class ConstrExpPools {
-  ConstrExpPool<int, long long> ce32s;
-  ConstrExpPool<long long, int128> ce64s;
+  ConstrExpPool<int, int64_t> ce32s;
+  ConstrExpPool<int64_t, int128> ce64s;
   ConstrExpPool<int128, int128> ce96s;
   ConstrExpPool<int128, int256> ce128s;
   ConstrExpPool<bigint, bigint> ceArbs;

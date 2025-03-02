@@ -750,9 +750,9 @@ std::ostream& IntProg::printVars(std::ostream& out) const {
   return out;
 }
 
-long long IntProg::getNbVars() const { return std::ssize(vars); }
+int64_t IntProg::getNbVars() const { return std::ssize(vars); }
 
-long long IntProg::getNbConstraints() const { return nConstrs; }
+int64_t IntProg::getNbConstraints() const { return nConstrs; }
 
 bigint IntProg::getLowerBound() const { return minimize ? optim->getLowerBound() : -optim->getLowerBound(); }
 bigint IntProg::getUpperBound() const { return minimize ? optim->getUpperBound() : -optim->getUpperBound(); }

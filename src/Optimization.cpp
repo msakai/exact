@@ -175,15 +175,15 @@ Optim OptimizationSuper::make(const IntConstraint& ico, Solver& solver, const In
   // Hence, q's coefficient will not be reformulated beyond the sum of coefficients.
   // TODO: get a more rigorous proof from this argument?
 
-  if (maxVal <= static_cast<bigint>(limitAbs<int, long long>())) {  // TODO: try to internalize this check in ConstrExp
+  if (maxVal <= static_cast<bigint>(limitAbs<int, int64_t>())) {  // TODO: try to internalize this check in ConstrExp
     Ce32 o = solver.global.cePools.take32();
     obj->copyTo(o);
-    return std::make_shared<Optimization<int, long long>>(o, solver, offs, assumps);
+    return std::make_shared<Optimization<int, int64_t>>(o, solver, offs, assumps);
   }
-  if (maxVal <= static_cast<bigint>(limitAbs<long long, int128>())) {
+  if (maxVal <= static_cast<bigint>(limitAbs<int64_t, int128>())) {
     Ce64 o = solver.global.cePools.take64();
     obj->copyTo(o);
-    return std::make_shared<Optimization<long long, int128>>(o, solver, offs, assumps);
+    return std::make_shared<Optimization<int64_t, int128>>(o, solver, offs, assumps);
   }
   // TODO: below yielded a bug during coreguided search - not sure where. Multiplying two coefficients?
   //  if (maxVal <= static_cast<bigint>(limitAbs<int128, int128>())) {
@@ -668,14 +668,14 @@ void Optimization<SMALL, LARGE>::boundBottomUp() {
   }
 }
 
-template class Optimization<int, long long>;
-template class Optimization<long long, int128>;
+template class Optimization<int, int64_t>;
+template class Optimization<int64_t, int128>;
 template class Optimization<int128, int128>;
 template class Optimization<int128, int256>;
 template class Optimization<bigint, bigint>;
 
-template struct LazyVar<int, long long>;
-template struct LazyVar<long long, int128>;
+template struct LazyVar<int, int64_t>;
+template struct LazyVar<int64_t, int128>;
 template struct LazyVar<int128, int128>;
 template struct LazyVar<int128, int256>;
 template struct LazyVar<bigint, bigint>;
