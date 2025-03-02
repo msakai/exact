@@ -756,7 +756,13 @@ long long IntProg::getNbConstraints() const { return nConstrs; }
 
 bigint IntProg::getLowerBound() const { return minimize ? optim->getLowerBound() : -optim->getLowerBound(); }
 bigint IntProg::getUpperBound() const { return minimize ? optim->getUpperBound() : -optim->getUpperBound(); }
-ratio IntProg::getUpperBoundRatio() const { return ratio{getUpperBound(), obj_denominator}; }
+ratio IntProg::getUpperBoundRatio() const {
+  if (obj_denominator < 0) {
+    return ratio{-getUpperBound(), -obj_denominator};
+  } else {
+    return ratio{getUpperBound(), obj_denominator};
+  }
+}
 
 bool IntProg::hasLastSolution() const { return solver.foundSolution(); }
 
