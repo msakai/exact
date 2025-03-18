@@ -671,9 +671,9 @@ void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit assertin
     LARGE extraIndirectWeakenings = degree - static_cast<LARGE>(getCoef(asserting));
     LARGE possibleWeakenings = getSlack(level) + degree - getCoef(asserting);
     if (getSlack(level) > 0 && aboveIndirectThreshhold(toWeaken, extraIndirectWeakenings, possibleWeakenings)) {
+    //if (isSaturated(asserting)) {  // indirect weakening # TODO: change to incorporate threshhold
       LARGE largetoWeaken = static_cast<LARGE>(toWeaken);
       largetoWeaken += extraIndirectWeakenings;
-    // if (isSaturated(asserting)) {  // indirect weakening # TODO: change to incorporate threshhold
       global.stats.NMULTWEAKENEDINDIRECT.z += 1;
       if (global.options.preserveCancellation.is("preserving-cancellation") ||
           (global.options.preserveCancellation.is("strength-heuristic") && getCombinedStrength(confl) >= global.options.cawThreshold.get())
