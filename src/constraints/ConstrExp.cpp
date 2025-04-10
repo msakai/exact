@@ -1119,6 +1119,10 @@ void ConstrExp<SMALL, LARGE>::weakenDivideRoundOrdered(const LARGE& div, const I
   assert(div > 0);
   if (div == 1) return;
   weakenNonDivisible(div, level);
+  //std::cout << "=========NEW DIV========" << std::endl;
+  //std::cout << div << std::endl;
+  //toStreamAsOPB(std::cout);
+  //std::cout << std::endl;
   if (global.options.weakenSuperfluous) weakenSuperfluous(div, confl, mult);
   repairOrder();
   while (!vars.empty() && coefs[vars.back()] == 0) {
@@ -1233,7 +1237,7 @@ void ConstrExp<SMALL, LARGE>::weakenNonDivisible(const SMALL& div, const IntMap<
       if ((coefs[v] == 0) || confl.getCoef(-l) <= 0) continue;
 
     	if (SMALL mod = coefs[v] % div; mod != 0 && !isFalse(level, getLit(v))) {
-      		if (slackdiff - div + mod >= 1) {  // we can safely round up non-falsified
+      		if (slackdiff - div + mod >= 0) {  // we can safely round up non-falsified
         		slackdiff -= div - mod;
       		} else {
         		if (!global.options.partialWeakening) {
@@ -1253,7 +1257,7 @@ void ConstrExp<SMALL, LARGE>::weakenNonDivisible(const SMALL& div, const IntMap<
       if ((coefs[v] == 0) || confl.getCoef(-l) > 0) continue;
 
     	if (SMALL mod = coefs[v] % div; mod != 0 && !isFalse(level, getLit(v))) {
-      		if (slackdiff - div + mod >= 1) {  // we can safely round up non-falsified
+      		if (slackdiff - div + mod >= 0) {  // we can safely round up non-falsified
         		slackdiff -= div - mod;
       		} else {
         		if (!global.options.partialWeakening) {
@@ -1268,7 +1272,7 @@ void ConstrExp<SMALL, LARGE>::weakenNonDivisible(const SMALL& div, const IntMap<
 
   for (Var v : vars) {
     if (SMALL mod = coefs[v] % div; mod != 0 && !isFalse(level, getLit(v))) {
-      if (slackdiff - div + mod >= 1) {  // we can safely round up non-falsified
+      if (slackdiff - div + mod >= 0) {  // we can safely round up non-falsified
         slackdiff -= div - mod;
       } else {
         if (!global.options.partialWeakening) {
