@@ -9,7 +9,7 @@
 # Commands that worked previously:
 # (Alma's Boost package does not work, so we install our own (following https://www.baeldung.com/linux/boost-install-on-ubuntu))
 # In Exact's root:
-## docker build -f docker_images/pypi_package -t manylinux_with_boost
+## docker build -f docker_images/pypi_package/Dockerfile -t manylinux_with_boost .
 ## docker run -it --entrypoint bash manylinux_with_boost
 ## git clone https://gitlab.com/nonfiction-software/exact
 ## cd exact
@@ -33,13 +33,15 @@ ext_modules = [
     Pybind11Extension(
         "exact",
         [
+
             "src/constraints/Constr.cpp",
             "src/constraints/ConstrExp.cpp",
             "src/constraints/ConstrSimple.cpp",
             "src/constraints/ConstrExpPools.cpp",
             "src/propagation/LpSolver.cpp",
             "src/Solver.cpp",
-            "src/IntProg.cpp",
+            "src/interface/IntConstraint.cpp",
+            "src/interface/IntProg.cpp",
             "src/datastructures/SolverStructs.cpp",
             "src/Logger.cpp",
             "src/datastructures/IntSet.cpp",
@@ -59,8 +61,7 @@ ext_modules = [
             "src/used_licenses/MIT.cpp",
             "src/used_licenses/boost.cpp",
             "src/used_licenses/EPL.cpp",
-            "src/used_licenses/COPYING.cpp",
-            "src/Exact.cpp"
+            "src/used_licenses/COPYING.cpp"
         ],
         # FOR WINDOWS
         # include_dirs=['C:\\Program Files\\boost\\boost_1_85_0'],
@@ -68,7 +69,7 @@ ext_modules = [
         # define_macros=[("UNIXLIKE",0),("ANKERLMAPS",1)]
         # FOR LINUX / OSX
         extra_compile_args=["-O3","-std=c++20"],
-        define_macros=[("UNIXLIKE",1),("ANKERLMAPS",1)]
+        define_macros=[("UNIXLIKE",1),("ANKERLMAPS",0)]
     ),
 ]
 
