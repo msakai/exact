@@ -9,13 +9,13 @@
 # Commands that worked previously:
 # (Alma's Boost package does not work, so we install our own (following https://www.baeldung.com/linux/boost-install-on-ubuntu))
 # In Exact's root:
-## lsdocker build -f docker_images/pypi_package/Dockerfile -t manylinux_with_boost .
+## docker build -f docker_images/pypi_package/Dockerfile -t manylinux_with_boost .
 ## docker run -it --entrypoint bash manylinux_with_boost
 ## git clone https://gitlab.com/nonfiction-software/exact
 ## cd exact
-## /opt/python/cp312-cp312/bin/python -m build
-## auditwheel repair dist/Exact-2.0.0-cp312-cp312-linux_x86_64.whl
-## /opt/python/cp312-cp312/bin/python -m twine upload --repository pypi wheelhouse/Exact-2.0.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl -p <API TOKEN>
+## /opt/python/cp313-cp313/bin/python -m build
+## auditwheel repair dist/exact-2.1.2-cp313-cp313-linux_x86_64.whl
+## /opt/python/cp313-cp313/bin/python -m twine upload --repository pypi wheelhouse/Exact-2.1.2-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl -p <long API TOKEN starting with pypi-... >
 
 # For OSX, only compilation from source for now (<path to venv binaries>/pip install .)
 # Use https://github.com/kholia/OSX-KVM
@@ -33,6 +33,7 @@ ext_modules = [
     Pybind11Extension(
         "exact",
         [
+            "src/interface/Exact.cpp",
 
             "src/constraints/Constr.cpp",
             "src/constraints/ConstrExp.cpp",
