@@ -16,10 +16,8 @@ authors = [
 description = "Python bindings for Exact"
 readme = "README.md"
 requires-python = ">=3.10"
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: GNU Affero General Public License v3"
-]
+license = "AGPL-3.0-only"
+classifiers = ["Programming Language :: Python :: 3"]
 
 [project.urls]
 Homepage = "https://gitlab.com/nonfiction-software/exact"

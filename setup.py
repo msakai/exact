@@ -9,7 +9,7 @@
 # Commands that worked previously:
 # (Alma's Boost package does not work, so we install our own (following https://www.baeldung.com/linux/boost-install-on-ubuntu))
 # In Exact's root:
-## docker build -f docker_images/pypi_package/Dockerfile -t manylinux_with_boost .
+## lsdocker build -f docker_images/pypi_package/Dockerfile -t manylinux_with_boost .
 ## docker run -it --entrypoint bash manylinux_with_boost
 ## git clone https://gitlab.com/nonfiction-software/exact
 ## cd exact
@@ -68,6 +68,7 @@ ext_modules = [
         # extra_compile_args=["/O2","/std:c++20"],
         # define_macros=[("UNIXLIKE",0),("ANKERLMAPS",1)]
         # FOR LINUX / OSX
+        include_dirs=["./src"],
         extra_compile_args=["-O3","-std=c++20"],
         define_macros=[("UNIXLIKE",1),("ANKERLMAPS",0)]
     ),
