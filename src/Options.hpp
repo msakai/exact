@@ -249,7 +249,7 @@ struct Options {
   BoolOption multBeforeDiv{"ca-multiply", "Multiply reason with the asserting literal's conflict coefficient", true};
   BoolOption partialWeakening{"ca-partial-weakening", "Weaken non divisible literals partially until divisible", true};
   BoolOption weakenSuperfluous{"ca-weaken-superfluous", "Weaken superfluous literals before division", true};
-  BoolOption MWI{"ca-mwi", "Use MWI when free", true};
+  BoolOption MWI{"ca-mwi", "Use MWI when free", false};
   BoolOption aggressiveMWD{"ca-aggressive-mwd", "Use aggressive MWD instead of safe (note: this doesn't make use of free MWI)", false};
   BoolOption antiWeaken{"ca-anti-weaken", "Anti-weaken non-falsified literals whenever possible.", true};
   BoolOption nonZeroSlack{"ca-non-zero-slack", "Allow for non zero slack after division, when conflict slack is very negative.", false};
