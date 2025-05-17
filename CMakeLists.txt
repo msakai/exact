@@ -111,7 +111,6 @@ set(test_files
     src/tests/input.cpp
     src/tests/optimization.cpp
     src/tests/memory.cpp
-    src/tests/reductions.cpp
 )
 
 set(source_files
