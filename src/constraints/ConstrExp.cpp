@@ -664,8 +664,7 @@ void ConstrExp<SMALL, LARGE>::weaken(const aux::predicate<Lit>& toWeaken) {
 }
 
 template <typename SMALL, typename LARGE>
-void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit asserting, const IntMap<int>& level,
-                                                   const ConstrExp<SMALL, LARGE>& confl) {
+void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit asserting, const IntMap<int>& level) {
   assert(toWeaken >= 0);
   assert(toWeaken < getCoef(asserting));
   if (global.options.MWI) {
@@ -1072,8 +1071,7 @@ void ConstrExp<SMALL, LARGE>::weakenDivideRound(const LARGE& div, const aux::pre
 // NOTE: preserves ordered-ness
 // div is a divisor
 template <typename SMALL, typename LARGE>
-void ConstrExp<SMALL, LARGE>::weakenDivideRoundOrdered(const LARGE& div, const IntMap<int>& level,
-                                                       const ConstrExp<SMALL, LARGE>& confl, const SMALL& mult) {
+void ConstrExp<SMALL, LARGE>::weakenDivideRoundOrdered(const LARGE& div, const IntMap<int>& level) {
   assert(isSortedInDecreasingCoefOrder());
   assert(div > 0);
   if (div == 1) return;
@@ -1082,7 +1080,7 @@ void ConstrExp<SMALL, LARGE>::weakenDivideRoundOrdered(const LARGE& div, const I
   // std::cout << div << std::endl;
   // toStreamAsOPB(std::cout);
   // std::cout << std::endl;
-  if (global.options.weakenSuperfluous) weakenSuperfluous(div, confl, mult);
+  if (global.options.weakenSuperfluous) weakenSuperfluous(div);
   repairOrder();
   while (!vars.empty() && coefs[vars.back()] == 0) {
     popLast();
@@ -1101,13 +1099,12 @@ void ConstrExp<SMALL, LARGE>::weakenDivideRoundOrdered(const LARGE& div, const I
 // NOTE: preserves ordered-ness
 // div is a divisor
 template <typename SMALL, typename LARGE>
-void ConstrExp<SMALL, LARGE>::weakenDivideRoundOrdered(const SMALL& div, const IntMap<int>& level, SMALL& slackdiff,
-                                                       const ConstrExp<SMALL, LARGE>& confl, const SMALL& mult) {
+void ConstrExp<SMALL, LARGE>::weakenDivideRoundOrdered(const SMALL& div, const IntMap<int>& level, SMALL& slackdiff) {
   assert(isSortedInDecreasingCoefOrder());
   assert(div > 0);
   if (div == 1) return;
-  weakenNonDivisible(div, level, slackdiff, confl, mult);
-  if (global.options.weakenSuperfluous) weakenSuperfluous(div, confl, mult);
+  weakenNonDivisible(div, level, slackdiff);
+  if (global.options.weakenSuperfluous) weakenSuperfluous(div);
   repairOrder();
   while (!vars.empty() && coefs[vars.back()] == 0) {
     popLast();
@@ -1132,7 +1129,7 @@ void ConstrExp<SMALL, LARGE>::weakenDivideRoundOrderedCanceling(const LARGE& div
   assert(div > 0);
   if (div == 1) return;
   weakenNonDivisibleCanceling(div, level, mult, confl);
-  if (global.options.weakenSuperfluous) weakenSuperfluousCanceling(div, pos, confl, mult);
+  if (global.options.weakenSuperfluous) weakenSuperfluousCanceling(div, pos);
   repairOrder();
   while (!vars.empty() && coefs[vars.back()] == 0) {
     popLast();
@@ -1185,8 +1182,7 @@ void ConstrExp<SMALL, LARGE>::weakenNonDivisible(const LARGE& div, const IntMap<
 // NOTE: does not preserve order, as the asserting literal is skipped and some literals are partially weakened
 // NOTE: after call to weakenNonDivisible, order can be re repaired by call to repairOrder
 template <typename SMALL, typename LARGE>
-void ConstrExp<SMALL, LARGE>::weakenNonDivisible(const SMALL& div, const IntMap<int>& level, SMALL& slackdiff,
-                                                 const ConstrExp<SMALL, LARGE>& confl, const SMALL& mult) {
+void ConstrExp<SMALL, LARGE>::weakenNonDivisible(const SMALL& div, const IntMap<int>& level, SMALL& slackdiff) {
   assert(div > 0);
   if (div == 1) return;
 
@@ -1275,8 +1271,7 @@ void ConstrExp<SMALL, LARGE>::weakenSuperfluous(const LARGE& div, bool sorted, c
 }
 
 template <typename SMALL, typename LARGE>
-void ConstrExp<SMALL, LARGE>::weakenSuperfluous(const LARGE& div, const ConstrExp<SMALL, LARGE>& confl,
-                                                const SMALL& mult) {
+void ConstrExp<SMALL, LARGE>::weakenSuperfluous(const LARGE& div) {
   assert(div > 1);
   assert(!isTautology());
   [[maybe_unused]] LARGE quot = aux::ceildiv(degree, div);
@@ -1295,8 +1290,7 @@ void ConstrExp<SMALL, LARGE>::weakenSuperfluous(const LARGE& div, const ConstrEx
 }
 
 template <typename SMALL, typename LARGE>
-void ConstrExp<SMALL, LARGE>::weakenSuperfluousCanceling(const LARGE& div, const std::vector<int>& pos,
-                                                         const ConstrExp<SMALL, LARGE>& confl, const SMALL& mult) {
+void ConstrExp<SMALL, LARGE>::weakenSuperfluousCanceling(const LARGE& div, const std::vector<int>& pos) {
   assert(div > 1);
   assert(!isTautology());
   [[maybe_unused]] LARGE quot = aux::ceildiv(degree, div);

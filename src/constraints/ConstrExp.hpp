@@ -294,7 +294,7 @@ struct ConstrExp final : ConstrExpSuper {
   void weakenVar(const SMALL& m, Var v);
   void weaken(Var v);
   void weaken(const aux::predicate<Lit>& toWeaken);
-  void weakenCheckSaturated(SMALL& toWeaken, Lit l, const IntMap<int>& level, const ConstrExp<SMALL, LARGE>& confl);
+  void weakenCheckSaturated(SMALL& toWeaken, Lit l, const IntMap<int>& level);
 
   LARGE getSlack(const IntMap<int>& level) const;
   bool hasNegativeSlack(const IntMap<int>& level) const;
@@ -382,23 +382,19 @@ struct ConstrExp final : ConstrExpSuper {
   void divideRoundUp(const LARGE& d);
   void divideRoundDown(const LARGE& d);
   void weakenDivideRound(const LARGE& div, const aux::predicate<Lit>& toWeaken);
-  void weakenDivideRoundOrdered(const LARGE& div, const IntMap<int>& level, const ConstrExp<SMALL, LARGE>& confl,
-                                const SMALL& mult);
-  void weakenDivideRoundOrdered(const SMALL& div, const IntMap<int>& level, SMALL& slackdiff,
-                                const ConstrExp<SMALL, LARGE>& confl, const SMALL& mult);
+  void weakenDivideRoundOrdered(const LARGE& div, const IntMap<int>& level);
+  void weakenDivideRoundOrdered(const SMALL& div, const IntMap<int>& level, SMALL& slackdiff);
   void weakenDivideRoundOrderedCanceling(const LARGE& div, const IntMap<int>& level, const std::vector<int>& pos,
                                          const SMALL& mult, const ConstrExp<SMALL, LARGE>& confl);
   void weakenNonDivisible(const aux::predicate<Lit>& toWeaken, const LARGE& div);
   void weakenNonDivisible(const LARGE& div, const IntMap<int>& level);
-  void weakenNonDivisible(const SMALL& div, const IntMap<int>& level, SMALL& slackdiff,
-                          const ConstrExp<SMALL, LARGE>& confl, const SMALL& mult);
+  void weakenNonDivisible(const SMALL& div, const IntMap<int>& level, SMALL& slackdiff);
   void weakenNonDivisibleCanceling(const LARGE& div, const IntMap<int>& level, const SMALL& mult,
                                    const ConstrExp<SMALL, LARGE>& confl);
   void repairOrder();
   void weakenSuperfluous(const LARGE& div, bool sorted, const aux::predicate<Var>& toWeaken);
-  void weakenSuperfluous(const LARGE& div, const ConstrExp<SMALL, LARGE>& confl, const SMALL& mult);
-  void weakenSuperfluousCanceling(const LARGE& div, const std::vector<int>& pos, const ConstrExp<SMALL, LARGE>& confl,
-                                  const SMALL& mult);
+  void weakenSuperfluous(const LARGE& div);
+  void weakenSuperfluousCanceling(const LARGE& div, const std::vector<int>& pos);
   void applyMIR(const LARGE& d, const std::function<Lit(Var)>& toLit);
 
   bool divideByGCD();
@@ -580,7 +576,7 @@ struct ConstrExp final : ConstrExpSuper {
           global.stats.NMULTWEAKENEDREASON += 1;
           reason->multiply(mult);
           SMALL toWeaken = reasonCoef * mult - conflCoef;
-          reason->weakenCheckSaturated(toWeaken, asserting, level, *this);
+          reason->weakenCheckSaturated(toWeaken, asserting, level);
           assert(reason->getCoef(asserting) == conflCoef);
         }
       } else {
@@ -592,7 +588,7 @@ struct ConstrExp final : ConstrExpSuper {
           global.stats.NMULTWEAKENEDCONFLICT += 1;
           multiply(mult);
           SMALL toWeaken = reasonCoef - conflCoef * mult;
-          reason->weakenCheckSaturated(toWeaken, asserting, level, *this);
+          reason->weakenCheckSaturated(toWeaken, asserting, level);
           assert(reason->getCoef(asserting) == getCoef(-asserting));
         }
       }
@@ -600,7 +596,7 @@ struct ConstrExp final : ConstrExpSuper {
 
     if (!fixed && global.options.division.is("rto")) {
       fixed = true;
-      reason->weakenDivideRoundOrdered(reason->getCoef(asserting), level, *this, conflCoef);
+      reason->weakenDivideRoundOrdered(reason->getCoef(asserting), level);
       reason->multiply(conflCoef);
       assert(reason->getSlack(level) <= 0);
     }
@@ -617,9 +613,9 @@ struct ConstrExp final : ConstrExpSuper {
       if (minDiv > reasonSlack) {
         if (global.options.antiWeaken) {
           SMALL diff = aux::mod_safe(minDiv - reasonSlack - 1, minDiv);
-          reason->weakenDivideRoundOrdered(minDiv, level, diff, *this, mult);
+          reason->weakenDivideRoundOrdered(minDiv, level, diff);
         } else {
-          reason->weakenDivideRoundOrdered(minDiv, level, *this, mult);
+          reason->weakenDivideRoundOrdered(minDiv, level);
         }
         assert(conflCoef % reason->getCoef(asserting) == 0);
         reason->multiply(mult);
@@ -628,12 +624,12 @@ struct ConstrExp final : ConstrExpSuper {
         if (global.options.division.is("slack+1")) {
           SMALL mult =
               aux::ceildiv(conflCoef, aux::ceildiv(reason->getCoef(asserting), static_cast<SMALL>(reasonSlack + 1)));
-          reason->weakenDivideRoundOrdered(reasonSlack + 1, level, *this, mult);
+          reason->weakenDivideRoundOrdered(reasonSlack + 1, level);
           const SMALL reasonCoef = reason->getCoef(asserting);
           mult = aux::ceildiv(conflCoef, reasonCoef);
           reason->multiply(mult);
           SMALL toWeaken = reasonCoef * mult - conflCoef;
-          reason->weakenCheckSaturated(toWeaken, asserting, level, *this);
+          reason->weakenCheckSaturated(toWeaken, asserting, level);
           assert(reason->getSlack(level) <= 0);
           assert(reason->getCoef(asserting) == conflCoef);
         } else {
@@ -676,9 +672,9 @@ struct ConstrExp final : ConstrExpSuper {
             assert(bestDiv <= reasonCoef);
             if (global.options.antiWeaken) {
               SMALL diff = aux::mod_safe(bestDiv - reasonSlack - 1, bestDiv);
-              reason->weakenDivideRoundOrdered(bestDiv, level, diff, *this, mult);
+              reason->weakenDivideRoundOrdered(bestDiv, level, diff);
             } else {
-              reason->weakenDivideRoundOrdered(bestDiv, level, *this, mult);
+              reason->weakenDivideRoundOrdered(bestDiv, level);
             }
             reason->multiply(mult);
             assert(reason->getSlack(level) + getSlack(level) < 0);
