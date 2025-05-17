@@ -62,13 +62,13 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #pragma once
 
 #include <memory>
+#include <span>
 #include <sstream>
 #include "../Global.hpp"
 #include "../datastructures/SolverStructs.hpp"
 #include "../typedefs.hpp"
 #include "ConstrExpPools.hpp"
 #include "ConstrSimple.hpp"
-#include <span>
 
 namespace xct {
 
@@ -360,12 +360,12 @@ struct ConstrExp final : ConstrExpSuper {
   }
 
   template <typename S, typename L>
-  void addAndCleanUp(const CePtr<S, L>& other, const IntMap<int>& level ) { //, SMALL& mult = 1) {
-    //assert(mult >= 1);
-    // assert(isSortedInDecreasingCoefOrder());
+  void addAndCleanUp(const CePtr<S, L>& other, const IntMap<int>& level) {  //, SMALL& mult = 1) {
+    // assert(mult >= 1);
+    //  assert(isSortedInDecreasingCoefOrder());
     assert(other->isSortedInDecreasingCoefOrder());
-    //multiply(mult);
-    // LARGE oldDegree = degree;
+    // multiply(mult);
+    //  LARGE oldDegree = degree;
     addUp(other);
     // std::vector<Var>& varsToCheck = oldDegree <= getDegree() ? other->vars : vars;
     SMALL largestCF = getLargestCoef();
@@ -377,25 +377,28 @@ struct ConstrExp final : ConstrExpSuper {
     fixOverflow(level, global.options.bitsOverflow.get(), global.options.bitsReduced.get(), largestCF, 0);
   }
 
-
   void invert();
   void multiply(const SMALL& m);
   void divideRoundUp(const LARGE& d);
   void divideRoundDown(const LARGE& d);
   void weakenDivideRound(const LARGE& div, const aux::predicate<Lit>& toWeaken);
-  void weakenDivideRoundOrdered(const LARGE& div, const IntMap<int>& level, const ConstrExp<SMALL, LARGE>& confl, const SMALL& mult);
-  void weakenDivideRoundOrdered(const SMALL& div, const IntMap<int>& level, SMALL& slackdiff, const ConstrExp<SMALL, LARGE>& confl, const SMALL& mult);
+  void weakenDivideRoundOrdered(const LARGE& div, const IntMap<int>& level, const ConstrExp<SMALL, LARGE>& confl,
+                                const SMALL& mult);
+  void weakenDivideRoundOrdered(const SMALL& div, const IntMap<int>& level, SMALL& slackdiff,
+                                const ConstrExp<SMALL, LARGE>& confl, const SMALL& mult);
   void weakenDivideRoundOrderedCanceling(const LARGE& div, const IntMap<int>& level, const std::vector<int>& pos,
                                          const SMALL& mult, const ConstrExp<SMALL, LARGE>& confl);
   void weakenNonDivisible(const aux::predicate<Lit>& toWeaken, const LARGE& div);
   void weakenNonDivisible(const LARGE& div, const IntMap<int>& level);
-  void weakenNonDivisible(const SMALL& div, const IntMap<int>& level, SMALL& slackdiff, const ConstrExp<SMALL, LARGE>& confl, const SMALL& mult);
+  void weakenNonDivisible(const SMALL& div, const IntMap<int>& level, SMALL& slackdiff,
+                          const ConstrExp<SMALL, LARGE>& confl, const SMALL& mult);
   void weakenNonDivisibleCanceling(const LARGE& div, const IntMap<int>& level, const SMALL& mult,
                                    const ConstrExp<SMALL, LARGE>& confl);
   void repairOrder();
   void weakenSuperfluous(const LARGE& div, bool sorted, const aux::predicate<Var>& toWeaken);
   void weakenSuperfluous(const LARGE& div, const ConstrExp<SMALL, LARGE>& confl, const SMALL& mult);
-  void weakenSuperfluousCanceling(const LARGE& div, const std::vector<int>& pos, const ConstrExp<SMALL, LARGE>& confl, const SMALL& mult);
+  void weakenSuperfluousCanceling(const LARGE& div, const std::vector<int>& pos, const ConstrExp<SMALL, LARGE>& confl,
+                                  const SMALL& mult);
   void applyMIR(const LARGE& d, const std::function<Lit(Var)>& toLit);
 
   bool divideByGCD();
@@ -613,7 +616,7 @@ struct ConstrExp final : ConstrExpSuper {
       SMALL mult = conflCoef / (reasonCoef / minDiv);
       if (minDiv > reasonSlack) {
         if (global.options.antiWeaken) {
-          SMALL diff = aux::mod_safe(minDiv- reasonSlack-1, minDiv);
+          SMALL diff = aux::mod_safe(minDiv - reasonSlack - 1, minDiv);
           reason->weakenDivideRoundOrdered(minDiv, level, diff, *this, mult);
         } else {
           reason->weakenDivideRoundOrdered(minDiv, level, *this, mult);
@@ -623,7 +626,8 @@ struct ConstrExp final : ConstrExpSuper {
       } else {
         assert(reasonSlack > 0);  // otherwise if clause would have triggered
         if (global.options.division.is("slack+1")) {
-          SMALL mult = aux::ceildiv(conflCoef, aux::ceildiv(reason->getCoef(asserting), static_cast<SMALL>(reasonSlack + 1)));
+          SMALL mult =
+              aux::ceildiv(conflCoef, aux::ceildiv(reason->getCoef(asserting), static_cast<SMALL>(reasonSlack + 1)));
           reason->weakenDivideRoundOrdered(reasonSlack + 1, level, *this, mult);
           const SMALL reasonCoef = reason->getCoef(asserting);
           mult = aux::ceildiv(conflCoef, reasonCoef);
@@ -671,11 +675,11 @@ struct ConstrExp final : ConstrExpSuper {
           } else {
             assert(bestDiv <= reasonCoef);
             if (global.options.antiWeaken) {
-            	SMALL diff = aux::mod_safe(bestDiv-reasonSlack-1,bestDiv);
-         		reason->weakenDivideRoundOrdered(bestDiv, level, diff, *this, mult);
-        	} else {
-          		reason->weakenDivideRoundOrdered(bestDiv, level, *this, mult);
-        	}
+              SMALL diff = aux::mod_safe(bestDiv - reasonSlack - 1, bestDiv);
+              reason->weakenDivideRoundOrdered(bestDiv, level, diff, *this, mult);
+            } else {
+              reason->weakenDivideRoundOrdered(bestDiv, level, *this, mult);
+            }
             reason->multiply(mult);
             assert(reason->getSlack(level) + getSlack(level) < 0);
           }
@@ -686,7 +690,8 @@ struct ConstrExp final : ConstrExpSuper {
 
     // In most cases, at this point, the reason coefficient is equal to the conflict coefficient
     // and the reason slack is at most zero, so we can safely add the reason to the conflict.
-    if (global.options.useActSet.is("always") || (!multWeakened && global.options.useActSet.is("div-only")) || (multWeakened && !global.options.useActSet.is("mw-only"))) {
+    if (global.options.useActSet.is("always") || (!multWeakened && global.options.useActSet.is("div-only")) ||
+        (multWeakened && !global.options.useActSet.is("mw-only"))) {
       for (Var v : reason->vars) {
         if (isFalse(level, reason->getLit(v))) {
           actSet.add(v);

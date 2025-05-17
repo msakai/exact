@@ -4,8 +4,6 @@ project(Exact)
 set(CMAKE_CXX_STANDARD 20)
 find_package(Boost 1.71.0 REQUIRED) # 1.81 for the fastest hash maps
 
-find_package(TBB REQUIRED)
-
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/Modules/")
 
 set(CMAKE_CXX_FLAGS_TESTRUNS "${CMAKE_CXX_FLAGS_TESTRUNS} -O3")
@@ -283,5 +281,3 @@ if(CLANG_FORMAT)
         ${files_to_format}
     )
 endif()
-
-target_link_libraries(Exact TBB::tbb)
