@@ -321,7 +321,8 @@ struct ConstrExp final : ConstrExpSuper {
   bool isSaturated(Lit l) const;
   bool isSaturated(const aux::predicate<Lit>& toWeaken) const;
   void getSaturatedLits(IntSet& out) const;
-  bool aboveIndirectThreshhold(SMALL& toWeaken, LARGE& extraIndirectWeakenings, LARGE& possibleWeakenings) const;
+  bool aboveIndirectThreshhold(const SMALL& toWeaken, const LARGE& extraIndirectWeakenings,
+                               const LARGE& possibleWeakenings) const;
   /*
    * Fixes overflow
    * @pre @post: hasNoZeroes()
@@ -357,24 +358,6 @@ struct ConstrExp final : ConstrExpSuper {
       SMALL val = cmult * static_cast<SMALL>(c->coefs[v]);
       add(v, val, true);
     }
-  }
-
-  template <typename S, typename L>
-  void addAndCleanUp(const CePtr<S, L>& other, const IntMap<int>& level) {  //, SMALL& mult = 1) {
-    // assert(mult >= 1);
-    //  assert(isSortedInDecreasingCoefOrder());
-    assert(other->isSortedInDecreasingCoefOrder());
-    // multiply(mult);
-    //  LARGE oldDegree = degree;
-    addUp(other);
-    // std::vector<Var>& varsToCheck = oldDegree <= getDegree() ? other->vars : vars;
-    SMALL largestCF = getLargestCoef();
-    if (largestCF > getDegree()) {
-      // std::cout << "in clean up" << std::endl;
-      saturate(false, false);
-      largestCF = static_cast<SMALL>(getDegree());
-    }
-    fixOverflow(level, global.options.bitsOverflow.get(), global.options.bitsReduced.get(), largestCF, 0);
   }
 
   void invert();
@@ -570,10 +553,10 @@ struct ConstrExp final : ConstrExpSuper {
 
       if (conflCoef >= reasonCoef) {
         const SMALL mult = aux::ceildiv(conflCoef, reasonCoef);
-        if ((reason->getSlack(level) * mult + getSlack(level) < 0)) {
+        if (reason->getSlack(level) * mult + getSlack(level) < 0) {
           fixed = true;
           multWeakened = true;
-          global.stats.NMULTWEAKENEDREASON += 1;
+          global.stats.NMULTWEAKENEDREASON.z += 1;
           reason->multiply(mult);
           SMALL toWeaken = reasonCoef * mult - conflCoef;
           reason->weakenCheckSaturated(toWeaken, asserting, level);
@@ -581,11 +564,11 @@ struct ConstrExp final : ConstrExpSuper {
         }
       } else {
         const SMALL mult = aux::floordiv(reasonCoef, conflCoef);
-        if ((reason->getSlack(level) + mult * getSlack(level) < 0)) {
+        if (reason->getSlack(level) + mult * getSlack(level) < 0) {
           fixed = true;
           multipliedConflict = true;
           multWeakened = true;
-          global.stats.NMULTWEAKENEDCONFLICT += 1;
+          global.stats.NMULTWEAKENEDCONFLICT.z += 1;
           multiply(mult);
           SMALL toWeaken = reasonCoef - conflCoef * mult;
           reason->weakenCheckSaturated(toWeaken, asserting, level);
@@ -609,7 +592,6 @@ struct ConstrExp final : ConstrExpSuper {
       // SMALL cast possible because slack < reasonCoef
       SMALL gcd = global.options.multBeforeDiv ? conflCoef : aux::gcd(conflCoef, reasonCoef);
       const SMALL minDiv = reasonCoef / gcd;
-      SMALL mult = conflCoef / (reasonCoef / minDiv);
       if (minDiv > reasonSlack) {
         if (global.options.antiWeaken) {
           SMALL diff = aux::mod_safe(minDiv - reasonSlack - 1, minDiv);
@@ -618,7 +600,7 @@ struct ConstrExp final : ConstrExpSuper {
           reason->weakenDivideRoundOrdered(minDiv, level);
         }
         assert(conflCoef % reason->getCoef(asserting) == 0);
-        reason->multiply(mult);
+        reason->multiply(conflCoef / reason->getCoef(asserting));
       } else {
         assert(reasonSlack > 0);  // otherwise if clause would have triggered
         if (global.options.division.is("slack+1")) {

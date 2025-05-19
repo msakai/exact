@@ -247,7 +247,6 @@ struct Options {
       "0 =< float =< 1", [](const double& x) -> bool { return 0 <= x && x <= 1; }};
   BoolOption multWeaken{"ca-multweaken", "Multiply and weaken instead of division when possible.", true};
   BoolOption multBeforeDiv{"ca-multiply", "Multiply reason with the asserting literal's conflict coefficient", true};
-  BoolOption partialWeakening{"ca-partial-weakening", "Weaken non divisible literals partially until divisible", true};
   BoolOption weakenSuperfluous{"ca-weaken-superfluous", "Weaken superfluous literals before division", true};
   BoolOption MWI{"ca-mwi", "Use MWI when free", false};
   BoolOption aggressiveMWD{"ca-aggressive-mwd",
@@ -380,7 +379,6 @@ struct Options {
       &subsetSum,
       &useActSet,
       &indWeakenThresh,
-      &partialWeakening,
       &weakenSuperfluous,
       &aggressiveMWD,
       &MWI,
