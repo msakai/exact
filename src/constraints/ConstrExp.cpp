@@ -669,28 +669,24 @@ void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit assertin
   assert(toWeaken < getCoef(asserting));
   if (global.options.MWI) {
     if (isSaturated(asserting)) {
-      LARGE largetoWeaken = static_cast<LARGE>(toWeaken);
+      // indirect weakening
       global.stats.NMULTWEAKENEDINDIRECT.z += 1;
-
-      for (int64_t i = std::ssize(vars) - 1; largetoWeaken != 0 && i >= 0; --i) {
+      for (int64_t i = std::ssize(vars) - 1; toWeaken != 0 && i >= 0; --i) {
         Var v = vars[i];
         if (coefs[v] == 0) continue;
         Lit l = getLit(v);
-        if (l == asserting) continue;
         if (!isFalse(level, l)) {
-          if (largetoWeaken < absCoef(v)) {
-            toWeaken = static_cast<SMALL>(largetoWeaken);
+          if (toWeaken < absCoef(v)) {
             weakenVar(toWeaken, v);
-            largetoWeaken = 0;
+            toWeaken = 0;
           } else {
-            largetoWeaken -= aux::abs(coefs[v]);
+            toWeaken -= aux::abs(coefs[v]);
             weaken(v);
           }
         }
       }
-      removeZeroes();
-      toWeaken = static_cast<SMALL>(largetoWeaken);
     }
+    removeZeroes();
   }
   assert(toWeaken >= 0);
   if (toWeaken > 0) {  // direct weakening
