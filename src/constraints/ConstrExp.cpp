@@ -668,8 +668,7 @@ void ConstrExp<SMALL, LARGE>::weakenCheckSaturated(SMALL& toWeaken, Lit assertin
   assert(toWeaken >= 0);
   assert(toWeaken < getCoef(asserting));
   if (global.options.MWI) {
-    if (isSaturated(asserting)) {
-      // indirect weakening
+    if (isSaturated(asserting)) {  // indirect weakening
       global.stats.NMULTWEAKENEDINDIRECT.z += 1;
       for (int64_t i = std::ssize(vars) - 1; toWeaken != 0 && i >= 0; --i) {
         Var v = vars[i];
