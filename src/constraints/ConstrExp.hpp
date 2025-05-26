@@ -547,6 +547,7 @@ struct ConstrExp final : ConstrExpSuper {
     if (!fixed && global.options.multWeaken) {
       // based on the work of Orestis Lomis in his 2024 master thesis
       const SMALL reasonCoef = reason->getCoef(asserting);
+
       if (conflCoef >= reasonCoef) {
         const SMALL mult = aux::ceildiv(conflCoef, reasonCoef);
         if (reason->getSlack(level) * mult + getSlack(level) < 0) {
@@ -570,6 +571,7 @@ struct ConstrExp final : ConstrExpSuper {
         }
       }
     }
+
     if (!fixed && global.options.division.is("rto")) {
       fixed = true;
       reason->weakenDivideRoundOrdered(reason->getCoef(asserting), level);
@@ -586,7 +588,7 @@ struct ConstrExp final : ConstrExpSuper {
       SMALL gcd = global.options.multBeforeDiv ? conflCoef : aux::gcd(conflCoef, reasonCoef);
       const SMALL minDiv = reasonCoef / gcd;
       if (minDiv > reasonSlack) {
-        SMALL diff = minDiv - reasonSlack;
+        SMALL diff = aux::mod_safe(minDiv - reasonSlack - 1, minDiv);
         reason->weakenDivideRoundOrdered(minDiv, level, diff);
         assert(conflCoef % reason->getCoef(asserting) == 0);
         reason->multiply(conflCoef / reason->getCoef(asserting));
@@ -639,10 +641,10 @@ struct ConstrExp final : ConstrExpSuper {
             // NOTE: since canceling unknowns are rounded up, the reason may have positive slack
           } else {
             assert(bestDiv <= reasonCoef);
-            SMALL diff = bestDiv - reasonSlack;
+            SMALL diff = aux::mod_safe(bestDiv - reasonSlack - 1, bestDiv);
             reason->weakenDivideRoundOrdered(bestDiv, level, diff);
             reason->multiply(mult);
-            assert(reason->getSlack(level) <= 0);
+            assert(reason->getSlack(level) + getSlack(level) < 0);
           }
         }
       }
@@ -651,9 +653,11 @@ struct ConstrExp final : ConstrExpSuper {
 
     // In most cases, at this point, the reason coefficient is equal to the conflict coefficient
     // and the reason slack is at most zero, so we can safely add the reason to the conflict.
-    for (Var v : reason->vars) {
-      if (isFalse(level, reason->getLit(v))) {
-        actSet.add(v);
+    if (global.options.varReasonAct) {
+      for (Var v : reason->vars) {
+        if (isFalse(level, reason->getLit(v))) {
+          actSet.add(v);
+        }
       }
     }
 

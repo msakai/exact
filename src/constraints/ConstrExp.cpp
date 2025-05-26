@@ -1140,12 +1140,13 @@ template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::weakenNonDivisible(const SMALL& div, const IntMap<int>& level, SMALL& slackdiff) {
   assert(div > 0);
   if (div == 1) return;
+
   for (Var v : vars) {
-    if (SMALL mod = coefs[v] % div; mod != 0 && !isFalse(level, getLit(v))) {
-      if (slackdiff - div + mod >= 1) {  // we can safely round up non-falsified
+    if (const SMALL mod = coefs[v] % div; mod != 0 && !isFalse(level, getLit(v))) {
+      if (slackdiff - div + mod >= 0) {  // we can safely round up non-falsified
         slackdiff -= div - mod;
       } else {
-        weaken(-static_cast<SMALL>(coefs[v] % div), v);
+        weaken(-mod, v);
       }
     }
   }
@@ -1762,9 +1763,11 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
   assert(hasNoZeroes());
   global.stats.NADDEDLITERALS += data.size();
 
-  for (Lit l : data) {
-    if (isFalse(level, l)) {
-      actSet.add(toVar(l));
+  if (global.options.varReasonAct) {
+    for (Lit l : data) {
+      if (isFalse(level, l)) {
+        actSet.add(toVar(l));
+      }
     }
   }
 
