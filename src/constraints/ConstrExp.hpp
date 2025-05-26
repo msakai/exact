@@ -321,8 +321,6 @@ struct ConstrExp final : ConstrExpSuper {
   bool isSaturated(Lit l) const;
   bool isSaturated(const aux::predicate<Lit>& toWeaken) const;
   void getSaturatedLits(IntSet& out) const;
-  bool aboveIndirectThreshhold(const SMALL& toWeaken, const LARGE& extraIndirectWeakenings,
-                               const LARGE& possibleWeakenings) const;
   /*
    * Fixes overflow
    * @pre @post: hasNoZeroes()

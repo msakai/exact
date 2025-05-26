@@ -249,18 +249,7 @@ struct Options {
   BoolOption multBeforeDiv{"ca-multiply", "Multiply reason with the asserting literal's conflict coefficient", true};
   BoolOption weakenSuperfluous{"ca-weaken-superfluous", "Weaken superfluous literals before division", true};
   BoolOption MWI{"ca-mwi", "Use MWI when free", false};
-  BoolOption aggressiveMWD{"ca-aggressive-mwd",
-                           "Use aggressive MWD instead of safe (note: this doesn't make use of free MWI)", false};
   BoolOption antiWeaken{"ca-anti-weaken", "Anti-weaken non-falsified literals whenever possible.", true};
-  BoolOption nonZeroSlack{"ca-non-zero-slack",
-                          "Allow for non zero slack after division, when conflict slack is very negative.", false};
-  EnumOption preserveCancellation{
-      "ca-preserve-cancellation",
-      "Control prioritisation of which literals to weaken freely (during MWI of weakening of superfluous)",
-      "ascending",
-      {"preserving-cancellation", "non-preserving-cancellation", "ascending", "strength-heuristic"}};
-  ValOption<double> cawThreshold{"ca-cawthreshold", "strength threshold for preservation of the cancellation", 0.5,
-                                 "0 =< float =< 1", [](const float& x) -> bool { return 0 <= x && x <= 1; }};
   EnumOption useActSet{"ca-act-set",
                        "When to use actSet heuristic after learning constraints",
                        "never",
@@ -273,8 +262,6 @@ struct Options {
                                "Weaken non-implying falsified literals from learned constraints", false};
   BoolOption learnedMin{"ca-min", "Minimize learned constraints through generalized self-subsumption.", true};
   BoolOption caCancelingUnkns{"ca-cancelingunknowns", "Exploit canceling unknowns", false};
-  ValOption<double> indWeakenThresh{"ca-mwi-thresh", "threshhold for enabling mwi", 1.0, "0 =< float =< 1",
-                                    [](const float& x) -> bool { return 0 <= x && x <= 1; }};
   ValOption<int64_t> subsetSum{
       "ca-liftdegree",
       "Use subset sum calculation to lift the degree when the estimated cost is at most this value (0 disables)",
@@ -378,14 +365,9 @@ struct Options {
       &caCancelingUnkns,
       &subsetSum,
       &useActSet,
-      &indWeakenThresh,
       &weakenSuperfluous,
-      &aggressiveMWD,
       &MWI,
       &antiWeaken,
-      &nonZeroSlack,
-      &preserveCancellation,
-      &cawThreshold,
       &bitsOverflow,
       &bitsReduced,
       &bitsLearned,

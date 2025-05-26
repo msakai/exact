@@ -893,32 +893,6 @@ void ConstrExp<SMALL, LARGE>::invert() {
   degree = calcDegree();
 }
 
-template <typename SMALL, typename LARGE>
-bool ConstrExp<SMALL, LARGE>::aboveIndirectThreshhold(const SMALL& toWeaken, const LARGE& extraIndirectWeakenings,
-                                                      const LARGE& possibleWeakenings) const {
-  if (extraIndirectWeakenings <= 0) return true;
-
-  // Check for zero to avoid division by zero
-  if (toWeaken + extraIndirectWeakenings == 0) return true;
-
-  // Ensure values are non-negative
-  assert(toWeaken >= 0 && extraIndirectWeakenings >= 0 && possibleWeakenings >= 0);
-
-  // Use precise arithmetic to avoid precision loss
-  double threshhold = global.options.indWeakenThresh.get();
-  LARGE numerator = static_cast<LARGE>(toWeaken);
-  LARGE denominator = static_cast<LARGE>(toWeaken) + extraIndirectWeakenings;
-
-  // Calculate the ratio using precise arithmetic
-  double ratio = static_cast<double>(numerator) / static_cast<double>(denominator);
-
-  // Check if the ratio meets the threshold and there are enough possible weakenings
-  bool over = ratio >= threshhold;
-  bool enough = possibleWeakenings >= extraIndirectWeakenings;
-
-  return over && enough;
-}
-
 /*
  * Fixes overflow
  * @pre @post: hasNoZeroes()
