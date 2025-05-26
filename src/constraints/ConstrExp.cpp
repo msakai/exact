@@ -1030,7 +1030,7 @@ void ConstrExp<SMALL, LARGE>::weakenDivideRound(const LARGE& div, const aux::pre
     saturate(false, false);
     removeZeroes();
   } else {
-    if (global.options.weakenSuperfluous) weakenSuperfluous(div, false, []([[maybe_unused]] Var v) { return true; });
+    weakenSuperfluous(div, false, []([[maybe_unused]] Var v) { return true; });
     removeZeroes();
     divideRoundUp(div);
     saturate(true, false);
@@ -1045,7 +1045,7 @@ void ConstrExp<SMALL, LARGE>::weakenDivideRoundOrdered(const LARGE& div, const I
   assert(div > 0);
   if (div == 1) return;
   weakenNonDivisible(div, level);
-  if (global.options.weakenSuperfluous) weakenSuperfluous(div);
+  weakenSuperfluous(div);
   repairOrder();
   while (!vars.empty() && coefs[vars.back()] == 0) {
     popLast();
@@ -1069,7 +1069,7 @@ void ConstrExp<SMALL, LARGE>::weakenDivideRoundOrdered(const SMALL& div, const I
   assert(div > 0);
   if (div == 1) return;
   weakenNonDivisible(div, level, slackdiff);
-  if (global.options.weakenSuperfluous) weakenSuperfluous(div);
+  weakenSuperfluous(div);
   repairOrder();
   while (!vars.empty() && coefs[vars.back()] == 0) {
     popLast();
@@ -1094,7 +1094,7 @@ void ConstrExp<SMALL, LARGE>::weakenDivideRoundOrderedCanceling(const LARGE& div
   assert(div > 0);
   if (div == 1) return;
   weakenNonDivisibleCanceling(div, level, mult, confl);
-  if (global.options.weakenSuperfluous) weakenSuperfluousCanceling(div, pos);
+  weakenSuperfluousCanceling(div, pos);
   repairOrder();
   while (!vars.empty() && coefs[vars.back()] == 0) {
     popLast();
@@ -1765,9 +1765,11 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
   assert(hasNoZeroes());
   global.stats.NADDEDLITERALS += data.size();
 
-  for (Lit l : data) {
-    if (isFalse(level, l)) {
-      actSet.add(toVar(l));
+  if (global.options.varReasonAct) {
+    for (Lit l : data) {
+      if (isFalse(level, l)) {
+        actSet.add(toVar(l));
+      }
     }
   }
 

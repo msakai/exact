@@ -208,6 +208,8 @@ struct Options {
       "0 =< float =< 1", [](const double& x) -> bool { return 0 <= x && x <= 1; }};
   BoolOption varSol{"var-sol", "Use last solution as phase", true};
   BoolOption varObjective{"var-objective", "Initialize heuristic to optimize the objective variables first", false};
+  BoolOption varConflAct{"var-conflict", "Bump falsified conflict variables upon learning a constraint", true};
+  BoolOption varReasonAct{"var-reason", "Bump falsified reason variables upon learning a constraint", false};
   ValOption<int32_t> dbDecayLBD{"db-decay", "Decay term for the LBD of constraints", 1, "0 (no decay) =< int",
                                 [](const int32_t& x) -> bool { return 0 <= x; }};
   ValOption<int64_t> dbBase{"db-base", "Initial number of conflicts at which database cleaning is performed.", 2000,
@@ -247,13 +249,7 @@ struct Options {
       "0 =< float =< 1", [](const double& x) -> bool { return 0 <= x && x <= 1; }};
   BoolOption multWeaken{"ca-multweaken", "Multiply and weaken instead of division when possible.", true};
   BoolOption multBeforeDiv{"ca-multiply", "Multiply reason with the asserting literal's conflict coefficient", true};
-  BoolOption weakenSuperfluous{"ca-weaken-superfluous", "Weaken superfluous literals before division", true};
   BoolOption MWI{"ca-mwi", "Use MWI when free", false};
-  BoolOption antiWeaken{"ca-anti-weaken", "Anti-weaken non-falsified literals whenever possible.", true};
-  EnumOption useActSet{"ca-act-set",
-                       "When to use actSet heuristic after learning constraints",
-                       "never",
-                       {"never", "div-only", "mw-only", "always"}};
   EnumOption division{"ca-division",
                       "Division method to round the reason to non-positive slack",
                       "mindiv",
@@ -341,6 +337,8 @@ struct Options {
       &varWeight,
       &varSol,
       &varObjective,
+      &varConflAct,
+      &varReasonAct,
       &dbDecayLBD,
       &dbBase,
       &dbExp,
@@ -364,10 +362,7 @@ struct Options {
       &learnedMin,
       &caCancelingUnkns,
       &subsetSum,
-      &useActSet,
-      &weakenSuperfluous,
       &MWI,
-      &antiWeaken,
       &bitsOverflow,
       &bitsReduced,
       &bitsLearned,

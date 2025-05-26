@@ -533,7 +533,6 @@ struct ConstrExp final : ConstrExpSuper {
     assert(conflCoef > 0);
     bool fixed = false;
     bool multipliedConflict = false;
-    bool multWeakened = false;
     if (reason->getCoef(asserting) == 1) {
       // just multiply, nothing else matters as slack is =< 0
       fixed = true;
@@ -553,7 +552,6 @@ struct ConstrExp final : ConstrExpSuper {
         const SMALL mult = aux::ceildiv(conflCoef, reasonCoef);
         if (reason->getSlack(level) * mult + getSlack(level) < 0) {
           fixed = true;
-          multWeakened = true;
           global.stats.NMULTWEAKENEDREASON.z += 1;
           reason->multiply(mult);
           SMALL toWeaken = reasonCoef * mult - conflCoef;
@@ -565,7 +563,6 @@ struct ConstrExp final : ConstrExpSuper {
         if (reason->getSlack(level) + mult * getSlack(level) < 0) {
           fixed = true;
           multipliedConflict = true;
-          multWeakened = true;
           global.stats.NMULTWEAKENEDCONFLICT.z += 1;
           multiply(mult);
           SMALL toWeaken = reasonCoef - conflCoef * mult;
@@ -591,12 +588,8 @@ struct ConstrExp final : ConstrExpSuper {
       SMALL gcd = global.options.multBeforeDiv ? conflCoef : aux::gcd(conflCoef, reasonCoef);
       const SMALL minDiv = reasonCoef / gcd;
       if (minDiv > reasonSlack) {
-        if (global.options.antiWeaken) {
-          SMALL diff = aux::mod_safe(minDiv - reasonSlack - 1, minDiv);
-          reason->weakenDivideRoundOrdered(minDiv, level, diff);
-        } else {
-          reason->weakenDivideRoundOrdered(minDiv, level);
-        }
+        SMALL diff = aux::mod_safe(minDiv - reasonSlack - 1, minDiv);
+        reason->weakenDivideRoundOrdered(minDiv, level, diff);
         assert(conflCoef % reason->getCoef(asserting) == 0);
         reason->multiply(conflCoef / reason->getCoef(asserting));
       } else {
@@ -650,12 +643,8 @@ struct ConstrExp final : ConstrExpSuper {
             // NOTE: since canceling unknowns are rounded up, the reason may have positive slack
           } else {
             assert(bestDiv <= reasonCoef);
-            if (global.options.antiWeaken) {
-              SMALL diff = aux::mod_safe(bestDiv - reasonSlack - 1, bestDiv);
-              reason->weakenDivideRoundOrdered(bestDiv, level, diff);
-            } else {
-              reason->weakenDivideRoundOrdered(bestDiv, level);
-            }
+            SMALL diff = aux::mod_safe(bestDiv - reasonSlack - 1, bestDiv);
+            reason->weakenDivideRoundOrdered(bestDiv, level, diff);
             reason->multiply(mult);
             assert(reason->getSlack(level) + getSlack(level) < 0);
           }
@@ -666,8 +655,7 @@ struct ConstrExp final : ConstrExpSuper {
 
     // In most cases, at this point, the reason coefficient is equal to the conflict coefficient
     // and the reason slack is at most zero, so we can safely add the reason to the conflict.
-    if (global.options.useActSet.is("always") || (!multWeakened && global.options.useActSet.is("div-only")) ||
-        (multWeakened && !global.options.useActSet.is("mw-only"))) {
+    if (global.options.varReasonAct) {
       for (Var v : reason->vars) {
         if (isFalse(level, reason->getLit(v))) {
           actSet.add(v);
