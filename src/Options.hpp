@@ -249,7 +249,6 @@ struct Options {
       "0 =< float =< 1", [](const double& x) -> bool { return 0 <= x && x <= 1; }};
   BoolOption multWeaken{"ca-multweaken", "Multiply and weaken instead of division when possible.", true};
   BoolOption multBeforeDiv{"ca-multiply", "Multiply reason with the asserting literal's conflict coefficient", true};
-  BoolOption MWI{"ca-mwi", "Use MWI when free", false};
   EnumOption division{"ca-division",
                       "Division method to round the reason to non-positive slack",
                       "mindiv",
@@ -362,7 +361,6 @@ struct Options {
       &learnedMin,
       &caCancelingUnkns,
       &subsetSum,
-      &MWI,
       &bitsOverflow,
       &bitsReduced,
       &bitsLearned,

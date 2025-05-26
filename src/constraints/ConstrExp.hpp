@@ -595,11 +595,9 @@ struct ConstrExp final : ConstrExpSuper {
       } else {
         assert(reasonSlack > 0);  // otherwise if clause would have triggered
         if (global.options.division.is("slack+1")) {
-          SMALL mult =
-              aux::ceildiv(conflCoef, aux::ceildiv(reason->getCoef(asserting), static_cast<SMALL>(reasonSlack + 1)));
           reason->weakenDivideRoundOrdered(reasonSlack + 1, level);
           const SMALL reasonCoef = reason->getCoef(asserting);
-          mult = aux::ceildiv(conflCoef, reasonCoef);
+          const SMALL mult = aux::ceildiv(conflCoef, reasonCoef);
           reason->multiply(mult);
           SMALL toWeaken = reasonCoef * mult - conflCoef;
           reason->weakenCheckSaturated(toWeaken, asserting, level);
