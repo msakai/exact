@@ -156,7 +156,7 @@ void Exact::addConstraint(const std::vector<std::pair<bigint, std::string>>& ter
   if (terms.size() > 1e9) throw InvalidArgument("Constraint has more than 1e9 terms.");
 
   IntConstraint ic = {{}, aux::option(useLB, lb), aux::option(useUB, ub)};
-  ic.lhs.resize(terms.size());
+  ic.lhs.reserve(terms.size());
   for (const auto& t : terms) {
     ic.lhs.push_back({t.first, getVariable(t.second)});
   }
