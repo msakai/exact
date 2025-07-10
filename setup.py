@@ -14,8 +14,10 @@
 ## git clone https://gitlab.com/nonfiction-software/exact
 ## cd exact
 ## /opt/python/cp313-cp313/bin/python -m build
-## auditwheel repair dist/exact-2.1.2-cp313-cp313-linux_x86_64.whl
-## /opt/python/cp313-cp313/bin/python -m twine upload --repository pypi wheelhouse/Exact-2.1.2-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl -p <long API TOKEN starting with pypi-... >
+## auditwheel repair dist/exact-2.2.1-cp313-cp313-linux_x86_64.whl
+## /opt/python/cp313-cp313/bin/python -m twine upload --repository pypi wheelhouse/exact-2.2.1-cp313-cp313-manylinux_2_34_x86_64.whl -p pypi-<API TOKEN>
+
+## NOTE: also build a version for Python 3.10, 3.11, 3.12 using "cp31." instead of "cp313"
 
 # For OSX, only compilation from source for now (<path to venv binaries>/pip install .)
 # Use https://github.com/kholia/OSX-KVM
