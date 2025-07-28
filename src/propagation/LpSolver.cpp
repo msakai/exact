@@ -231,105 +231,6 @@ CeSuper LpSolver::createLinearCombinationFarkas(soplex::DVectorReal& mults) {
   return out;
 }
 
-CandidateCut LpSolver::createLinearCombinationGomory(soplex::DVectorReal& mults) {
-  double scale = getScaleFactor(mults, false);
-  if (scale == 0) return CandidateCut();
-  assert(scale > 0);
-  Ce128 lcc = global.cePools.take128();
-
-  std::vector<std::pair<int128, int>> slacks;
-  for (int r = 0; r < mults.dim(); ++r) {
-    int128 factor = aux::cast<int128, double>(mults[r] * scale);
-    if (factor == 0) continue;
-    Ce64 ce = rowToConstraint(r);
-    if (factor < 0) ce->invert();
-    global.stats.NLPADDEDLITERALS.z += ce->nVars();
-    assert(!isnan(global.stats.NLPADDEDLITERALS.z));
-    lcc->addUp(ce, aux::abs(factor));
-    slacks.emplace_back(-factor, r);
-  }
-
-  int256 b = lcc->getRhs();
-  for (Var v : lcc->getVars()) {
-    if (lpSolution[v] > 0.5) b -= lcc->coefs[v];
-  }
-  if (b == 0) {
-    return CandidateCut();
-  }
-
-  assert(scale > 0);
-  int128 divisor = aux::cast<int128, double>(std::ceil(scale));
-  while ((b % divisor) == 0) ++divisor;
-  lcc->applyMIR(divisor, [&](Var v) -> Lit { return lpSolution[v] <= 0.5 ? v : -v; });
-
-  // round up the slack variables MIR style and cancel out the slack variables
-  int128 bmodd = aux::mod_safe(b, divisor);
-  for (auto& slk : slacks) {
-    int128 factor = bmodd * aux::floordiv_safe(slk.first, divisor) + std::min(aux::mod_safe(slk.first, divisor), bmodd);
-    // NOTE: MIR style rounding does not increase the coefficient
-    if (factor == 0) continue;
-    Ce64 ce = rowToConstraint(slk.second);
-    if (factor < 0) ce->invert();
-    global.stats.NLPADDEDLITERALS.z += ce->nVars();
-    assert(!isnan(global.stats.NLPADDEDLITERALS.z));
-    lcc->addUp(ce, aux::abs(factor));
-  }
-  global.logger.logAssumption(lcc, global.options.proofAssumps.operator bool());
-  // TODO: fix logging for Gomory cuts
-
-  lcc->removeUnitsAndZeroes(solver.getLevel(), solver.getPos());
-  lcc->saturate(true, false);
-  if (lcc->isTautology()) {
-    lcc->reset(false);
-  } else if (!lcc->vars.empty()) {
-    assert(lcc->hasNoZeroes());
-    lcc->weakenSmalls(aux::toDouble(lcc->absCoeffSum()) / lcc->nVars() * global.options.lpIntolerance.get());
-    lcc->removeZeroes();
-  }
-  CandidateCut result(lcc, lpSolution);
-  return result;
-}
-
-void LpSolver::constructGomoryCandidates() {
-  std::vector<int> indices;
-  indices.resize(getNbRows());
-  lp.getBasisInd(indices.data());
-
-  assert(lpSlackSolution.dim() == getNbRows());
-  std::vector<std::pair<double, int>> fracrowvec;
-  for (int row = 0; row < getNbRows(); ++row) {
-    quit::checkInterrupt(global);
-    double fractionality = 0;
-    if (indices[row] >= 0) {  // basic original variable / column
-      assert(indices[row] < (int)lpSolution.size());
-      fractionality = nonIntegrality(lpSolution[indices[row]]);
-    } else {  // basic slack variable / row
-      assert(-indices[row] - 1 < lpSlackSolution.dim());
-      fractionality = nonIntegrality(lpSlackSolution[-indices[row] - 1]);
-    }
-    assert(fractionality >= 0);
-    if (fractionality > 0) fracrowvec.emplace_back(fractionality, row);
-  }
-  std::priority_queue<std::pair<double, int>> fracrows(std::less<std::pair<double, int>>(), fracrowvec);
-
-  [[maybe_unused]] double last = 0.5;
-  for (int i = 0; i < global.options.lpGomoryCutLimit.get() && !fracrows.empty(); ++i) {
-    assert(last >= fracrows.top().first);
-    last = fracrows.top().first;
-    int row = fracrows.top().second;
-    fracrows.pop();
-
-    assert(lpMultipliers.dim() == getNbRows());
-    lpMultipliers.clear();
-    lp.getBasisInverseRowReal(row, lpMultipliers.get_ptr());
-    candidateCuts.push_back(createLinearCombinationGomory(lpMultipliers));
-    if (candidateCuts.back().ratSlack >= -global.options.lpIntolerance.get()) candidateCuts.pop_back();
-    for (int j = 0; j < lpMultipliers.dim(); ++j) lpMultipliers[j] = -lpMultipliers[j];
-    candidateCuts.push_back(createLinearCombinationGomory(lpMultipliers));
-    if (candidateCuts.back().ratSlack >= -global.options.lpIntolerance.get()) candidateCuts.pop_back();
-  }
-}
-
 void LpSolver::constructLearnedCandidates() {
   for (CRef cr : solver.constraints) {
     quit::checkInterrupt(global);
@@ -557,9 +458,8 @@ CeSuper LpSolver::inProcess(bool overrideHeur) {
     }
   }
   candidateCuts.clear();
-  if (global.options.lpGomoryCuts || global.options.lpLearnedCuts) global.logger.logComment("cutting");
-  if (global.options.lpLearnedCuts) constructLearnedCandidates();  // first to avoid adding gomory cuts twice
-  if (global.options.lpGomoryCuts && global.options.proofAssumps) constructGomoryCandidates();
+  if (global.options.lpLearnedCuts) global.logger.logComment("cutting");
+  if (global.options.lpLearnedCuts) constructLearnedCandidates();
   addFilteredCuts();
   pruneCuts();
   return constraint;

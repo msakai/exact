@@ -271,6 +271,7 @@ struct Watched32 final : Constr {
   uint32_t unsaturatedIdx;
   const int64_t degr;
   int64_t watchslack;
+  const SymbolicBound* symbBound;
   Lit blocking;
   Lit data[0];  // Flexible Array Member - gcc complains about destruction when using the proper syntax '[]'
   // WARNING: Watched only works for int coefficients for now (they take up the same bytes as Lit)
@@ -294,6 +295,7 @@ struct Watched32 final : Constr {
         unsaturatedIdx(0),
         degr(static_cast<int64_t>(constraint->getDegree())),
         watchslack(0),
+        symbBound(new SymbolicBound(constraint->symbBound)),
         blocking(0) {
     assert(_id > ID_Trivial);
     assert(fitsIn<int64_t>(constraint->getDegree()));
@@ -310,7 +312,7 @@ struct Watched32 final : Constr {
     }
   }
 
-  void cleanup() {}
+  void cleanup();
 
   bool hasWatch(uint32_t) const;
   void flipWatch(uint32_t);
@@ -338,6 +340,7 @@ struct Watched final : Constr {
   const DG degr;
   DG watchslack;
   CF* cfs;
+  const SymbolicBound* symbBound;
   Lit blocking;
   Lit lits[0];
 
@@ -360,6 +363,7 @@ struct Watched final : Constr {
         degr(static_cast<DG>(constraint->getDegree())),
         watchslack(0),
         cfs(new CF[sze]),
+        symbBound(new SymbolicBound(constraint->symbBound)),
         blocking(0) {
     assert(_id > ID_Trivial);
     assert(fitsIn<DG>(constraint->getDegree()));
@@ -376,7 +380,7 @@ struct Watched final : Constr {
     }
   }
 
-  void cleanup() { delete[] cfs; }
+  void cleanup();
 
   bool hasWatch(uint32_t) const;
   void flipWatch(uint32_t);

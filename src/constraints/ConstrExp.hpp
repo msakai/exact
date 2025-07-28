@@ -83,6 +83,22 @@ class Equalities;
 class Implications;
 struct IntSet;
 
+enum class SBStatus { FRESH, REPLACABLE, INVALID };
+
+struct SymbolicBound {
+  ratio mult = 0;
+  ratio offset = 0;
+  SBStatus status = SBStatus::FRESH;
+
+  void add(const SymbolicBound& sb, const bigint& mult);
+  void divide(const bigint& div);
+  void multiply(const bigint& mult);
+  void saturate();
+  void reset();
+
+  bigint getLhs(const bigint& bound) const;
+};
+
 struct ConstrExpSuper {
   // protected:
   // for some reason (templates?) copyTo_ cannot acces external vars and indexes if protected
@@ -93,6 +109,8 @@ struct ConstrExpSuper {
   Global& global;
   Origin orig;
   std::stringstream proofBuffer;
+
+  SymbolicBound symbBound;
 
   void resetBuffer(ID proofID);
   void resetBuffer(const std::string& line);
@@ -356,12 +374,12 @@ struct ConstrExp final : ConstrExpSuper {
       SMALL val = cmult * static_cast<SMALL>(c->coefs[v]);
       add(v, val, true);
     }
+    symbBound.add(c->symbBound, cmult);
   }
 
   void invert();
   void multiply(const SMALL& m);
   void divideRoundUp(const LARGE& d);
-  void divideRoundDown(const LARGE& d);
   void weakenDivideRound(const LARGE& div, const aux::predicate<Lit>& toWeaken);
   void weakenDivideRoundOrdered(const LARGE& div, const IntMap<int>& level);
   void weakenDivideRoundOrdered(const SMALL& div, const IntMap<int>& level, SMALL& slackdiff);
@@ -376,7 +394,6 @@ struct ConstrExp final : ConstrExpSuper {
   void weakenSuperfluous(const LARGE& div, bool sorted, const aux::predicate<Var>& toWeaken);
   void weakenSuperfluous(const LARGE& div);
   void weakenSuperfluousCanceling(const LARGE& div, const std::vector<int>& pos);
-  void applyMIR(const LARGE& d, const std::function<Lit(Var)>& toLit);
 
   bool divideByGCD();
   bool divideTo(double limit, const aux::predicate<Lit>& toWeaken);
@@ -754,6 +771,7 @@ struct ConstrExp final : ConstrExpSuper {
       out->proofBuffer.str(std::string());
       out->proofBuffer << proofBuffer.str();
     }
+    out->symbBound = symbBound;
   }
 
   template <typename S, typename L>

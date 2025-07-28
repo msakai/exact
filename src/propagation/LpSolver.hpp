@@ -178,10 +178,8 @@ class LpSolver {
   void convertConstraint(const ConstrSimple64& c, soplex::DSVectorReal& row, double& rhs);
   void resetBasis();
   CeSuper createLinearCombinationFarkas(soplex::DVectorReal& mults);
-  CandidateCut createLinearCombinationGomory(soplex::DVectorReal& mults);
   static double getScaleFactor(soplex::DVectorReal& mults, bool removeNegatives);
   Ce64 rowToConstraint(int row);
-  void constructGomoryCandidates();
   void constructLearnedCandidates();
   void addFilteredCuts();
   void pruneCuts();

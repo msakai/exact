@@ -92,6 +92,34 @@ int32_t dp_subsetsum(const std::vector<int32_t>& coefs, int32_t degree, int32_t 
   return m_sbstsm[0];
 }
 
+void SymbolicBound::add(const SymbolicBound& sb, const bigint& m) {
+  mult += sb.mult * m;
+  offset += sb.offset * m;
+}
+
+void SymbolicBound::divide(const bigint& div) {
+  mult /= div;
+  offset /= div;
+}
+
+void SymbolicBound::multiply(const bigint& m) {
+  mult *= m;
+  offset *= m;
+}
+
+void SymbolicBound::saturate() { status = SBStatus::INVALID; }
+
+void SymbolicBound::reset() {
+  mult = 0;
+  offset = 0;
+  status = SBStatus::FRESH;
+}
+
+bigint SymbolicBound::getLhs(const bigint& bound) const {
+  const ratio r = mult * bound + offset;
+  return aux::ceildiv_safe(numerator(r), denominator(r));
+}
+
 ConstrExpSuper::ConstrExpSuper(Global& g) : global(g), orig(Origin::UNKNOWN) {}
 
 void ConstrExpSuper::resetBuffer(ID proofID) {
@@ -314,7 +342,11 @@ void ConstrExp<SMALL, LARGE>::add(Var v, SMALL c, bool removeZeroes) {
     index[v] = vars.size();
     vars.push_back(v);
   } else {
-    if ((cf < 0) != (c < 0)) degree -= std::min(aux::abs(cf), aux::abs(c));
+    if ((cf < 0) != (c < 0)) {
+      SMALL change = std::min(aux::abs(cf), aux::abs(c));
+      degree -= change;
+      symbBound.offset -= change;
+    }
     cf += c;
     if (removeZeroes && cf == 0) remove(v);
   }
@@ -362,6 +394,8 @@ bool ConstrExp<SMALL, LARGE>::testConstraint() const {
   return true;
 }
 
+// TODO: testSymbolicBound!
+
 template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::resize(size_t s) {
   if (s > coefs.size()) {
@@ -388,12 +422,14 @@ void ConstrExp<SMALL, LARGE>::reset(bool partial) {
     orig = Origin::UNKNOWN;
     resetBuffer(ID_Trivial);
   }
+  symbBound.reset();
 }
 
 template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::addRhs(const LARGE& r) {
   rhs += r;
   degree += r;
+  symbBound.offset += r;
 }
 
 template <typename SMALL, typename LARGE>
@@ -405,24 +441,6 @@ template <typename SMALL, typename LARGE>
 LARGE ConstrExp<SMALL, LARGE>::getDegree() const {
   return degree;
 }
-
-// template <typename SMALL, typename LARGE>
-// double ConstrExp<SMALL, LARGE>::getStrength() const {
-//   assert(isSortedInDecreasingCoefOrder());
-//   LARGE coefsum = 0;
-//   LARGE deg_plus_cf = degree + getLargestCoef();
-//   uint32_t min_watches = 0;
-//   uint32_t nonzeroes = 0;
-//   for (Var v : vars) {
-//     const SMALL& cf = coefs[v];
-//     if (cf == 0) break;
-//     min_watches += coefsum < deg_plus_cf;
-//     coefsum += aux::abs(cf);
-//     ++nonzeroes;
-//   }
-//   assert(nonzeroes > 0);
-//   return std::sqrt(aux::divToDouble(degree, coefsum) * aux::divToDouble(min_watches, nonzeroes));
-// }
 
 template <typename SMALL, typename LARGE>
 double ConstrExp<SMALL, LARGE>::getStrength() const {
@@ -587,7 +605,10 @@ void ConstrExp<SMALL, LARGE>::addLhs(const SMALL& cf, Lit l) {  // add c*(l>=0) 
   if (cf == 0) return;
   assert(l != 0);
   SMALL c = cf;
-  if (c < 0) degree -= c;
+  if (c < 0) {
+    degree -= c;
+    symbBound.offset -= c;
+  }
   Var v = l;
   if (l < 0) {
     rhs -= c;
@@ -610,7 +631,9 @@ void ConstrExp<SMALL, LARGE>::weaken(const SMALL& m, Var v) {  // add m*(v>=0) i
   const bool tmp = m < 0;
   SMALL& c = coefs[v];
   if ((c < 0) != tmp) {
-    degree -= std::min(aux::abs(c), aux::abs(m));
+    SMALL change = std::min(aux::abs(c), aux::abs(m));
+    degree -= change;
+    symbBound.offset -= change;
   }
   if (tmp) {
     rhs += m;
@@ -630,6 +653,7 @@ void ConstrExp<SMALL, LARGE>::weakenVar(const SMALL& m, Var v) {  // add -m*l
   }
 
   degree -= m;
+  symbBound.offset -= m;
   if (coefs[v] < 0) {
     coefs[v] += m;
   } else {
@@ -650,6 +674,7 @@ void ConstrExp<SMALL, LARGE>::weaken(Var v) {  // fully weaken v
   } else {
     degree -= coefs[v];
     rhs -= coefs[v];
+    symbBound.offset -= coefs[v];
   }
   coefs[v] = 0;
 }
@@ -716,11 +741,17 @@ void ConstrExp<SMALL, LARGE>::removeUnitsAndZeroes(const IntMap<int>& level, con
       index[v] = -1;
     else if (isUnit(level, v)) {
       rhs -= coefs[v];
-      if (coefs[v] > 0) degree -= coefs[v];
+      if (coefs[v] > 0) {
+        degree -= coefs[v];
+        symbBound.offset -= coefs[v];
+      }
       index[v] = -1;
       coefs[v] = 0;
     } else if (isUnit(level, -v)) {
-      if (coefs[v] < 0) degree += coefs[v];
+      if (coefs[v] < 0) {
+        degree += coefs[v];
+        symbBound.offset += coefs[v];
+      }
       index[v] = -1;
       coefs[v] = 0;
     } else {
@@ -816,6 +847,7 @@ void ConstrExp<SMALL, LARGE>::saturate(const VarVec& vs, bool check, bool sorted
     return;
   }
   assert(getLargestCoef() > degree);
+  symbBound.saturate();
   SMALL smallDeg = static_cast<SMALL>(degree);  // safe cast because of above assert
   for (Var v : vs) {
     if (coefs[v] < -smallDeg) {
@@ -835,6 +867,7 @@ template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::saturate(Var v) {
   assert(degree >= 0);
   if (aux::abs(coefs[v]) <= degree) return;
+  symbBound.saturate();
   SMALL smallDeg = static_cast<SMALL>(degree);
   if (coefs[v] < -smallDeg) {
     rhs -= coefs[v] + smallDeg;
@@ -888,7 +921,9 @@ template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::invert() {
   rhs = -rhs;
   for (Var v : vars) coefs[v] = -coefs[v];
-  degree = calcDegree();
+  const LARGE newDeg = calcDegree();
+  symbBound.offset += newDeg - degree;
+  degree = newDeg;
 }
 
 /*
@@ -989,6 +1024,7 @@ void ConstrExp<SMALL, LARGE>::multiply(const SMALL& m) {
   for (Var v : vars) coefs[v] *= m;
   rhs *= m;
   degree *= m;
+  symbBound.multiply(m);
 }
 
 template <typename SMALL, typename LARGE>
@@ -1002,20 +1038,7 @@ void ConstrExp<SMALL, LARGE>::divideRoundUp(const LARGE& d) {
     coefs[v] = static_cast<SMALL>(coefs[v] / d) + (coefs[v] > 0 && undivisible) - (coefs[v] < 0 && undivisible);
   }
   degree = aux::ceildiv(degree, d);
-  rhs = calcRhs();
-}
-
-template <typename SMALL, typename LARGE>
-void ConstrExp<SMALL, LARGE>::divideRoundDown(const LARGE& d) {
-  assert(d > 0);
-  if (d == 1) return;
-  for (Var v : vars) {
-    weaken(-static_cast<SMALL>(coefs[v] % d), v);
-    assert(coefs[v] % d == 0);
-    coefs[v] = static_cast<SMALL>(coefs[v] / d);
-  }
-  if (global.logger.isActive()) Logger::proofDiv(proofBuffer, d);
-  degree = degree <= 0 ? 0 : aux::ceildiv(degree, d);
+  symbBound.divide(d);
   rhs = calcRhs();
 }
 
@@ -1252,26 +1275,6 @@ void ConstrExp<SMALL, LARGE>::weakenSuperfluousCanceling(const LARGE& div, const
     }
   }
   assert(quot == aux::ceildiv(degree, div));
-}
-
-template <typename SMALL, typename LARGE>
-void ConstrExp<SMALL, LARGE>::applyMIR(const LARGE& d, const std::function<Lit(Var)>& toLit) {
-  assert(d > 0);
-  LARGE tmpRhs = rhs;
-  for (Var v : vars)
-    if (toLit(v) < 0) tmpRhs -= coefs[v];
-  LARGE bmodd = aux::mod_safe(tmpRhs, d);
-  rhs = bmodd * aux::ceildiv_safe(tmpRhs, d);
-  for (Var v : vars) {
-    if (toLit(v) < 0) {
-      coefs[v] = static_cast<SMALL>(
-          -(bmodd * aux::floordiv_safe<LARGE>(-coefs[v], d) + std::min(aux::mod_safe<LARGE>(-coefs[v], d), bmodd)));
-      rhs += coefs[v];
-    } else
-      coefs[v] = static_cast<SMALL>(bmodd * aux::floordiv_safe<LARGE>(coefs[v], d) +
-                                    std::min(aux::mod_safe<LARGE>(coefs[v], d), bmodd));
-  }
-  degree = calcDegree();
 }
 
 template <typename SMALL, typename LARGE>
@@ -1668,6 +1671,7 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
   int32_t newdegree = dp_subsetsum(cfs, static_cast<int32_t>(degree), static_cast<int32_t>(total));
   if (newdegree > degree) {
     rhs += newdegree - degree;
+    symbBound.offset += newdegree - degree;
     degree = newdegree;
     global.stats.NSUBSETSUM += 1;
     global.logger.logAssumption(*this, global.options.proofAssumps.operator bool());

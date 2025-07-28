@@ -494,6 +494,8 @@ bool Cardinality::canBeSimplified(const IntMap<int>& level, Equalities& equaliti
   return false;
 }
 
+void Watched32::cleanup() { delete symbBound; }
+
 size_t Watched32::getMemSize(uint32_t length) {
   return aux::ceildiv(sizeof(Watched32) + sizeof(Lit) * length * 2, maxAlign);
 }
@@ -740,6 +742,12 @@ bool Watched32::canBeSimplified(const IntMap<int>& level, Equalities& equalities
     isp.release(saturateds);
   }
   return false;
+}
+
+template <typename CF, typename DG>
+void Watched<CF, DG>::cleanup() {
+  delete[] cfs;
+  delete symbBound;
 }
 
 template <typename CF, typename DG>
