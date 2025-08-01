@@ -98,6 +98,7 @@ class Solver {
   CeSuper lastCore;
   CeSuper lastGlobalDual;
   CeArb objective;
+  bigint lastUpperBound;
   Global& global;
 
  private:

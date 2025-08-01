@@ -86,6 +86,7 @@ struct IntSet;
 struct SymbolicBound {
   ratio mult = 0;
   ratio offset = 0;
+  // TODO: if mult is 0, the whole thing is invalid. We can use this to flag saturated and drop both bools
   bool isSaturated = false;
   bool isAdded = false;
 
@@ -130,7 +131,7 @@ struct ConstrExpSuper {
   // NOTE: only equivalence preserving operations over the Bools!
   void postProcess(const IntMap<int>& level, const std::vector<int>& pos, const Heuristic& heur, bool sortFirst,
                    Stats& stats);
-  void strongPostProcess(Solver& solver);
+  void strongPostProcess(Solver& solver, const bigint& lastUpperBound);
 
   explicit ConstrExpSuper(Global& g);
   virtual ~ConstrExpSuper() = default;

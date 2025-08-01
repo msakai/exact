@@ -246,6 +246,7 @@ struct Stats {
   Stat NMULTWEAKENEDDIRECT{0, "number of direct multiply-weakens"};
   Stat NMULTWEAKENEDINDIRECT{0, "number of indirect multiply-weakens"};
   Stat NSUBSETSUM{0, "number of lifted degrees"};
+  Stat NSYMBBOUND{0, "number of symbolic bound improvements"};
   Stat NORIGVARS{0, "original variables"};
   Stat NAUXVARS{0, "auxiliary variables"};
 
@@ -367,6 +368,7 @@ struct Stats {
       &ATMOSTONEDETTIME,
       &SUBSETSUMTIME,
       &NSUBSETSUM,
+      &NSYMBBOUND,
 #if WITHSOPLEX
       &LPSOLVETIME,
       &LPTOTALTIME,

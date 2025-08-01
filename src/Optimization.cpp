@@ -492,6 +492,8 @@ void Optimization<SMALL, LARGE>::boundObjByLastSol() {
   const LitVec& sol = solver.getLastSolution();
   upper_bound = -origObj->getRhs();
   for (Var v : origObj->getVars()) upper_bound += sol[v] > 0 ? origObj->coefs[v] : 0;
+  const LARGE upbound = -upper_bound + 1;
+  solver.lastUpperBound = upbound;
 
   CePtr<SMALL, LARGE> aux = global.cePools.take<SMALL, LARGE>();
   origObj->copyTo(aux);
@@ -499,9 +501,9 @@ void Optimization<SMALL, LARGE>::boundObjByLastSol() {
   aux->invert();
   aux->symbBound.mult = 1;
   aux->symbBound.offset = origObj->getDegree();
-  aux->addRhs(-upper_bound + 1);
+  aux->addRhs(upbound);
   // the symbolic bound rhs should be equal to the actual rhs
-  assert(aux->symbBound.getDegree(-upper_bound + 1) == aux->getDegree());
+  assert(aux->symbBound.getDegree(upbound) == aux->getDegree());
 
   solver.dropExternal(lastUpperBound, true, true);
   std::pair<ID, ID> res = solver.addConstraint(aux);

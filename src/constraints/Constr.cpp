@@ -706,6 +706,7 @@ Ce32 Watched32::expandTo(ConstrExpPools& cePools) const {
   result->orig = getOrigin();
   result->resetBuffer(id());
   assert(result->isSortedInDecreasingCoefOrder());
+  result->symbBound = *symbBound;
   return result;
 }
 
@@ -991,6 +992,7 @@ CePtr<CF, DG> Watched<CF, DG>::expandTo(ConstrExpPools& cePools) const {
   result->orig = getOrigin();
   result->resetBuffer(id());
   assert(result->isSortedInDecreasingCoefOrder());
+  result->symbBound = *symbBound;
   return result;
 }
 

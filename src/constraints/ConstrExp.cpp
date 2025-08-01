@@ -93,6 +93,7 @@ int32_t dp_subsetsum(const std::vector<int32_t>& coefs, int32_t degree, int32_t 
 }
 
 void SymbolicBound::add(const SymbolicBound& sb, const bigint& m) {
+  assert(m > 0);
   isAdded = true;
   if (isSaturated) return;
   mult += sb.mult * m;
@@ -106,12 +107,14 @@ void SymbolicBound::addOffset(const bigint& os) {
 }
 
 void SymbolicBound::divide(const bigint& div) {
+  assert(div > 0);
   if (isSaturated) return;
   mult /= div;
   offset /= div;
 }
 
 void SymbolicBound::multiply(const bigint& m) {
+  assert(m > 0);
   if (isSaturated) return;
   mult *= m;
   offset *= m;
@@ -208,8 +211,9 @@ void ConstrExpSuper::postProcess(const IntMap<int>& level, const std::vector<int
   liftDegree();
 }
 
-void ConstrExpSuper::strongPostProcess(Solver& solver) {
+void ConstrExpSuper::strongPostProcess(Solver& solver, const bigint& lastUpperBound) {
   [[maybe_unused]] int nvars = nNonZeroVars();
+  liftDegreeSymbolic(lastUpperBound);
   removeEqualities(solver.getEqualities());
   selfSubsumeImplications(solver.getImplications());
   postProcess(solver.getLevel(), solver.getPos(), solver.getHeuristic(), true, solver.getStats());
@@ -1703,6 +1707,7 @@ void ConstrExp<SMALL, LARGE>::liftDegreeSymbolic(const bigint& lastBound) {
       degree = static_cast<LARGE>(newDegree);  // less than absCoeffSum(), so fits in LARGE
     }
     calcRhs();
+    ++global.stats.NSYMBBOUND;
   }
   // TODO: proof logging
 }

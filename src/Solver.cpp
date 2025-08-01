@@ -772,7 +772,7 @@ std::pair<ID, ID> Solver::addInputConstraint(const CeSuper& ce) {  // NOTE: shou
     default:
       input = global.logger.logAssumption(ce, global.options.proofAssumps.operator bool());
   }
-  ce->strongPostProcess(*this);
+  ce->strongPostProcess(*this, lastUpperBound);
   if (ce->isTautology()) {
     return {input, ID_Undef};  // already satisfied.
   }
@@ -1033,7 +1033,7 @@ void Solver::reduceDB() {
     CeSuper ce = c.toExpanded(global.cePools);
     bool isLocked = c.isLocked();
     unsigned int lbd = c.lbd();
-    ce->strongPostProcess(*this);
+    ce->strongPostProcess(*this, lastUpperBound);
     if (ce->isUnsat()) reportUnsat(ce);
     if (ce->isTautology()) {
       removeConstraint(cr, true);
