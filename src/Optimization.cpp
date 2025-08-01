@@ -488,8 +488,8 @@ void Optimization<SMALL, LARGE>::handleInconsistency(const CeSuper& core) {  // 
 template <typename SMALL, typename LARGE>
 void Optimization<SMALL, LARGE>::boundObjByLastSol() {
   if (!solver.foundSolution()) throw InvalidArgument("No solution to add objective bound.");
-  const LitVec& sol = solver.getLastSolution();
 
+  const LitVec& sol = solver.getLastSolution();
   upper_bound = -origObj->getRhs();
   for (Var v : origObj->getVars()) upper_bound += sol[v] > 0 ? origObj->coefs[v] : 0;
 
@@ -497,7 +497,12 @@ void Optimization<SMALL, LARGE>::boundObjByLastSol() {
   origObj->copyTo(aux);
   aux->orig = Origin::UPPERBOUND;
   aux->invert();
+  aux->symbBound.mult = 1;
+  aux->symbBound.offset = origObj->getDegree();
   aux->addRhs(-upper_bound + 1);
+  // the symbolic bound rhs should be equal to the actual rhs
+  assert(aux->symbBound.getDegree(-upper_bound + 1) == aux->getDegree());
+
   solver.dropExternal(lastUpperBound, true, true);
   std::pair<ID, ID> res = solver.addConstraint(aux);
   lastUpperBound = res.second;

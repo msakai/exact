@@ -83,20 +83,20 @@ class Equalities;
 class Implications;
 struct IntSet;
 
-enum class SBStatus { FRESH, REPLACABLE, INVALID };
-
 struct SymbolicBound {
   ratio mult = 0;
   ratio offset = 0;
-  SBStatus status = SBStatus::FRESH;
+  bool isSaturated = false;
+  bool isAdded = false;
 
   void add(const SymbolicBound& sb, const bigint& mult);
+  void addOffset(const bigint& mult);
   void divide(const bigint& div);
   void multiply(const bigint& mult);
   void saturate();
   void reset();
 
-  bigint getLhs(const bigint& bound) const;
+  bigint getDegree(const bigint& bound) const;
 };
 
 struct ConstrExpSuper {
@@ -207,6 +207,7 @@ struct ConstrExpSuper {
   virtual bool isClause() const = 0;
   virtual void simplifyToUnit(const IntMap<int>& level, const std::vector<int>& pos, Var v_unit) = 0;
   virtual void liftDegree() = 0;
+  virtual void liftDegreeSymbolic(const bigint& lastBound) = 0;
 
   virtual bool isSortedInDecreasingCoefOrder() const = 0;
   virtual void sortInDecreasingCoefOrder(const std::function<bool(Var, Var)>& tiebreaker) = 0;
@@ -434,6 +435,7 @@ struct ConstrExp final : ConstrExpSuper {
   bool isClause() const;
   void simplifyToUnit(const IntMap<int>& level, const std::vector<int>& pos, Var v_unit);
   void liftDegree();
+  void liftDegreeSymbolic(const bigint& lastBound);
 
   bool isSortedInDecreasingCoefOrder() const;
   void sortInDecreasingCoefOrder(const std::function<bool(Var, Var)>& tiebreaker);

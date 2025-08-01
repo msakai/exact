@@ -93,29 +93,40 @@ int32_t dp_subsetsum(const std::vector<int32_t>& coefs, int32_t degree, int32_t 
 }
 
 void SymbolicBound::add(const SymbolicBound& sb, const bigint& m) {
+  isAdded = true;
+  if (isSaturated) return;
   mult += sb.mult * m;
   offset += sb.offset * m;
 }
 
+void SymbolicBound::addOffset(const bigint& os) {
+  isAdded = true;
+  if (isSaturated) return;
+  offset += os;
+}
+
 void SymbolicBound::divide(const bigint& div) {
+  if (isSaturated) return;
   mult /= div;
   offset /= div;
 }
 
 void SymbolicBound::multiply(const bigint& m) {
+  if (isSaturated) return;
   mult *= m;
   offset *= m;
 }
 
-void SymbolicBound::saturate() { status = SBStatus::INVALID; }
+void SymbolicBound::saturate() { isSaturated = true; }
 
 void SymbolicBound::reset() {
   mult = 0;
   offset = 0;
-  status = SBStatus::FRESH;
+  isSaturated = false;
+  isAdded = false;
 }
 
-bigint SymbolicBound::getLhs(const bigint& bound) const {
+bigint SymbolicBound::getDegree(const bigint& bound) const {
   const ratio r = mult * bound + offset;
   return aux::ceildiv_safe(numerator(r), denominator(r));
 }
@@ -345,7 +356,7 @@ void ConstrExp<SMALL, LARGE>::add(Var v, SMALL c, bool removeZeroes) {
     if ((cf < 0) != (c < 0)) {
       SMALL change = std::min(aux::abs(cf), aux::abs(c));
       degree -= change;
-      symbBound.offset -= change;
+      symbBound.addOffset(-change);
     }
     cf += c;
     if (removeZeroes && cf == 0) remove(v);
@@ -607,7 +618,7 @@ void ConstrExp<SMALL, LARGE>::addLhs(const SMALL& cf, Lit l) {  // add c*(l>=0) 
   SMALL c = cf;
   if (c < 0) {
     degree -= c;
-    symbBound.offset -= c;
+    symbBound.addOffset(-c);
   }
   Var v = l;
   if (l < 0) {
@@ -633,7 +644,7 @@ void ConstrExp<SMALL, LARGE>::weaken(const SMALL& m, Var v) {  // add m*(v>=0) i
   if ((c < 0) != tmp) {
     SMALL change = std::min(aux::abs(c), aux::abs(m));
     degree -= change;
-    symbBound.offset -= change;
+    symbBound.addOffset(-change);
   }
   if (tmp) {
     rhs += m;
@@ -653,7 +664,7 @@ void ConstrExp<SMALL, LARGE>::weakenVar(const SMALL& m, Var v) {  // add -m*l
   }
 
   degree -= m;
-  symbBound.offset -= m;
+  symbBound.addOffset(-m);
   if (coefs[v] < 0) {
     coefs[v] += m;
   } else {
@@ -674,7 +685,7 @@ void ConstrExp<SMALL, LARGE>::weaken(Var v) {  // fully weaken v
   } else {
     degree -= coefs[v];
     rhs -= coefs[v];
-    symbBound.offset -= coefs[v];
+    symbBound.addOffset(-coefs[v]);
   }
   coefs[v] = 0;
 }
@@ -743,14 +754,14 @@ void ConstrExp<SMALL, LARGE>::removeUnitsAndZeroes(const IntMap<int>& level, con
       rhs -= coefs[v];
       if (coefs[v] > 0) {
         degree -= coefs[v];
-        symbBound.offset -= coefs[v];
+        symbBound.addOffset(-coefs[v]);
       }
       index[v] = -1;
       coefs[v] = 0;
     } else if (isUnit(level, -v)) {
       if (coefs[v] < 0) {
         degree += coefs[v];
-        symbBound.offset += coefs[v];
+        symbBound.addOffset(coefs[v]);
       }
       index[v] = -1;
       coefs[v] = 0;
@@ -922,7 +933,7 @@ void ConstrExp<SMALL, LARGE>::invert() {
   rhs = -rhs;
   for (Var v : vars) coefs[v] = -coefs[v];
   const LARGE newDeg = calcDegree();
-  symbBound.offset += newDeg - degree;
+  symbBound.addOffset(newDeg - degree);
   degree = newDeg;
 }
 
@@ -1671,13 +1682,29 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
   int32_t newdegree = dp_subsetsum(cfs, static_cast<int32_t>(degree), static_cast<int32_t>(total));
   if (newdegree > degree) {
     rhs += newdegree - degree;
-    symbBound.offset += newdegree - degree;
+    symbBound.addOffset(newdegree - degree);
     degree = newdegree;
     global.stats.NSUBSETSUM += 1;
     global.logger.logAssumption(*this, global.options.proofAssumps.operator bool());
   }
   global.stats.SUBSETSUMTIME +=
       std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - start).count();
+}
+
+template <typename SMALL, typename LARGE>
+void ConstrExp<SMALL, LARGE>::liftDegreeSymbolic(const bigint& lastBound) {
+  if (symbBound.isSaturated) return;
+  const bigint newDegree = symbBound.getDegree(lastBound);
+  if (newDegree > degree) {
+    const LARGE acf = absCoeffSum();
+    if (newDegree > acf) {
+      degree = acf + 1;
+    } else {
+      degree = static_cast<LARGE>(newDegree);  // less than absCoeffSum(), so fits in LARGE
+    }
+    calcRhs();
+  }
+  // TODO: proof logging
 }
 
 template <typename SMALL, typename LARGE>
