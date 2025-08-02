@@ -94,40 +94,38 @@ int32_t dp_subsetsum(const std::vector<int32_t>& coefs, int32_t degree, int32_t 
 
 void SymbolicBound::add(const SymbolicBound& sb, const bigint& m) {
   assert(m > 0);
-  isAdded = true;
-  if (isSaturated) return;
+  if (!isValid()) return;
   mult += sb.mult * m;
   offset += sb.offset * m;
 }
 
 void SymbolicBound::addOffset(const bigint& os) {
-  isAdded = true;
-  if (isSaturated) return;
+  if (!isValid()) return;
   offset += os;
 }
 
 void SymbolicBound::divide(const bigint& div) {
   assert(div > 0);
-  if (isSaturated) return;
+  if (!isValid()) return;
   mult /= div;
   offset /= div;
 }
 
 void SymbolicBound::multiply(const bigint& m) {
   assert(m > 0);
-  if (isSaturated) return;
+  if (!isValid()) return;
   mult *= m;
   offset *= m;
 }
 
-void SymbolicBound::saturate() { isSaturated = true; }
+void SymbolicBound::saturate() { reset(); }
 
 void SymbolicBound::reset() {
   mult = 0;
   offset = 0;
-  isSaturated = false;
-  isAdded = false;
 }
+
+bool SymbolicBound::isValid() const { return mult != 0; }
 
 bigint SymbolicBound::getDegree(const bigint& bound) const {
   const ratio r = mult * bound + offset;
@@ -421,7 +419,7 @@ void ConstrExp<SMALL, LARGE>::resize(size_t s) {
 
 template <typename SMALL, typename LARGE>
 bool ConstrExp<SMALL, LARGE>::isReset() const {
-  return vars.empty() && rhs == 0 && degree == 0;
+  return vars.empty() && rhs == 0 && degree == 0 && !symbBound.isValid();
 }
 
 template <typename SMALL, typename LARGE>
@@ -1697,7 +1695,7 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
 
 template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::liftDegreeSymbolic(const bigint& lastBound) {
-  if (symbBound.isSaturated) return;
+  if (!symbBound.isValid()) return;
   const bigint newDegree = symbBound.getDegree(lastBound);
   if (newDegree > degree) {
     const LARGE acf = absCoeffSum();
@@ -1706,7 +1704,7 @@ void ConstrExp<SMALL, LARGE>::liftDegreeSymbolic(const bigint& lastBound) {
     } else {
       degree = static_cast<LARGE>(newDegree);  // less than absCoeffSum(), so fits in LARGE
     }
-    calcRhs();
+    rhs = calcRhs();
     ++global.stats.NSYMBBOUND;
   }
   // TODO: proof logging

@@ -86,9 +86,6 @@ struct IntSet;
 struct SymbolicBound {
   ratio mult = 0;
   ratio offset = 0;
-  // TODO: if mult is 0, the whole thing is invalid. We can use this to flag saturated and drop both bools
-  bool isSaturated = false;
-  bool isAdded = false;
 
   void add(const SymbolicBound& sb, const bigint& mult);
   void addOffset(const bigint& mult);
@@ -96,6 +93,7 @@ struct SymbolicBound {
   void multiply(const bigint& mult);
   void saturate();
   void reset();
+  bool isValid() const;
 
   bigint getDegree(const bigint& bound) const;
 };

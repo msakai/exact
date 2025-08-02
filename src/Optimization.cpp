@@ -499,10 +499,10 @@ void Optimization<SMALL, LARGE>::boundObjByLastSol() {
   origObj->copyTo(aux);
   aux->orig = Origin::UPPERBOUND;
   aux->invert();
-  aux->symbBound.mult = 1;
-  aux->symbBound.offset = origObj->getDegree();
   aux->addRhs(upbound);
-  // the symbolic bound rhs should be equal to the actual rhs
+
+  aux->symbBound.mult = 1;
+  aux->symbBound.offset = aux->getDegree() - upbound;
   assert(aux->symbBound.getDegree(upbound) == aux->getDegree());
 
   solver.dropExternal(lastUpperBound, true, true);
