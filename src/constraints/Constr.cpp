@@ -171,6 +171,7 @@ CeSuper Binary::toExpanded(ConstrExpPools& cePools) const {
   result->addLhs(1, data[1]);
   result->orig = getOrigin();
   result->resetBuffer(id());
+  assert(!result->symbBound.isValid());
   return result;
 }
 
@@ -314,6 +315,7 @@ CeSuper Clause::toExpanded(ConstrExpPools& cePools) const {
   }
   result->orig = getOrigin();
   result->resetBuffer(id());
+  assert(!result->symbBound.isValid());
   return result;
 }
 
@@ -472,6 +474,7 @@ CeSuper Cardinality::toExpanded(ConstrExpPools& cePools) const {
   }
   result->orig = getOrigin();
   result->resetBuffer(id());
+  assert(!result->symbBound.isValid());
   return result;
 }
 

@@ -301,6 +301,8 @@ struct Watched32 final : Constr {
     assert(fitsIn<int64_t>(constraint->getDegree()));
     assert(fitsIn<int32_t>(constraint->getLargestCoef()));
     assert(strngth == constraint->getStrength());
+    assert(symbBound->mult == constraint->symbBound.mult);
+    assert(symbBound->offset == constraint->symbBound.offset);
 
     for (uint32_t i = 0; i < size(); ++i) {
       Var v = constraint->getVars()[i];
@@ -369,6 +371,8 @@ struct Watched final : Constr {
     assert(fitsIn<DG>(constraint->getDegree()));
     assert(fitsIn<CF>(constraint->getLargestCoef()));
     assert(strngth == constraint->getStrength());
+    assert(symbBound->mult == constraint->symbBound.mult);
+    assert(symbBound->offset == constraint->symbBound.offset);
 
     for (uint32_t i = 0; i < size(); ++i) {
       Var v = constraint->getVars()[i];
