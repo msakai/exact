@@ -97,6 +97,11 @@ struct SymbolicBound {
   bigint getRhs(const bigint& bound) const;
 };
 
+// TODO: invalid symbBounds should just be null pointers in Constr
+// TODO: symbBounds for cardinalities/clauses
+// TODO: symbBounds for subsumption
+// TODO: symbBounds for bottom-up calculations
+
 struct ConstrExpSuper {
   // protected:
   // for some reason (templates?) copyTo_ cannot acces external vars and indexes if protected
