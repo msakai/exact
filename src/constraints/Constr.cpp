@@ -693,7 +693,7 @@ void Watched32::undoFalsified(uint32_t i) {
 
 uint32_t Watched32::resolveWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& actSet) const {
   return confl->resolveWith(data, data + size(), size(), degr, id(), getOrigin(), l, solver.getLevel(), solver.getPos(),
-                            actSet);
+                            actSet, *symbBound);
 }
 uint32_t Watched32::subsumeWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& saturatedLits) const {
   return confl->subsumeWith(data, data + size(), size(), degr, id(), l, solver.getLevel(), solver.getPos(),
@@ -978,7 +978,8 @@ void Watched<CF, DG>::undoFalsified(uint32_t i) {
 
 template <typename CF, typename DG>
 uint32_t Watched<CF, DG>::resolveWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& actSet) const {
-  return confl->resolveWith(lits, cfs, size(), degr, id(), getOrigin(), l, solver.getLevel(), solver.getPos(), actSet);
+  return confl->resolveWith(lits, cfs, size(), degr, id(), getOrigin(), l, solver.getLevel(), solver.getPos(), actSet,
+                            *symbBound);
 }
 template <typename CF, typename DG>
 uint32_t Watched<CF, DG>::subsumeWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& saturatedLits) const {

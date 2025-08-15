@@ -74,6 +74,7 @@ CeSuper ConstrSimple<CF, DG>::toExpanded(ConstrExpPools& cePools) const {
   }
   ce->orig = orig;
   ce->resetBuffer(proofLine);
+  ce->symbBound.reset();
   return ce;
 }
 

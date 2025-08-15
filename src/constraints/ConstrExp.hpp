@@ -91,11 +91,10 @@ struct SymbolicBound {
   void addOffset(const bigint& mult);
   void divide(const bigint& div);
   void multiply(const bigint& mult);
-  void saturate();
   void reset();
   bool isValid() const;
 
-  bigint getDegree(const bigint& bound) const;
+  bigint getRhs(const bigint& bound) const;
 };
 
 struct ConstrExpSuper {
@@ -221,19 +220,19 @@ struct ConstrExpSuper {
                                    const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet) = 0;
   virtual unsigned int resolveWith(const Lit* lits, const int* coefs, unsigned int size, const int64_t& degr, ID id,
                                    Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos,
-                                   IntSet& actSet) = 0;
+                                   IntSet& actSet, const SymbolicBound& sb) = 0;
   virtual unsigned int resolveWith(const Lit* lits, const int64_t* coefs, unsigned int size, const int128& degr, ID id,
                                    Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos,
-                                   IntSet& actSet) = 0;
+                                   IntSet& actSet, const SymbolicBound& sb) = 0;
   virtual unsigned int resolveWith(const Lit* lits, const int128* coefs, unsigned int size, const int128& degr, ID id,
                                    Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos,
-                                   IntSet& actSet) = 0;
+                                   IntSet& actSet, const SymbolicBound& sb) = 0;
   virtual unsigned int resolveWith(const Lit* lits, const int128* coefs, unsigned int size, const int256& degr, ID id,
                                    Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos,
-                                   IntSet& actSet) = 0;
+                                   IntSet& actSet, const SymbolicBound& sb) = 0;
   virtual unsigned int resolveWith(const Lit* lits, const bigint* coefs, unsigned int size, const bigint& degr, ID id,
                                    Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos,
-                                   IntSet& actSet) = 0;
+                                   IntSet& actSet, const SymbolicBound& sb) = 0;
   virtual unsigned int subsumeWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit l,
                                    const IntMap<int>& level, const std::vector<int>& pos, IntSet& saturatedLits) = 0;
   virtual unsigned int subsumeWith(const Lit* lits, const int* coefs, unsigned int size, const int64_t& degr, ID id,
@@ -366,6 +365,18 @@ struct ConstrExp final : ConstrExpSuper {
     global.stats.NADDEDLITERALS.z += c->nVars();
     assert(cmult >= 1);
     if (global.logger.isActive()) Logger::proofMult(proofBuffer << c->proofBuffer.str(), cmult) << "+ ";
+    if (symbBound.isValid() && c->symbBound.isValid()) {
+      symbBound.add(c->symbBound, cmult);
+    }
+    if (symbBound.isValid() && !c->symbBound.isValid()) {
+      bigint big_int = c->getRhs();
+      symbBound.addOffset(big_int * cmult);
+    }
+    if (!symbBound.isValid() && c->symbBound.isValid()) {
+      symbBound = c->symbBound;
+      symbBound.multiply(cmult);
+      symbBound.addOffset(getRhs());
+    }
     rhs += static_cast<LARGE>(cmult) * static_cast<LARGE>(c->rhs);
     degree += static_cast<LARGE>(cmult) * static_cast<LARGE>(c->degree);
     for (Var v : c->vars) {
@@ -374,7 +385,6 @@ struct ConstrExp final : ConstrExpSuper {
       SMALL val = cmult * static_cast<SMALL>(c->coefs[v]);
       add(v, val, true);
     }
-    symbBound.add(c->symbBound, cmult);
   }
 
   void invert();
@@ -448,15 +458,20 @@ struct ConstrExp final : ConstrExpSuper {
   unsigned int resolveWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit l, const IntMap<int>& level,
                            const std::vector<int>& pos, IntSet& actSet);
   unsigned int resolveWith(const Lit* lits, const int* coefs, unsigned int size, const int64_t& degr, ID id, Origin o,
-                           Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet);
+                           Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet,
+                           const SymbolicBound& sb);
   unsigned int resolveWith(const Lit* lits, const int64_t* coefs, unsigned int size, const int128& degr, ID id,
-                           Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet);
+                           Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet,
+                           const SymbolicBound& sb);
   unsigned int resolveWith(const Lit* lits, const int128* coefs, unsigned int size, const int128& degr, ID id, Origin o,
-                           Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet);
+                           Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet,
+                           const SymbolicBound& sb);
   unsigned int resolveWith(const Lit* lits, const int128* coefs, unsigned int size, const int256& degr, ID id, Origin o,
-                           Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet);
+                           Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet,
+                           const SymbolicBound& sb);
   unsigned int resolveWith(const Lit* lits, const bigint* coefs, unsigned int size, const bigint& degr, ID id, Origin o,
-                           Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet);
+                           Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet,
+                           const SymbolicBound& sb);
   unsigned int subsumeWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit l, const IntMap<int>& level,
                            const std::vector<int>& pos, IntSet& saturatedLits);
   unsigned int subsumeWith(const Lit* lits, const int* coefs, unsigned int size, const int64_t& degr, ID id, Lit l,
@@ -473,7 +488,7 @@ struct ConstrExp final : ConstrExpSuper {
  private:
   template <typename CF, typename DG>
   void initFixOverflow(const Lit* lits, const CF* cfs, unsigned int size, const DG& degr, ID id, Origin o,
-                       const IntMap<int>& level, const std::vector<int>& pos, Lit asserting) {
+                       const IntMap<int>& level, const std::vector<int>& pos, Lit asserting, const SymbolicBound& sb) {
     orig = o;
     assert(size > 0);
     DG div = 1;
@@ -491,6 +506,7 @@ struct ConstrExp final : ConstrExpSuper {
         div = aux::ceildiv<DG>(maxVal, aux::powtwo<DG>(bitReduce) - 1);
       }
     }
+    symbBound = sb;
     if (div == 1) {
       for (unsigned int i = 0; i < size; ++i) {
         assert(bitOverflow == 0 || aux::msb(aux::ceildiv<DG>(cfs[i], div)) < bitOverflow);
@@ -505,13 +521,18 @@ struct ConstrExp final : ConstrExpSuper {
         const CF& cf = cfs[i];
         if (!isFalse(level, l) && l != asserting) {
           addLhs(static_cast<SMALL>(cf / div), l);  // partial weakening
-          weakenedDegree -= cf % div;
+          auto toWeaken = cf % div;
+          weakenedDegree -= toWeaken;
+          if (toWeaken != 0 && l > 0) {
+            symbBound.addOffset(-toWeaken);
+          }
         } else {
           assert(aux::msb(aux::ceildiv<DG>(cf, div)) < bitOverflow);
           addLhs(static_cast<SMALL>(aux::ceildiv<DG>(cf, div)), l);
         }
       }
       addRhs(static_cast<LARGE>(aux::ceildiv<DG>(weakenedDegree, div)));
+      symbBound.divide(div);
     }
     if (global.logger.isActive()) {
       resetBuffer(id);
@@ -532,7 +553,8 @@ struct ConstrExp final : ConstrExpSuper {
 
   template <typename CF, typename DG>
   unsigned int genericResolve(const Lit* lits, const CF* cfs, unsigned int size, const DG& degr, ID id, Origin o,
-                              Lit asserting, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet) {
+                              Lit asserting, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet,
+                              const SymbolicBound& sb) {
     // "this" is the conflict constraint.
     // The terms, degree, and other information from the reason constraint are in the arguments.
     assert(getCoef(-asserting) > 0);
@@ -541,7 +563,7 @@ struct ConstrExp final : ConstrExpSuper {
     // take an empty reason CE
     CePtr<SMALL, LARGE> reason = global.cePools.take<SMALL, LARGE>();
     // add its data
-    reason->initFixOverflow(lits, cfs, size, degr, id, o, level, pos, asserting);
+    reason->initFixOverflow(lits, cfs, size, degr, id, o, level, pos, asserting, sb);
     // asserting literal has positive coefficient in reason
     assert(reason->getCoef(asserting) > 0);
     assert(reason->getCoef(asserting) > reason->getSlack(level));
@@ -724,6 +746,7 @@ struct ConstrExp final : ConstrExpSuper {
     saturatedLits.remove(-toSubsume);
     ++global.stats.NSUBSUMESTEPS.z;
 
+    symbBound.reset();
     if (global.logger.isActive()) {
       proofBuffer << id << " ";
       for (unsigned int i = 0; i < size; ++i) {

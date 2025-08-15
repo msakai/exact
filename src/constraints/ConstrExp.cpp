@@ -71,7 +71,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "Constr.hpp"
 
 namespace xct {
-
 constexpr int32_t size_sbstsm = 1e6;
 int32_t m_sbstsm[size_sbstsm];
 
@@ -94,7 +93,7 @@ int32_t dp_subsetsum(const std::vector<int32_t>& coefs, int32_t degree, int32_t 
 
 void SymbolicBound::add(const SymbolicBound& sb, const bigint& m) {
   assert(m > 0);
-  if (!isValid()) return;
+  assert(isValid());
   mult += sb.mult * m;
   offset += sb.offset * m;
 }
@@ -107,8 +106,9 @@ void SymbolicBound::addOffset(const bigint& os) {
 void SymbolicBound::divide(const bigint& div) {
   assert(div > 0);
   if (!isValid()) return;
-  mult /= div;
-  offset /= div;
+  const ratio x = div;
+  mult /= x;
+  offset /= x;
 }
 
 void SymbolicBound::multiply(const bigint& m) {
@@ -118,16 +118,17 @@ void SymbolicBound::multiply(const bigint& m) {
   offset *= m;
 }
 
-void SymbolicBound::saturate() { reset(); }
-
 void SymbolicBound::reset() {
   mult = 0;
   offset = 0;
 }
 
-bool SymbolicBound::isValid() const { return mult != 0; }
+bool SymbolicBound::isValid() const {
+  assert(mult != 0 || offset == 0);
+  return mult != 0;
+}
 
-bigint SymbolicBound::getDegree(const bigint& bound) const {
+bigint SymbolicBound::getRhs(const bigint& bound) const {
   const ratio r = mult * bound + offset;
   return aux::ceildiv_safe(numerator(r), denominator(r));
 }
@@ -358,7 +359,6 @@ void ConstrExp<SMALL, LARGE>::add(Var v, SMALL c, bool removeZeroes) {
     if ((cf < 0) != (c < 0)) {
       SMALL change = std::min(aux::abs(cf), aux::abs(c));
       degree -= change;
-      symbBound.addOffset(-change);
     }
     cf += c;
     if (removeZeroes && cf == 0) remove(v);
@@ -442,7 +442,6 @@ template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::addRhs(const LARGE& r) {
   rhs += r;
   degree += r;
-  symbBound.offset += r;
 }
 
 template <typename SMALL, typename LARGE>
@@ -620,7 +619,6 @@ void ConstrExp<SMALL, LARGE>::addLhs(const SMALL& cf, Lit l) {  // add c*(l>=0) 
   SMALL c = cf;
   if (c < 0) {
     degree -= c;
-    symbBound.addOffset(-c);
   }
   Var v = l;
   if (l < 0) {
@@ -646,10 +644,10 @@ void ConstrExp<SMALL, LARGE>::weaken(const SMALL& m, Var v) {  // add m*(v>=0) i
   if ((c < 0) != tmp) {
     SMALL change = std::min(aux::abs(c), aux::abs(m));
     degree -= change;
-    symbBound.addOffset(-change);
   }
   if (tmp) {
     rhs += m;
+    symbBound.addOffset(m);
   }
   c += m;
 }
@@ -666,12 +664,12 @@ void ConstrExp<SMALL, LARGE>::weakenVar(const SMALL& m, Var v) {  // add -m*l
   }
 
   degree -= m;
-  symbBound.addOffset(-m);
   if (coefs[v] < 0) {
     coefs[v] += m;
   } else {
     coefs[v] -= m;
     rhs -= m;
+    symbBound.addOffset(-m);
   }
 }
 
@@ -754,16 +752,15 @@ void ConstrExp<SMALL, LARGE>::removeUnitsAndZeroes(const IntMap<int>& level, con
       index[v] = -1;
     else if (isUnit(level, v)) {
       rhs -= coefs[v];
+      symbBound.addOffset(-coefs[v]);
       if (coefs[v] > 0) {
         degree -= coefs[v];
-        symbBound.addOffset(-coefs[v]);
       }
       index[v] = -1;
       coefs[v] = 0;
     } else if (isUnit(level, -v)) {
       if (coefs[v] < 0) {
         degree += coefs[v];
-        symbBound.addOffset(coefs[v]);
       }
       index[v] = -1;
       coefs[v] = 0;
@@ -808,6 +805,7 @@ void ConstrExp<SMALL, LARGE>::removeEqualities(Equalities& equalities) {
         addRhs(mult);
         assert(coefs[v] == 0);
         if (global.logger.isActive()) Logger::proofMult(proofBuffer << repr.id << " ", mult) << "+ ";
+        symbBound.reset();
       } else {
         addLhs(-mult, repr.l);  // revert change
       }
@@ -828,6 +826,7 @@ void ConstrExp<SMALL, LARGE>::selfSubsumeImplications(const Implications& implic
       ++global.stats.NSUBSUMESTEPS.z;
       SMALL cf = aux::abs(coefs[v]);
       if (global.logger.isActive()) Logger::proofMult(proofBuffer << global.logger.logRUP(-l, ll) << " ", cf) << "+ s ";
+      symbBound.reset();
       addRhs(cf);
       addLhs(cf, -l);
       assert(coefs[v] == 0);
@@ -855,12 +854,12 @@ void ConstrExp<SMALL, LARGE>::saturate(const VarVec& vs, bool check, bool sorted
     return;
   }
   if (global.logger.isActive()) proofBuffer << "s ";  // log saturation only if it modifies the constraint
+  symbBound.reset();
   if (degree <= 0) {
     reset(true);
     return;
   }
   assert(getLargestCoef() > degree);
-  symbBound.saturate();
   SMALL smallDeg = static_cast<SMALL>(degree);  // safe cast because of above assert
   for (Var v : vs) {
     if (coefs[v] < -smallDeg) {
@@ -880,7 +879,6 @@ template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::saturate(Var v) {
   assert(degree >= 0);
   if (aux::abs(coefs[v]) <= degree) return;
-  symbBound.saturate();
   SMALL smallDeg = static_cast<SMALL>(degree);
   if (coefs[v] < -smallDeg) {
     rhs -= coefs[v] + smallDeg;
@@ -935,7 +933,7 @@ void ConstrExp<SMALL, LARGE>::invert() {
   rhs = -rhs;
   for (Var v : vars) coefs[v] = -coefs[v];
   const LARGE newDeg = calcDegree();
-  symbBound.addOffset(newDeg - degree);
+  assert(!symbBound.isValid());
   degree = newDeg;
 }
 
@@ -1034,10 +1032,10 @@ void ConstrExp<SMALL, LARGE>::multiply(const SMALL& m) {
   assert(m > 0);
   if (m == 1) return;
   if (global.logger.isActive()) Logger::proofMult(proofBuffer, m);
+  symbBound.multiply(m);
   for (Var v : vars) coefs[v] *= m;
   rhs *= m;
   degree *= m;
-  symbBound.multiply(m);
 }
 
 template <typename SMALL, typename LARGE>
@@ -1045,13 +1043,13 @@ void ConstrExp<SMALL, LARGE>::divideRoundUp(const LARGE& d) {
   assert(d > 0);
   if (d == 1) return;
   if (global.logger.isActive()) Logger::proofDiv(proofBuffer, d);
+  symbBound.divide(d);
   for (Var v : vars) {
     // divides away from zero
     bool undivisible = coefs[v] % d != 0;
     coefs[v] = static_cast<SMALL>(coefs[v] / d) + (coefs[v] > 0 && undivisible) - (coefs[v] < 0 && undivisible);
   }
   degree = aux::ceildiv(degree, d);
-  symbBound.divide(d);
   rhs = calcRhs();
 }
 
@@ -1684,10 +1682,10 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
   int32_t newdegree = dp_subsetsum(cfs, static_cast<int32_t>(degree), static_cast<int32_t>(total));
   if (newdegree > degree) {
     rhs += newdegree - degree;
-    symbBound.addOffset(newdegree - degree);
     degree = newdegree;
     global.stats.NSUBSETSUM += 1;
     global.logger.logAssumption(*this, global.options.proofAssumps.operator bool());
+    symbBound.reset();
   }
   global.stats.SUBSETSUMTIME +=
       std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - start).count();
@@ -1696,16 +1694,16 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
 template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::liftDegreeSymbolic(const bigint& lastBound) {
   if (!symbBound.isValid()) return;
-  const bigint newDegree = symbBound.getDegree(lastBound);
-  if (newDegree > degree) {
-    const LARGE acf = absCoeffSum();
-    if (newDegree > acf) {
-      degree = acf + 1;
-    } else {
-      degree = static_cast<LARGE>(newDegree);  // less than absCoeffSum(), so fits in LARGE
-    }
-    rhs = calcRhs();
+  const bigint newRhs = symbBound.getRhs(lastBound);
+  if (newRhs > rhs) {
     ++global.stats.NSYMBBOUND;
+    if (newRhs > limitRhs<SMALL, LARGE>()) {
+      assert((limitRhs<SMALL, LARGE>() > rhs));
+      rhs = static_cast<LARGE>(limitRhs<SMALL, LARGE>());
+    } else {
+      rhs = static_cast<LARGE>(newRhs);
+    }
+    degree = calcDegree();
   }
   // TODO: proof logging
 }
@@ -1819,6 +1817,7 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
       }
     }
   }
+  symbBound.reset();
   addRhs(cmult * deg);
   for (Lit l : data) {
     if (isUnit(level, -l)) {
@@ -1917,6 +1916,7 @@ unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const std::span<const Lit>& da
     // saturate, multiply, divide, add, saturate
     Logger::proofMult(proofBuffer, mult) << "+ s ";
   }
+  symbBound.reset();
 
   IntSet& lbdSet = global.isPool.take();
   for (Lit l : data) {
@@ -1934,32 +1934,37 @@ unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const std::span<const Lit>& da
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* lits, const int* cfs, unsigned int size,
                                                   const int64_t& degr, ID id, Origin o, Lit l, const IntMap<int>& level,
-                                                  const std::vector<int>& pos, IntSet& actSet) {
-  return genericResolve(lits, cfs, size, degr, id, o, l, level, pos, actSet);
+                                                  const std::vector<int>& pos, IntSet& actSet,
+                                                  const SymbolicBound& sb) {
+  return genericResolve(lits, cfs, size, degr, id, o, l, level, pos, actSet, sb);
 }
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* lits, const int64_t* cfs, unsigned int size,
                                                   const int128& degr, ID id, Origin o, Lit l, const IntMap<int>& level,
-                                                  const std::vector<int>& pos, IntSet& actSet) {
-  return genericResolve(lits, cfs, size, degr, id, o, l, level, pos, actSet);
+                                                  const std::vector<int>& pos, IntSet& actSet,
+                                                  const SymbolicBound& sb) {
+  return genericResolve(lits, cfs, size, degr, id, o, l, level, pos, actSet, sb);
 }
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* lits, const int128* cfs, unsigned int size,
                                                   const int128& degr, ID id, Origin o, Lit l, const IntMap<int>& level,
-                                                  const std::vector<int>& pos, IntSet& actSet) {
-  return genericResolve(lits, cfs, size, degr, id, o, l, level, pos, actSet);
+                                                  const std::vector<int>& pos, IntSet& actSet,
+                                                  const SymbolicBound& sb) {
+  return genericResolve(lits, cfs, size, degr, id, o, l, level, pos, actSet, sb);
 }
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* lits, const int128* cfs, unsigned int size,
                                                   const int256& degr, ID id, Origin o, Lit l, const IntMap<int>& level,
-                                                  const std::vector<int>& pos, IntSet& actSet) {
-  return genericResolve(lits, cfs, size, degr, id, o, l, level, pos, actSet);
+                                                  const std::vector<int>& pos, IntSet& actSet,
+                                                  const SymbolicBound& sb) {
+  return genericResolve(lits, cfs, size, degr, id, o, l, level, pos, actSet, sb);
 }
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* lits, const bigint* cfs, unsigned int size,
                                                   const bigint& degr, ID id, Origin o, Lit l, const IntMap<int>& level,
-                                                  const std::vector<int>& pos, IntSet& actSet) {
-  return genericResolve(lits, cfs, size, degr, id, o, l, level, pos, actSet);
+                                                  const std::vector<int>& pos, IntSet& actSet,
+                                                  const SymbolicBound& sb) {
+  return genericResolve(lits, cfs, size, degr, id, o, l, level, pos, actSet, sb);
 }
 
 template <typename SMALL, typename LARGE>

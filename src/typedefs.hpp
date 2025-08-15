@@ -121,6 +121,13 @@ inline double limitAbs<int256, bigint>() {
 }
 
 template <typename CF, typename DG>
+bigint limitRhs() {
+  return static_cast<bigint>(limitAbs<CF, DG>() * 1e9 * 2 + 1);
+  // sufficiently high that any larger RHS value will lead to inconsistency of constraint
+  // sufficiently small that degree or rhs can safely be derived still (difference is at most 1e9*limitAbs)
+}
+
+template <typename CF, typename DG>
 inline int limitBit() {
   // static_assert(false);
   assert(false);
