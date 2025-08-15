@@ -933,8 +933,8 @@ void ConstrExp<SMALL, LARGE>::invert() {
   rhs = -rhs;
   for (Var v : vars) coefs[v] = -coefs[v];
   const LARGE newDeg = calcDegree();
-  assert(!symbBound.isValid());
   degree = newDeg;
+  symbBound.reset();
 }
 
 /*
@@ -1817,31 +1817,44 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
       }
     }
   }
-  symbBound.reset();
+
   addRhs(cmult * deg);
+  symbBound.addOffset(cmult * deg);
   for (Lit l : data) {
     if (isUnit(level, -l)) {
+      // if (l < 0) {
+      //   rhs -= cmult;
+      //   symbBound.addOffset(-cmult);
+      // }
       continue;
     }
     if (isUnit(level, l)) {
+      // degree -= cmult;
+      // if (l > 0) {
+      //   rhs -= cmult;
+      //   symbBound.addOffset(-cmult);
+      // }
       addRhs(-cmult);
+      symbBound.addOffset(-cmult);
       continue;
     }
     Var v = toVar(l);
     SMALL cf = cmult;
     if (l < 0) {
       rhs -= cmult;
+      symbBound.addOffset(-cmult);
       cf = -cmult;
     }
     add(v, cf, true);
     largestCF = std::max(largestCF, aux::abs(coefs[v]));
   }
-
+  assert(hasRhsDegreeInvariant());
   assert(getDegree() > 0);
   if (oldDegree <= getDegree()) {
     if (largestCF > getDegree()) {
       global.stats.NSATURATESTEPS += data.size();
       if (global.logger.isActive()) proofBuffer << "s ";
+      symbBound.reset();
       largestCF = static_cast<SMALL>(degree);
       for (Lit l : data) {
         Var v = toVar(l);
