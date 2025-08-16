@@ -241,12 +241,12 @@ struct Stats {
   Stat NCARDDETECT{0, "detected cardinalities"};
   Stat NWEAKENEDNONIMPLYING{0, "weakened non-implying"};
   Stat NWEAKENEDNONIMPLIED{0, "weakened non-implied"};
-  Stat NMULTWEAKENEDREASON{0, "number of multiply-weakens on reason"};
-  Stat NMULTWEAKENEDCONFLICT{0, "number of multiply-weakens on conflict"};
-  Stat NMULTWEAKENEDDIRECT{0, "number of direct multiply-weakens"};
-  Stat NMULTWEAKENEDINDIRECT{0, "number of indirect multiply-weakens"};
-  Stat NSUBSETSUM{0, "number of lifted degrees"};
-  Stat NSYMBBOUND{0, "number of symbolic bound improvements"};
+  Stat NMULTWEAKENEDREASON{0, "multiply-weakens on reason"};
+  Stat NMULTWEAKENEDCONFLICT{0, "multiply-weakens on conflict"};
+  Stat NMULTWEAKENEDDIRECT{0, "direct multiply-weakens"};
+  Stat NMULTWEAKENEDINDIRECT{0, "indirect multiply-weakens"};
+  Stat NSUBSETSUM{0, "lifted degrees"};
+  Stat NSYMBBOUND{0, "symbolic bound improvements"};
   Stat NORIGVARS{0, "original variables"};
   Stat NAUXVARS{0, "auxiliary variables"};
 
