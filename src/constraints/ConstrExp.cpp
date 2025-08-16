@@ -1826,14 +1826,17 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
     symbBound.multiply(cmult);
     symbBound.addOffset(getRhs());
   } else if (symbBound.isValid() && sb == nullptr) {
-    bigint big_int = cmult;
-    symbBound.addOffset(big_int * deg);
+    bigint rhs = deg;
+    for (Lit l : data) {
+      rhs -= static_cast<int32_t>(l < 0);
+    }
+    symbBound.addOffset(cmult * rhs);
   }
 
   addRhs(cmult * deg);
   for (Lit l : data) {
     if (isUnit(level, -l)) {
-      if (l < 0) symbBound.addOffset(-cmult);
+      if (l < 0) symbBound.addOffset(cmult);
       continue;
     }
     if (isUnit(level, l)) {
