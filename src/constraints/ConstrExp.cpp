@@ -1789,10 +1789,11 @@ void ConstrExp<SMALL, LARGE>::toStreamPure(std::ostream& o) const {
 
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit toProp,
-                                                  const IntMap<int>& level, const std::vector<int>& pos,
-                                                  IntSet& actSet) {
+                                                  const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet,
+                                                  const SymbolicBound* sb) {
   assert(getCoef(-toProp) > 0);
   assert(hasNoZeroes());
+  assert(sb == nullptr || sb->isValid());
   global.stats.NADDEDLITERALS += data.size();
 
   if (global.options.varReasonAct) {
@@ -1818,22 +1819,32 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
     }
   }
 
+  if (symbBound.isValid() && sb != nullptr) {
+    symbBound.add(*sb, cmult);
+  } else if (!symbBound.isValid() && sb != nullptr) {
+    symbBound = *sb;
+    symbBound.multiply(cmult);
+    symbBound.addOffset(getRhs());
+  } else if (symbBound.isValid() && sb == nullptr) {
+    bigint big_int = cmult;
+    symbBound.addOffset(big_int * deg);
+  }
+
   addRhs(cmult * deg);
-  symbBound.addOffset(cmult * deg);
   for (Lit l : data) {
     if (isUnit(level, -l)) {
+      if (l < 0) symbBound.addOffset(-cmult);
       continue;
     }
     if (isUnit(level, l)) {
+      if (l > 0) symbBound.addOffset(-cmult);
       addRhs(-cmult);
-      symbBound.addOffset(-cmult);
       continue;
     }
     Var v = toVar(l);
     SMALL cf = cmult;
     if (l < 0) {
       rhs -= cmult;
-      symbBound.addOffset(-cmult);
       cf = -cmult;
     }
     add(v, cf, true);

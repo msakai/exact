@@ -73,8 +73,6 @@ class Equalities;
 struct Stats;
 
 struct Constr {  // internal solver constraint optimized for fast propagation
-  virtual size_t getMemSize() const = 0;
-
   struct {
     unsigned seen : 1;  // utility bit to avoid hash maps
     unsigned markedfordel : 1;
@@ -84,6 +82,8 @@ struct Constr {  // internal solver constraint optimized for fast propagation
   } header;
   float priority;  // Integer part is LBD (0 to 1e3), fractional part is 1-strength. Lower is better.
   const uint32_t sze;
+
+  virtual size_t getMemSize() const = 0;
 
   Constr(ID i, Origin o, bool lkd, uint32_t lngth, float strngth, uint32_t maxLBD);
   virtual ~Constr() {}
@@ -173,6 +173,7 @@ struct Binary final : Constr {
 };
 
 struct Clause final : Constr {
+  const SymbolicBound* symbBound;
   uint32_t next_watch_idx;
   Lit data[];  // Flexible Array Member
 
@@ -191,6 +192,7 @@ struct Clause final : Constr {
   Clause(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id)
       : Constr(_id, constraint->orig, locked, constraint->nVars(), 1.0 / static_cast<double>(constraint->nVars()),
                constraint->global.options.dbMaxLBD.get()),
+        symbBound(constraint->symbBound.isValid() ? new SymbolicBound(constraint->symbBound) : nullptr),
         next_watch_idx(sze) {
     assert(_id > ID_Trivial);
     assert(constraint->nVars() < INF);
@@ -218,6 +220,7 @@ struct Clause final : Constr {
 };
 
 struct Cardinality final : Constr {
+  const SymbolicBound* symbBound;
   const uint32_t degr;
   uint32_t next_watch_idx;
   Lit data[];  // Flexible Array Member
@@ -237,6 +240,7 @@ struct Cardinality final : Constr {
   Cardinality(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id)
       : Constr(_id, constraint->orig, locked, constraint->nVars(), constraint->getStrength(),
                constraint->global.options.dbMaxLBD.get()),
+        symbBound(constraint->symbBound.isValid() ? new SymbolicBound(constraint->symbBound) : nullptr),
         degr(static_cast<uint32_t>(constraint->getDegree())),
         next_watch_idx(constraint->nVars()) {
     assert(degr > 1);  // otherwise should be a clause
@@ -267,11 +271,11 @@ struct Cardinality final : Constr {
 };
 
 struct Watched32 final : Constr {
+  const SymbolicBound* symbBound;
   uint32_t next_watch_idx;
   uint32_t unsaturatedIdx;
   const int64_t degr;
   int64_t watchslack;
-  const SymbolicBound* symbBound;
   Lit blocking;
   Lit data[0];  // Flexible Array Member - gcc complains about destruction when using the proper syntax '[]'
   // WARNING: Watched only works for int coefficients for now (they take up the same bytes as Lit)
@@ -291,11 +295,11 @@ struct Watched32 final : Constr {
   template <typename SMALL, typename LARGE>
   Watched32(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id, double strngth)
       : Constr(_id, constraint->orig, locked, constraint->nVars(), strngth, constraint->global.options.dbMaxLBD.get()),
+        symbBound(constraint->symbBound.isValid() ? new SymbolicBound(constraint->symbBound) : nullptr),
         next_watch_idx(sze),
         unsaturatedIdx(0),
         degr(static_cast<int64_t>(constraint->getDegree())),
         watchslack(0),
-        symbBound(constraint->symbBound.isValid() ? new SymbolicBound(constraint->symbBound) : nullptr),
         blocking(0) {
     assert(_id > ID_Trivial);
     assert(fitsIn<int64_t>(constraint->getDegree()));
@@ -335,12 +339,12 @@ struct Watched32 final : Constr {
 
 template <typename CF, typename DG>
 struct Watched final : Constr {
+  const SymbolicBound* symbBound;
   uint32_t next_watch_idx;
   uint32_t unsaturatedIdx;
   const DG degr;
   DG watchslack;
   CF* cfs;
-  const SymbolicBound* symbBound;
   Lit blocking;
   Lit lits[0];
 
@@ -358,12 +362,12 @@ struct Watched final : Constr {
   template <typename SMALL, typename LARGE>
   Watched(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id, double strngth)
       : Constr(_id, constraint->orig, locked, constraint->nVars(), strngth, constraint->global.options.dbMaxLBD.get()),
+        symbBound(constraint->symbBound.isValid() ? new SymbolicBound(constraint->symbBound) : nullptr),
         next_watch_idx(sze),
         unsaturatedIdx(0),
         degr(static_cast<DG>(constraint->getDegree())),
         watchslack(0),
         cfs(new CF[sze]),
-        symbBound(constraint->symbBound.isValid() ? new SymbolicBound(constraint->symbBound) : nullptr),
         blocking(0) {
     assert(_id > ID_Trivial);
     assert(fitsIn<DG>(constraint->getDegree()));

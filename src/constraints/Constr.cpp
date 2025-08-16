@@ -157,7 +157,7 @@ WatchStatus Binary::checkForPropagation(Watch&, const Lit, Solver&, Stats&) {
 
 uint32_t Binary::resolveWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& actSet) const {
   // TODO: simplify resolving with Binary
-  return confl->resolveWith(data, 1, id(), l, solver.getLevel(), solver.getPos(), actSet);
+  return confl->resolveWith(data, 1, id(), l, solver.getLevel(), solver.getPos(), actSet, nullptr);
 }
 uint32_t Binary::subsumeWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& saturatedLits) const {
   // TODO: simplify resolving with Binary
@@ -301,7 +301,7 @@ WatchStatus Clause::checkForPropagation(Watch& w, const Lit p, Solver& solver, S
 }
 
 uint32_t Clause::resolveWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& actSet) const {
-  return confl->resolveWith({data, size()}, 1, id(), l, solver.getLevel(), solver.getPos(), actSet);
+  return confl->resolveWith({data, size()}, 1, id(), l, solver.getLevel(), solver.getPos(), actSet, symbBound);
 }
 uint32_t Clause::subsumeWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& saturatedLits) const {
   return confl->subsumeWith({data, size()}, 1, id(), l, solver.getLevel(), solver.getPos(), saturatedLits);
@@ -316,6 +316,9 @@ CeSuper Clause::toExpanded(ConstrExpPools& cePools) const {
   result->orig = getOrigin();
   result->resetBuffer(id());
   assert(!result->symbBound.isValid());
+  if (symbBound != nullptr) {
+    result->symbBound = *symbBound;
+  }
   return result;
 }
 
@@ -460,7 +463,7 @@ WatchStatus Cardinality::checkForPropagation(Watch& w, [[maybe_unused]] const Li
 }
 
 uint32_t Cardinality::resolveWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& actSet) const {
-  return confl->resolveWith({data, size()}, degr, id(), l, solver.getLevel(), solver.getPos(), actSet);
+  return confl->resolveWith({data, size()}, degr, id(), l, solver.getLevel(), solver.getPos(), actSet, symbBound);
 }
 uint32_t Cardinality::subsumeWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& saturatedLits) const {
   return confl->subsumeWith({data, size()}, degr, id(), l, solver.getLevel(), solver.getPos(), saturatedLits);
@@ -475,6 +478,9 @@ CeSuper Cardinality::toExpanded(ConstrExpPools& cePools) const {
   result->orig = getOrigin();
   result->resetBuffer(id());
   assert(!result->symbBound.isValid());
+  if (symbBound != nullptr) {
+    result->symbBound = *symbBound;
+  }
   return result;
 }
 

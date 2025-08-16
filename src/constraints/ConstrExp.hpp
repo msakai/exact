@@ -97,7 +97,6 @@ struct SymbolicBound {
   bigint getRhs(const bigint& bound) const;
 };
 
-// TODO: symbBounds for cardinalities/clauses
 // TODO: symbBounds for bottom-up calculations
 
 struct ConstrExpSuper {
@@ -220,7 +219,8 @@ struct ConstrExpSuper {
   virtual void toStreamPure(std::ostream& o) const = 0;
 
   virtual unsigned int resolveWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit l,
-                                   const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet) = 0;
+                                   const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet,
+                                   const SymbolicBound* sb) = 0;
   virtual unsigned int resolveWith(const Lit* lits, const int* coefs, unsigned int size, const int64_t& degr, ID id,
                                    Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos,
                                    IntSet& actSet, const SymbolicBound* sb) = 0;
@@ -459,7 +459,7 @@ struct ConstrExp final : ConstrExpSuper {
   void toStreamPure(std::ostream& o) const;
 
   unsigned int resolveWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit l, const IntMap<int>& level,
-                           const std::vector<int>& pos, IntSet& actSet);
+                           const std::vector<int>& pos, IntSet& actSet, const SymbolicBound* sb);
   unsigned int resolveWith(const Lit* lits, const int* coefs, unsigned int size, const int64_t& degr, ID id, Origin o,
                            Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet,
                            const SymbolicBound* sb);
