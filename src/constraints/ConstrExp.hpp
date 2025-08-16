@@ -97,7 +97,6 @@ struct SymbolicBound {
   bigint getRhs(const bigint& bound) const;
 };
 
-// TODO: invalid symbBounds should just be null pointers in Constr
 // TODO: symbBounds for cardinalities/clauses
 // TODO: symbBounds for subsumption
 // TODO: symbBounds for bottom-up calculations
@@ -225,19 +224,19 @@ struct ConstrExpSuper {
                                    const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet) = 0;
   virtual unsigned int resolveWith(const Lit* lits, const int* coefs, unsigned int size, const int64_t& degr, ID id,
                                    Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos,
-                                   IntSet& actSet, const SymbolicBound& sb) = 0;
+                                   IntSet& actSet, const SymbolicBound* sb) = 0;
   virtual unsigned int resolveWith(const Lit* lits, const int64_t* coefs, unsigned int size, const int128& degr, ID id,
                                    Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos,
-                                   IntSet& actSet, const SymbolicBound& sb) = 0;
+                                   IntSet& actSet, const SymbolicBound* sb) = 0;
   virtual unsigned int resolveWith(const Lit* lits, const int128* coefs, unsigned int size, const int128& degr, ID id,
                                    Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos,
-                                   IntSet& actSet, const SymbolicBound& sb) = 0;
+                                   IntSet& actSet, const SymbolicBound* sb) = 0;
   virtual unsigned int resolveWith(const Lit* lits, const int128* coefs, unsigned int size, const int256& degr, ID id,
                                    Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos,
-                                   IntSet& actSet, const SymbolicBound& sb) = 0;
+                                   IntSet& actSet, const SymbolicBound* sb) = 0;
   virtual unsigned int resolveWith(const Lit* lits, const bigint* coefs, unsigned int size, const bigint& degr, ID id,
                                    Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos,
-                                   IntSet& actSet, const SymbolicBound& sb) = 0;
+                                   IntSet& actSet, const SymbolicBound* sb) = 0;
   virtual unsigned int subsumeWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit l,
                                    const IntMap<int>& level, const std::vector<int>& pos, IntSet& saturatedLits) = 0;
   virtual unsigned int subsumeWith(const Lit* lits, const int* coefs, unsigned int size, const int64_t& degr, ID id,
@@ -464,19 +463,19 @@ struct ConstrExp final : ConstrExpSuper {
                            const std::vector<int>& pos, IntSet& actSet);
   unsigned int resolveWith(const Lit* lits, const int* coefs, unsigned int size, const int64_t& degr, ID id, Origin o,
                            Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet,
-                           const SymbolicBound& sb);
+                           const SymbolicBound* sb);
   unsigned int resolveWith(const Lit* lits, const int64_t* coefs, unsigned int size, const int128& degr, ID id,
                            Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet,
-                           const SymbolicBound& sb);
+                           const SymbolicBound* sb);
   unsigned int resolveWith(const Lit* lits, const int128* coefs, unsigned int size, const int128& degr, ID id, Origin o,
                            Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet,
-                           const SymbolicBound& sb);
+                           const SymbolicBound* sb);
   unsigned int resolveWith(const Lit* lits, const int128* coefs, unsigned int size, const int256& degr, ID id, Origin o,
                            Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet,
-                           const SymbolicBound& sb);
+                           const SymbolicBound* sb);
   unsigned int resolveWith(const Lit* lits, const bigint* coefs, unsigned int size, const bigint& degr, ID id, Origin o,
                            Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet,
-                           const SymbolicBound& sb);
+                           const SymbolicBound* sb);
   unsigned int subsumeWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit l, const IntMap<int>& level,
                            const std::vector<int>& pos, IntSet& saturatedLits);
   unsigned int subsumeWith(const Lit* lits, const int* coefs, unsigned int size, const int64_t& degr, ID id, Lit l,
@@ -493,7 +492,7 @@ struct ConstrExp final : ConstrExpSuper {
  private:
   template <typename CF, typename DG>
   void initFixOverflow(const Lit* lits, const CF* cfs, unsigned int size, const DG& degr, ID id, Origin o,
-                       const IntMap<int>& level, const std::vector<int>& pos, Lit asserting, const SymbolicBound& sb) {
+                       const IntMap<int>& level, const std::vector<int>& pos, Lit asserting, const SymbolicBound* sb) {
     orig = o;
     assert(size > 0);
     DG div = 1;
@@ -511,7 +510,11 @@ struct ConstrExp final : ConstrExpSuper {
         div = aux::ceildiv<DG>(maxVal, aux::powtwo<DG>(bitReduce) - 1);
       }
     }
-    symbBound = sb;
+    if (sb == nullptr) {
+      symbBound.reset();
+    } else {
+      symbBound = *sb;
+    }
     if (div == 1) {
       for (unsigned int i = 0; i < size; ++i) {
         assert(bitOverflow == 0 || aux::msb(aux::ceildiv<DG>(cfs[i], div)) < bitOverflow);
@@ -559,7 +562,7 @@ struct ConstrExp final : ConstrExpSuper {
   template <typename CF, typename DG>
   unsigned int genericResolve(const Lit* lits, const CF* cfs, unsigned int size, const DG& degr, ID id, Origin o,
                               Lit asserting, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet,
-                              const SymbolicBound& sb) {
+                              const SymbolicBound* sb) {
     // "this" is the conflict constraint.
     // The terms, degree, and other information from the reason constraint are in the arguments.
     assert(getCoef(-asserting) > 0);

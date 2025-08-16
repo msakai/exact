@@ -693,7 +693,7 @@ void Watched32::undoFalsified(uint32_t i) {
 
 uint32_t Watched32::resolveWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& actSet) const {
   return confl->resolveWith(data, data + size(), size(), degr, id(), getOrigin(), l, solver.getLevel(), solver.getPos(),
-                            actSet, *symbBound);
+                            actSet, symbBound);
 }
 uint32_t Watched32::subsumeWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& saturatedLits) const {
   return confl->subsumeWith(data, data + size(), size(), degr, id(), l, solver.getLevel(), solver.getPos(),
@@ -709,7 +709,10 @@ Ce32 Watched32::expandTo(ConstrExpPools& cePools) const {
   result->orig = getOrigin();
   result->resetBuffer(id());
   assert(result->isSortedInDecreasingCoefOrder());
-  result->symbBound = *symbBound;
+  assert(!result->symbBound.isValid());
+  if (symbBound != nullptr) {
+    result->symbBound = *symbBound;
+  }
   return result;
 }
 
@@ -979,7 +982,7 @@ void Watched<CF, DG>::undoFalsified(uint32_t i) {
 template <typename CF, typename DG>
 uint32_t Watched<CF, DG>::resolveWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& actSet) const {
   return confl->resolveWith(lits, cfs, size(), degr, id(), getOrigin(), l, solver.getLevel(), solver.getPos(), actSet,
-                            *symbBound);
+                            symbBound);
 }
 template <typename CF, typename DG>
 uint32_t Watched<CF, DG>::subsumeWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& saturatedLits) const {
@@ -996,7 +999,10 @@ CePtr<CF, DG> Watched<CF, DG>::expandTo(ConstrExpPools& cePools) const {
   result->orig = getOrigin();
   result->resetBuffer(id());
   assert(result->isSortedInDecreasingCoefOrder());
-  result->symbBound = *symbBound;
+  assert(!result->symbBound.isValid());
+  if (symbBound != nullptr) {
+    result->symbBound = *symbBound;
+  }
   return result;
 }
 

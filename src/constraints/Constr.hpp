@@ -295,14 +295,12 @@ struct Watched32 final : Constr {
         unsaturatedIdx(0),
         degr(static_cast<int64_t>(constraint->getDegree())),
         watchslack(0),
-        symbBound(new SymbolicBound(constraint->symbBound)),
+        symbBound(constraint->symbBound.isValid() ? new SymbolicBound(constraint->symbBound) : nullptr),
         blocking(0) {
     assert(_id > ID_Trivial);
     assert(fitsIn<int64_t>(constraint->getDegree()));
     assert(fitsIn<int32_t>(constraint->getLargestCoef()));
     assert(strngth == constraint->getStrength());
-    assert(symbBound->mult == constraint->symbBound.mult);
-    assert(symbBound->offset == constraint->symbBound.offset);
 
     for (uint32_t i = 0; i < size(); ++i) {
       Var v = constraint->getVars()[i];
@@ -365,14 +363,12 @@ struct Watched final : Constr {
         degr(static_cast<DG>(constraint->getDegree())),
         watchslack(0),
         cfs(new CF[sze]),
-        symbBound(new SymbolicBound(constraint->symbBound)),
+        symbBound(constraint->symbBound.isValid() ? new SymbolicBound(constraint->symbBound) : nullptr),
         blocking(0) {
     assert(_id > ID_Trivial);
     assert(fitsIn<DG>(constraint->getDegree()));
     assert(fitsIn<CF>(constraint->getLargestCoef()));
     assert(strngth == constraint->getStrength());
-    assert(symbBound->mult == constraint->symbBound.mult);
-    assert(symbBound->offset == constraint->symbBound.offset);
 
     for (uint32_t i = 0; i < size(); ++i) {
       Var v = constraint->getVars()[i];

@@ -1822,18 +1822,9 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
   symbBound.addOffset(cmult * deg);
   for (Lit l : data) {
     if (isUnit(level, -l)) {
-      // if (l < 0) {
-      //   rhs -= cmult;
-      //   symbBound.addOffset(-cmult);
-      // }
       continue;
     }
     if (isUnit(level, l)) {
-      // degree -= cmult;
-      // if (l > 0) {
-      //   rhs -= cmult;
-      //   symbBound.addOffset(-cmult);
-      // }
       addRhs(-cmult);
       symbBound.addOffset(-cmult);
       continue;
@@ -1948,35 +1939,35 @@ template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* lits, const int* cfs, unsigned int size,
                                                   const int64_t& degr, ID id, Origin o, Lit l, const IntMap<int>& level,
                                                   const std::vector<int>& pos, IntSet& actSet,
-                                                  const SymbolicBound& sb) {
+                                                  const SymbolicBound* sb) {
   return genericResolve(lits, cfs, size, degr, id, o, l, level, pos, actSet, sb);
 }
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* lits, const int64_t* cfs, unsigned int size,
                                                   const int128& degr, ID id, Origin o, Lit l, const IntMap<int>& level,
                                                   const std::vector<int>& pos, IntSet& actSet,
-                                                  const SymbolicBound& sb) {
+                                                  const SymbolicBound* sb) {
   return genericResolve(lits, cfs, size, degr, id, o, l, level, pos, actSet, sb);
 }
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* lits, const int128* cfs, unsigned int size,
                                                   const int128& degr, ID id, Origin o, Lit l, const IntMap<int>& level,
                                                   const std::vector<int>& pos, IntSet& actSet,
-                                                  const SymbolicBound& sb) {
+                                                  const SymbolicBound* sb) {
   return genericResolve(lits, cfs, size, degr, id, o, l, level, pos, actSet, sb);
 }
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* lits, const int128* cfs, unsigned int size,
                                                   const int256& degr, ID id, Origin o, Lit l, const IntMap<int>& level,
                                                   const std::vector<int>& pos, IntSet& actSet,
-                                                  const SymbolicBound& sb) {
+                                                  const SymbolicBound* sb) {
   return genericResolve(lits, cfs, size, degr, id, o, l, level, pos, actSet, sb);
 }
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* lits, const bigint* cfs, unsigned int size,
                                                   const bigint& degr, ID id, Origin o, Lit l, const IntMap<int>& level,
                                                   const std::vector<int>& pos, IntSet& actSet,
-                                                  const SymbolicBound& sb) {
+                                                  const SymbolicBound* sb) {
   return genericResolve(lits, cfs, size, degr, id, o, l, level, pos, actSet, sb);
 }
 
