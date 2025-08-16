@@ -98,7 +98,6 @@ struct SymbolicBound {
 };
 
 // TODO: symbBounds for cardinalities/clauses
-// TODO: symbBounds for subsumption
 // TODO: symbBounds for bottom-up calculations
 
 struct ConstrExpSuper {
@@ -733,6 +732,7 @@ struct ConstrExp final : ConstrExpSuper {
     assert(getCoef(-toSubsume) > 0);
     assert(isSaturated());
 
+    // weaken all literals from the reason that are not canceling or saturated on the conflict side
     DG weakenedDeg = degr;
     assert(weakenedDeg > 0);
     for (unsigned int i = 0; i < size; ++i) {
@@ -741,6 +741,17 @@ struct ConstrExp final : ConstrExpSuper {
         weakenedDeg -= cfs[i];
         if (weakenedDeg <= 0) {
           return 0;
+          /*
+           * TODO: if the rhs is big enough, we can handle multiple canceling variables. E.g.:
+           * a + 2b + 2c + d >= 2
+           * ~a + ~b + c >= 2
+           * subsumes to
+           * (-2a -2b + 2c >= 0)
+           * 2c + d >= 2 (which implies the original constraint after weakening a)
+           * Idea: first simplify to cardinality, then add multiple, then weaken "over-canceling" variables
+           * Problem: it might be possible to subsume a literal only after weakening a canceling literal...
+           * Note: the above example will also work after two subsumption steps (one on a and one on b)...
+           */
         }
       }
     }
@@ -754,7 +765,6 @@ struct ConstrExp final : ConstrExpSuper {
     saturatedLits.remove(-toSubsume);
     ++global.stats.NSUBSUMESTEPS.z;
 
-    symbBound.reset();
     if (global.logger.isActive()) {
       proofBuffer << id << " ";
       for (unsigned int i = 0; i < size; ++i) {
@@ -769,6 +779,7 @@ struct ConstrExp final : ConstrExpSuper {
       // saturate, divide, multiply, add, saturate
       Logger::proofMult(Logger::proofDiv(proofBuffer << "s ", weakenedDeg), mult) << "+ s ";
     }
+    symbBound.reset();  // NOTE: almost always, a saturation step will be necessary on both the reason and conflict side
 
     IntSet& lbdSet = global.isPool.take();
     for (unsigned int i = 0; i < size; ++i) {
