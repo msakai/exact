@@ -341,9 +341,7 @@ std::pair<LpStatus, CeSuper> LpSolver::checkFeasibility(bool inProcessing) {
       return {LpStatus::PIVOTLIMIT, CeNull()};  // time ratio exceeded
     }
   }
-#if !NDEBUG
   global.logger.logComment("Checking LP");
-#endif
   madeInternalCall = !inProcessing;
   flushConstraints();
 
@@ -460,9 +458,7 @@ CeSuper LpSolver::inProcess(bool overrideHeur) {
     }
   }
   candidateCuts.clear();
-#if !NDEBUG
   if (global.options.lpLearnedCuts) global.logger.logComment("cutting");
-#endif
   if (global.options.lpLearnedCuts) constructLearnedCandidates();
   addFilteredCuts();
   pruneCuts();

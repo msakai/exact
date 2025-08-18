@@ -116,16 +116,11 @@ void Logger::flush() {
   proofStream().flush();
 }
 
-void Logger::logComment(const std::string& comment) {
+void Logger::logComment([[maybe_unused]] const std::string& comment) {
   if (!active) return;
+#if !NDEBUG
   proofStream() << "* " << comment << " " << stats.getDetTime() << "\n";
-}
-
-void Logger::logInfo(const CeSuper& ce) {
-  if (!active) return;
-  if (ce->symbBound.isValid()) {
-    proofStream() << "* " << ce->symbBound << "\n";
-  }
+#endif
 }
 
 ID Logger::logInput(const CeSuper& ce) {
@@ -184,7 +179,6 @@ ID Logger::logProofLineWithInfo(const CeSuper& ce, [[maybe_unused]] const std::s
   if (!active) return ++last_proofID;
 #if !NDEBUG
   logComment(info);
-  logInfo(ce);
 #endif
   return logProofLine(ce);
 }
@@ -226,7 +220,6 @@ ID Logger::logBottomUp(const CeSuper& ce) {
   if (!active) return ++last_proofID;
 #if !NDEBUG
   logComment("Bottom-up");
-  logInfo(ce);
 #endif
   Lit l = 0;
   for (Var v : ce->vars) {
@@ -244,7 +237,6 @@ ID Logger::logUpperBound(const CeSuper& ce, const LitVec& lastSol) {
   if (!active) return ++last_proofID;
 #if !NDEBUG
   logComment("Upper bound");
-  logInfo(ce);
 #endif
   proofStream() << "soli";
   for (Var v = 1; v < std::ssize(lastSol); ++v) {
@@ -261,7 +253,6 @@ ID Logger::logPure(const CeSuper& ce) {
   assert(ce->nVars() == 1);
 #if !NDEBUG
   logComment("Pure");
-  logInfo(ce);
 #endif
   Lit l = ce->getLit(ce->vars[0]);
   proofStream() << "red " << (std::pair<int, Lit>{1, l}) << " >= 1 ; x" << toVar(l) << " " << (l > 0) << "\n";
@@ -275,7 +266,6 @@ ID Logger::logDomBreaker(const CeSuper& ce) {
   assert(ce->nVars() == 2);
 #if !NDEBUG
   logComment("Dominance breaking");
-  logInfo(ce);
 #endif
   Lit a = ce->getLit(ce->vars[0]);
   Lit b = ce->getLit(ce->vars[1]);
@@ -291,7 +281,6 @@ ID Logger::logAtMostOne(const ConstrSimple32& c, const CeSuper& ce) {
   assert(c.size() > 1);
 #if !NDEBUG
   logComment("Implied at-most-one");
-  logInfo(ce);
 #endif
   std::stringstream buffer;
   ID previous = ID_Trivial;

@@ -1716,10 +1716,6 @@ void ConstrExp<SMALL, LARGE>::liftDegreeSymbolic(const bigint& lastUpperBound, c
   const bigint newRhs = symbBound.getRhs(lastUpperBound, lastLowerBound);
   if (newRhs > rhs) {
     ++global.stats.NSYMBBOUND;
-    aux::cout << "IMPROVING" << std::endl;
-    aux::cout << *this << std::endl;
-    aux::cout << newRhs << " " << lastUpperBound << " " << lastLowerBound << std::endl;
-    aux::cout << symbBound.offset << " " << symbBound.mult_upper << " " << symbBound.mult_lower << std::endl;
     if (newRhs > limitRhs<SMALL, LARGE>()) {
       assert((limitRhs<SMALL, LARGE>() > rhs));
       rhs = static_cast<LARGE>(limitRhs<SMALL, LARGE>());
@@ -1727,7 +1723,6 @@ void ConstrExp<SMALL, LARGE>::liftDegreeSymbolic(const bigint& lastUpperBound, c
       rhs = static_cast<LARGE>(newRhs);
     }
     degree = calcDegree();
-    aux::cout << *this << std::endl;
   }
   // TODO: proof logging
 }

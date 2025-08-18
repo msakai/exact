@@ -137,7 +137,6 @@ void Solver::setObjective(const CeArb& obj) {
   auto [lb, ub] = obj->getLhsExtrema();
   lastSymbBoundLower = lb - 1;
   lastSymbBoundUpper = ub + 1;
-  aux::cout << "OBJ " << objective << std::endl;
   if (lpSolver) lpSolver->setObjective(objective);
 }
 
@@ -417,9 +416,7 @@ CeSuper Solver::getAnalysisCE(const CeSuper& conflict) const {
 }
 
 CeSuper Solver::analyze(const CeSuper& conflict) {
-#if !NDEBUG
   global.logger.logComment("Analyze");
-#endif
   assert(conflict->hasNegativeSlack(level));
   conflict->removeUnitsAndZeroes(level, position);
   conflict->saturateAndFixOverflow(getLevel(), global.options.bitsOverflow.get(), global.options.bitsReduced.get(), 0,
