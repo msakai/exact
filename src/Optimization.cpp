@@ -320,12 +320,12 @@ void Optimization<SMALL, LARGE>::addLowerBound() {
     aux->addLhs(static_cast<SMALL>(aux->getDegree()), -l);  // bound only holds under assumptions
   }
 
-  // solver.lastSymbBoundLower = lower_bound;
-  // aux->symbBound.mult_upper = 0;
-  // aux->symbBound.mult_lower = 1;
-  // aux->symbBound.offset = origObj->getRhs();
-  // assert(aux->symbBound.getRhs(solver.lastSymbBoundUpper, solver.lastSymbBoundLower) == aux->getRhs());
-  // assert(aux->symbBound.isValid());
+  solver.lastSymbBoundLower = lower_bound;
+  aux->symbBound.mult_upper = 0;
+  aux->symbBound.mult_lower = 1;
+  aux->symbBound.offset = aux->getDegree() - lower_bound;
+  assert(aux->symbBound.getDegree(solver.lastSymbBoundUpper, solver.lastSymbBoundLower) == aux->getDegree());
+  assert(aux->symbBound.isValid());
 
   solver.dropExternal(lastLowerBound, true, true);
   std::pair<ID, ID> res = solver.addConstraint(aux);
