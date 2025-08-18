@@ -131,7 +131,7 @@ bool SymbolicBound::isValid() const {
   return mult_upper != 0 || mult_lower != 0;
 }
 
-bigint SymbolicBound::getRhs(const bigint& upbound, const bigint& lowbound) const {
+bigint SymbolicBound::getDegree(const bigint& upbound, const bigint& lowbound) const {
   const ratio r = offset + mult_upper * upbound + mult_lower * lowbound;
   return aux::ceildiv_safe(numerator(r), denominator(r));
 }
@@ -355,7 +355,7 @@ void ConstrExp<SMALL, LARGE>::copyTo(ConstrSimpleArb& target) const {
 }
 
 template <typename SMALL, typename LARGE>
-void ConstrExp<SMALL, LARGE>::add(Var v, SMALL c, bool removeZeroes) {
+void ConstrExp<SMALL, LARGE>::add(Var v, SMALL c, bool removeZeroes, bool fixSymbBound) {
   if (c == 0) return;
   SMALL& cf = coefs[v];
   if (!used(v)) {
@@ -367,6 +367,7 @@ void ConstrExp<SMALL, LARGE>::add(Var v, SMALL c, bool removeZeroes) {
     if ((cf < 0) != (c < 0)) {
       SMALL change = std::min(aux::abs(cf), aux::abs(c));
       degree -= change;
+      if (fixSymbBound) symbBound.addOffset(-change);
     }
     cf += c;
     if (removeZeroes && cf == 0) remove(v);
@@ -652,10 +653,10 @@ void ConstrExp<SMALL, LARGE>::weaken(const SMALL& m, Var v) {  // add m*(v>=0) i
   if ((c < 0) != tmp) {
     SMALL change = std::min(aux::abs(c), aux::abs(m));
     degree -= change;
+    symbBound.addOffset(-change);
   }
   if (tmp) {
     rhs += m;
-    symbBound.addOffset(m);
   }
   c += m;
 }
@@ -672,12 +673,12 @@ void ConstrExp<SMALL, LARGE>::weakenVar(const SMALL& m, Var v) {  // add -m*l
   }
 
   degree -= m;
+  symbBound.addOffset(-m);
   if (coefs[v] < 0) {
     coefs[v] += m;
   } else {
     coefs[v] -= m;
     rhs -= m;
-    symbBound.addOffset(-m);
   }
 }
 
@@ -690,6 +691,7 @@ void ConstrExp<SMALL, LARGE>::weaken(Var v) {  // fully weaken v
 
   if (coefs[v] < 0) {
     degree += coefs[v];
+    symbBound.addOffset(coefs[v]);
   } else {
     degree -= coefs[v];
     rhs -= coefs[v];
@@ -756,19 +758,20 @@ void ConstrExp<SMALL, LARGE>::removeUnitsAndZeroes(const IntMap<int>& level, con
   int j = 0;
   for (int i = 0; i < (int)vars.size(); ++i) {
     Var v = vars[i];
-    if (coefs[v] == 0)
+    if (coefs[v] == 0) {
       index[v] = -1;
-    else if (isUnit(level, v)) {
+    } else if (isUnit(level, v)) {
       rhs -= coefs[v];
-      symbBound.addOffset(-coefs[v]);
       if (coefs[v] > 0) {
         degree -= coefs[v];
+        symbBound.addOffset(-coefs[v]);
       }
       index[v] = -1;
       coefs[v] = 0;
     } else if (isUnit(level, -v)) {
       if (coefs[v] < 0) {
         degree += coefs[v];
+        symbBound.addOffset(coefs[v]);
       }
       index[v] = -1;
       coefs[v] = 0;
@@ -1713,16 +1716,16 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
 template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::liftDegreeSymbolic(const bigint& lastUpperBound, const bigint& lastLowerBound) {
   if (!symbBound.isValid()) return;
-  const bigint newRhs = symbBound.getRhs(lastUpperBound, lastLowerBound);
-  if (newRhs > rhs) {
+  const bigint newDeg = symbBound.getDegree(lastUpperBound, lastLowerBound);
+  if (newDeg > degree) {
     ++global.stats.NSYMBBOUND;
-    if (newRhs > limitRhs<SMALL, LARGE>()) {
-      assert((limitRhs<SMALL, LARGE>() > rhs));
-      rhs = static_cast<LARGE>(limitRhs<SMALL, LARGE>());
+    if (newDeg > limitRhs<SMALL, LARGE>()) {
+      assert((limitRhs<SMALL, LARGE>() > degree));
+      degree = static_cast<LARGE>(limitRhs<SMALL, LARGE>());
     } else {
-      rhs = static_cast<LARGE>(newRhs);
+      degree = static_cast<LARGE>(newDeg);
     }
-    degree = calcDegree();
+    rhs = calcRhs();
   }
   // TODO: proof logging
 }
@@ -1843,24 +1846,19 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
   } else if (!symbBound.isValid() && sb != nullptr) {
     symbBound = *sb;
     symbBound.multiply(cmult);
-    symbBound.addOffset(getRhs());
+    symbBound.addOffset(getDegree());
   } else if (symbBound.isValid() && sb == nullptr) {
-    bigint rhs = deg;
-    for (Lit l : data) {
-      rhs -= static_cast<int32_t>(l < 0);
-    }
-    symbBound.addOffset(cmult * rhs);
+    symbBound.addOffset(cmult * deg);
   }
 
   addRhs(cmult * deg);
   for (Lit l : data) {
     if (isUnit(level, -l)) {
-      if (l < 0) symbBound.addOffset(cmult);
       continue;
     }
     if (isUnit(level, l)) {
-      if (l > 0) symbBound.addOffset(-cmult);
       addRhs(-cmult);
+      symbBound.addOffset(-cmult);
       continue;
     }
     Var v = toVar(l);
@@ -1869,7 +1867,7 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
       rhs -= cmult;
       cf = -cmult;
     }
-    add(v, cf, true);
+    add(v, cf, true, true);
     largestCF = std::max(largestCF, aux::abs(coefs[v]));
   }
   assert(hasRhsDegreeInvariant());

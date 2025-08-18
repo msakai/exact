@@ -95,7 +95,7 @@ struct SymbolicBound {
   void reset();
   bool isValid() const;
 
-  bigint getRhs(const bigint& upbound, const bigint& lowbound) const;
+  bigint getDegree(const bigint& upbound, const bigint& lowbound) const;
 };
 
 std::ostream& operator<<(std::ostream& os, const SymbolicBound& bound);
@@ -268,7 +268,7 @@ struct ConstrExp final : ConstrExpSuper {
   std::vector<SMALL> coefs;  // maps variables to coefficients
 
  private:
-  void add(Var v, SMALL c, bool removeZeroes = false);
+  void add(Var v, SMALL c, bool removeZeroes = false, bool fixSymbolic = false);
   void remove(Var v);  // NOTE: modifies order of variables, and can invalidate rhs / degree invariant
   LARGE calcDegree() const;
   LARGE calcRhs() const;
@@ -376,13 +376,13 @@ struct ConstrExp final : ConstrExpSuper {
       symbBound.add(c->symbBound, cmult);
     }
     if (symbBound.isValid() && !c->symbBound.isValid()) {
-      bigint big_int = c->getRhs();
+      bigint big_int = c->getDegree();
       symbBound.addOffset(big_int * cmult);
     }
     if (!symbBound.isValid() && c->symbBound.isValid()) {
       symbBound = c->symbBound;
       symbBound.multiply(cmult);
-      symbBound.addOffset(getRhs());
+      symbBound.addOffset(getDegree());
     }
     rhs += static_cast<LARGE>(cmult) * static_cast<LARGE>(c->rhs);
     degree += static_cast<LARGE>(cmult) * static_cast<LARGE>(c->degree);
@@ -390,7 +390,7 @@ struct ConstrExp final : ConstrExpSuper {
       assert(v < (Var)coefs.size());
       assert(v > 0);
       SMALL val = cmult * static_cast<SMALL>(c->coefs[v]);
-      add(v, val, true);
+      add(v, val, true, true);
     }
   }
 
@@ -534,9 +534,7 @@ struct ConstrExp final : ConstrExpSuper {
           addLhs(static_cast<SMALL>(cf / div), l);  // partial weakening
           auto toWeaken = cf % div;
           weakenedDegree -= toWeaken;
-          if (toWeaken != 0 && l > 0) {
-            symbBound.addOffset(-toWeaken);
-          }
+          symbBound.addOffset(-toWeaken);
         } else {
           assert(aux::msb(aux::ceildiv<DG>(cf, div)) < bitOverflow);
           addLhs(static_cast<SMALL>(aux::ceildiv<DG>(cf, div)), l);

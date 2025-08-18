@@ -511,8 +511,8 @@ void Optimization<SMALL, LARGE>::boundObjByLastSol() {
   solver.lastSymbBoundUpper = upbound;
   aux->symbBound.mult_upper = 1;
   aux->symbBound.mult_lower = 0;
-  aux->symbBound.offset = -origObj->getRhs();
-  assert(aux->symbBound.getRhs(solver.lastSymbBoundUpper, solver.lastSymbBoundLower) == aux->getRhs());
+  aux->symbBound.offset = aux->getDegree() - upbound;
+  assert(aux->symbBound.getDegree(solver.lastSymbBoundUpper, solver.lastSymbBoundLower) == aux->getDegree());
   assert(aux->symbBound.isValid());
 
   solver.dropExternal(lastUpperBound, true, true);
