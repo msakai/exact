@@ -811,12 +811,22 @@ void ConstrExp<SMALL, LARGE>::removeEqualities(Equalities& equalities) {
       SMALL mult = aux::abs(coefs[v]);
       addLhs(mult, repr.l);
       Var reprv = toVar(repr.l);
-      if (stillFits<SMALL>(coefs[reprv])) {
+      if (stillFits<SMALL>(coefs[reprv])) {  // TODO: check can be dropped by intertwining saturation...
         addLhs(mult, -l);
         addRhs(mult);
         assert(coefs[v] == 0);
         if (global.logger.isActive()) Logger::proofMult(proofBuffer << repr.id << " ", mult) << "+ ";
-        symbBound.reset();
+        SMALL repr_coef = getCoef(repr.l);
+        if (repr_coef < mult) {
+          // canceling lits, fix the symbBound degree, depending on how much cancelation is going on
+          if (repr_coef <= 0) {
+            // full cancelation
+            symbBound.addOffset(-mult);
+          } else {
+            // partial cancelation
+            symbBound.addOffset(-(mult - repr_coef));
+          }
+        }
       } else {
         addLhs(-mult, repr.l);  // revert change
       }
@@ -837,7 +847,7 @@ void ConstrExp<SMALL, LARGE>::selfSubsumeImplications(const Implications& implic
       ++global.stats.NSUBSUMESTEPS.z;
       SMALL cf = aux::abs(coefs[v]);
       if (global.logger.isActive()) Logger::proofMult(proofBuffer << global.logger.logRUP(-l, ll) << " ", cf) << "+ s ";
-      symbBound.reset();
+      symbBound.reset();  // almost always some form of saturation going on
       addRhs(cf);
       addLhs(cf, -l);
       assert(coefs[v] == 0);
@@ -1951,7 +1961,7 @@ unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const std::span<const Lit>& da
     // saturate, multiply, divide, add, saturate
     Logger::proofMult(proofBuffer, mult) << "+ s ";
   }
-  symbBound.reset();
+  symbBound.reset();  // almost always some form of saturation going on
 
   IntSet& lbdSet = global.isPool.take();
   for (Lit l : data) {

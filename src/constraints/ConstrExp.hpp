@@ -100,7 +100,6 @@ struct SymbolicBound {
 
 std::ostream& operator<<(std::ostream& os, const SymbolicBound& bound);
 
-// TODO: check places where symbBounds are reset (equalities, implications?)
 // TODO: remove symb bounds when objective changes. Via hash map: Constr->SymbBound ?
 
 struct ConstrExpSuper {
