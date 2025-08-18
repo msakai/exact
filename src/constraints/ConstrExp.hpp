@@ -84,7 +84,8 @@ class Implications;
 struct IntSet;
 
 struct SymbolicBound {
-  ratio mult = 0;
+  ratio mult_upper = 0;
+  ratio mult_lower = 0;
   ratio offset = 0;
 
   void add(const SymbolicBound& sb, const bigint& mult);
@@ -94,10 +95,13 @@ struct SymbolicBound {
   void reset();
   bool isValid() const;
 
-  bigint getRhs(const bigint& bound) const;
+  bigint getRhs(const bigint& upbound, const bigint& lowbound) const;
 };
 
-// TODO: symbBounds for bottom-up calculations
+std::ostream& operator<<(std::ostream& os, const SymbolicBound& bound);
+
+// TODO: check places where symbBounds are reset (equalities, implications?)
+// TODO: remove symb bounds when objective changes. Via hash map: Constr->SymbBound ?
 
 struct ConstrExpSuper {
   // protected:
@@ -130,7 +134,7 @@ struct ConstrExpSuper {
   // NOTE: only equivalence preserving operations over the Bools!
   void postProcess(const IntMap<int>& level, const std::vector<int>& pos, const Heuristic& heur, bool sortFirst,
                    Stats& stats);
-  void strongPostProcess(Solver& solver, const bigint& lastUpperBound);
+  void strongPostProcess(Solver& solver, const bigint& lastUpperBound, const bigint& lastLowerBound);
 
   explicit ConstrExpSuper(Global& g);
   virtual ~ConstrExpSuper() = default;
@@ -207,7 +211,7 @@ struct ConstrExpSuper {
   virtual bool isClause() const = 0;
   virtual void simplifyToUnit(const IntMap<int>& level, const std::vector<int>& pos, Var v_unit) = 0;
   virtual void liftDegree() = 0;
-  virtual void liftDegreeSymbolic(const bigint& lastBound) = 0;
+  virtual void liftDegreeSymbolic(const bigint& lastUpperBound, const bigint& lastLowerBound) = 0;
 
   virtual bool isSortedInDecreasingCoefOrder() const = 0;
   virtual void sortInDecreasingCoefOrder(const std::function<bool(Var, Var)>& tiebreaker) = 0;
@@ -435,6 +439,7 @@ struct ConstrExp final : ConstrExpSuper {
   }
 
   LARGE absCoeffSum() const;
+  std::pair<LARGE, LARGE> getLhsExtrema() const;
 
   // @post: preserves order of vars
   bool simplifyToCardinality(bool equivalencePreserving, int cardDegree);
@@ -447,7 +452,7 @@ struct ConstrExp final : ConstrExpSuper {
   bool isClause() const;
   void simplifyToUnit(const IntMap<int>& level, const std::vector<int>& pos, Var v_unit);
   void liftDegree();
-  void liftDegreeSymbolic(const bigint& lastBound);
+  void liftDegreeSymbolic(const bigint& lastUpperBound, const bigint& lastLowerBound);
 
   bool isSortedInDecreasingCoefOrder() const;
   void sortInDecreasingCoefOrder(const std::function<bool(Var, Var)>& tiebreaker);
@@ -509,9 +514,8 @@ struct ConstrExp final : ConstrExpSuper {
         div = aux::ceildiv<DG>(maxVal, aux::powtwo<DG>(bitReduce) - 1);
       }
     }
-    if (sb == nullptr) {
-      symbBound.reset();
-    } else {
+    assert(!symbBound.isValid());
+    if (sb != nullptr) {
       symbBound = *sb;
     }
     if (div == 1) {

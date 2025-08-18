@@ -134,6 +134,10 @@ bool Solver::isOrig(Var v) const {
 void Solver::setObjective(const CeArb& obj) {
   objectiveSet = true;
   objective = obj;
+  auto [lb, ub] = obj->getLhsExtrema();
+  lastSymbBoundLower = lb - 1;
+  lastSymbBoundUpper = ub + 1;
+  aux::cout << "OBJ " << objective << std::endl;
   if (lpSolver) lpSolver->setObjective(objective);
 }
 
@@ -413,7 +417,9 @@ CeSuper Solver::getAnalysisCE(const CeSuper& conflict) const {
 }
 
 CeSuper Solver::analyze(const CeSuper& conflict) {
+#if !NDEBUG
   global.logger.logComment("Analyze");
+#endif
   assert(conflict->hasNegativeSlack(level));
   conflict->removeUnitsAndZeroes(level, position);
   conflict->saturateAndFixOverflow(getLevel(), global.options.bitsOverflow.get(), global.options.bitsReduced.get(), 0,
@@ -744,10 +750,6 @@ void Solver::learnClause(Lit l1, Lit l2, Origin orig, ID id) {
 
 std::pair<ID, ID> Solver::addInputConstraint(const CeSuper& ce) {  // NOTE: should not throw UnsatEncounter
   if (unsatReached) return {ID_Undef, ID_Undef};
-  //  std::cout << "ADD INPUT CONSTRAINT " << ce->orig << " " << ce << std::endl;
-  // ce->sortInDecreasingCoefOrder([](Var, Var) { return false; });
-  // ce->saturate(true, true);
-  // aux::cout << "STRENGTH " << ce->getStrength() << std::endl;
 
   assert(isInput(ce->orig));
   assert(decisionLevel() == 0);
@@ -772,7 +774,7 @@ std::pair<ID, ID> Solver::addInputConstraint(const CeSuper& ce) {  // NOTE: shou
     default:
       input = global.logger.logAssumption(ce, global.options.proofAssumps.operator bool());
   }
-  ce->strongPostProcess(*this, lastSymbBound);
+  ce->strongPostProcess(*this, lastSymbBoundUpper, lastSymbBoundLower);
   if (ce->isTautology()) {
     return {input, ID_Undef};  // already satisfied.
   }
@@ -1033,7 +1035,7 @@ void Solver::reduceDB() {
     CeSuper ce = c.toExpanded(global.cePools);
     bool isLocked = c.isLocked();
     unsigned int lbd = c.lbd();
-    ce->strongPostProcess(*this, lastSymbBound);
+    ce->strongPostProcess(*this, lastSymbBoundUpper, lastSymbBoundLower);
     if (ce->isUnsat()) reportUnsat(ce);
     if (ce->isTautology()) {
       removeConstraint(cr, true);

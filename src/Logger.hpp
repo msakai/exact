@@ -100,7 +100,8 @@ class Logger {
   void activate(const std::string& proof_log_name, bool zip);
   bool isActive() const;
   void flush();
-  void logComment([[maybe_unused]] const std::string& comment);
+  void logComment(const std::string& comment);
+  void logInfo(const CeSuper& ce);
 
   ID logInput(const CeSuper& ce);
   void logObjective(const CeSuper& ce);

@@ -319,6 +319,14 @@ void Optimization<SMALL, LARGE>::addLowerBound() {
   for (Lit l : assumptions.getKeys()) {
     aux->addLhs(static_cast<SMALL>(aux->getDegree()), -l);  // bound only holds under assumptions
   }
+
+  // solver.lastSymbBoundLower = lower_bound;
+  // aux->symbBound.mult_upper = 0;
+  // aux->symbBound.mult_lower = 1;
+  // aux->symbBound.offset = origObj->getRhs();
+  // assert(aux->symbBound.getRhs(solver.lastSymbBoundUpper, solver.lastSymbBoundLower) == aux->getRhs());
+  // assert(aux->symbBound.isValid());
+
   solver.dropExternal(lastLowerBound, true, true);
   std::pair<ID, ID> res = solver.addConstraint(aux);
   lastLowerBound = res.second;
@@ -493,7 +501,6 @@ void Optimization<SMALL, LARGE>::boundObjByLastSol() {
   upper_bound = -origObj->getRhs();
   for (Var v : origObj->getVars()) upper_bound += sol[v] > 0 ? origObj->coefs[v] : 0;
   const LARGE upbound = -upper_bound + 1;
-  solver.lastSymbBound = upbound;
 
   CePtr<SMALL, LARGE> aux = global.cePools.take<SMALL, LARGE>();
   origObj->copyTo(aux);
@@ -501,8 +508,12 @@ void Optimization<SMALL, LARGE>::boundObjByLastSol() {
   aux->invert();
   aux->addRhs(upbound);
 
-  aux->symbBound.mult = 1;
-  aux->symbBound.offset = upbound;
+  solver.lastSymbBoundUpper = upbound;
+  aux->symbBound.mult_upper = 1;
+  aux->symbBound.mult_lower = 0;
+  aux->symbBound.offset = -origObj->getRhs();
+  assert(aux->symbBound.getRhs(solver.lastSymbBoundUpper, solver.lastSymbBoundLower) == aux->getRhs());
+  assert(aux->symbBound.isValid());
 
   solver.dropExternal(lastUpperBound, true, true);
   std::pair<ID, ID> res = solver.addConstraint(aux);

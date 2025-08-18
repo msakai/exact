@@ -94,7 +94,8 @@ int32_t dp_subsetsum(const std::vector<int32_t>& coefs, int32_t degree, int32_t 
 void SymbolicBound::add(const SymbolicBound& sb, const bigint& m) {
   assert(m > 0);
   assert(isValid());
-  mult += sb.mult * m;
+  mult_upper += sb.mult_upper * m;
+  mult_lower += sb.mult_lower * m;
   offset += sb.offset * m;
 }
 
@@ -103,34 +104,41 @@ void SymbolicBound::addOffset(const bigint& os) {
   offset += os;
 }
 
-void SymbolicBound::divide(const bigint& div) {
-  assert(div > 0);
+void SymbolicBound::divide(const bigint& d) {
+  assert(d > 0);
   if (!isValid()) return;
-  const ratio x = div;
-  mult /= x;
-  offset /= x;
+  mult_upper /= d;
+  mult_lower /= d;
+  offset /= d;
 }
 
 void SymbolicBound::multiply(const bigint& m) {
   assert(m > 0);
   if (!isValid()) return;
-  mult *= m;
+  mult_upper *= m;
+  mult_lower *= m;
   offset *= m;
 }
 
 void SymbolicBound::reset() {
-  mult = 0;
+  mult_upper = 0;
+  mult_lower = 0;
   offset = 0;
 }
 
 bool SymbolicBound::isValid() const {
-  assert(mult != 0 || offset == 0);
-  return mult != 0;
+  assert(mult_upper != 0 || mult_lower != 0 || offset == 0);
+  return mult_upper != 0 || mult_lower != 0;
 }
 
-bigint SymbolicBound::getRhs(const bigint& bound) const {
-  const ratio r = mult * bound + offset;
+bigint SymbolicBound::getRhs(const bigint& upbound, const bigint& lowbound) const {
+  const ratio r = offset + mult_upper * upbound + mult_lower * lowbound;
   return aux::ceildiv_safe(numerator(r), denominator(r));
+}
+
+std::ostream& operator<<(std::ostream& os, const SymbolicBound& bound) {
+  os << "mult_upper " << bound.mult_upper << " mult_lower " << bound.mult_lower << " offset " << bound.offset;
+  return os;
 }
 
 ConstrExpSuper::ConstrExpSuper(Global& g) : global(g), orig(Origin::UNKNOWN) {}
@@ -210,9 +218,9 @@ void ConstrExpSuper::postProcess(const IntMap<int>& level, const std::vector<int
   liftDegree();
 }
 
-void ConstrExpSuper::strongPostProcess(Solver& solver, const bigint& lastUpperBound) {
+void ConstrExpSuper::strongPostProcess(Solver& solver, const bigint& lastUpperBound, const bigint& lastLowerBound) {
   [[maybe_unused]] int nvars = nNonZeroVars();
-  if (global.options.liftDegreeSymbolic) liftDegreeSymbolic(lastUpperBound);
+  if (global.options.liftDegreeSymbolic) liftDegreeSymbolic(lastUpperBound, lastLowerBound);
   removeEqualities(solver.getEqualities());
   selfSubsumeImplications(solver.getImplications());
   postProcess(solver.getLevel(), solver.getPos(), solver.getHeuristic(), true, solver.getStats());
@@ -1463,6 +1471,17 @@ LARGE ConstrExp<SMALL, LARGE>::absCoeffSum() const {
   return result;
 }
 
+template <typename SMALL, typename LARGE>
+std::pair<LARGE, LARGE> ConstrExp<SMALL, LARGE>::getLhsExtrema() const {
+  LARGE lb = 0;
+  LARGE ub = 0;
+  for (Var v : vars) {
+    if (coefs[v] < 0) lb += coefs[v];
+    if (coefs[v] > 0) ub += coefs[v];
+  }
+  return {lb, ub};
+}
+
 // @post: preserves order of vars
 template <typename SMALL, typename LARGE>
 bool ConstrExp<SMALL, LARGE>::simplifyToCardinality(bool equivalencePreserving, int cardDegree) {
@@ -1692,11 +1711,15 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
 }
 
 template <typename SMALL, typename LARGE>
-void ConstrExp<SMALL, LARGE>::liftDegreeSymbolic(const bigint& lastBound) {
+void ConstrExp<SMALL, LARGE>::liftDegreeSymbolic(const bigint& lastUpperBound, const bigint& lastLowerBound) {
   if (!symbBound.isValid()) return;
-  const bigint newRhs = symbBound.getRhs(lastBound);
+  const bigint newRhs = symbBound.getRhs(lastUpperBound, lastLowerBound);
   if (newRhs > rhs) {
     ++global.stats.NSYMBBOUND;
+    aux::cout << "IMPROVING" << std::endl;
+    aux::cout << *this << std::endl;
+    aux::cout << newRhs << " " << lastUpperBound << " " << lastLowerBound << std::endl;
+    aux::cout << symbBound.offset << " " << symbBound.mult_upper << " " << symbBound.mult_lower << std::endl;
     if (newRhs > limitRhs<SMALL, LARGE>()) {
       assert((limitRhs<SMALL, LARGE>() > rhs));
       rhs = static_cast<LARGE>(limitRhs<SMALL, LARGE>());
@@ -1704,6 +1727,7 @@ void ConstrExp<SMALL, LARGE>::liftDegreeSymbolic(const bigint& lastBound) {
       rhs = static_cast<LARGE>(newRhs);
     }
     degree = calcDegree();
+    aux::cout << *this << std::endl;
   }
   // TODO: proof logging
 }
