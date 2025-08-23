@@ -118,6 +118,7 @@ class Solver {
   int lastRemoveSatisfiedsTrail = 0;
   std::unordered_multimap<Lit, Lit> binaryImplicants;  // l implies multimap[l]
   IntMap<int> lit2consOldSize;
+  unordered_map<const Constr*, const SymbolicBound> symbbounds;
 
   IntMap<std::vector<Watch>> adj;
   // TODO: make position, level, contiguous memory for better cache efficiency.
@@ -149,6 +150,7 @@ class Solver {
   std::vector<CRef> db_learnts;
 
   CeSuper getAnalysisCE(const CeSuper& conflict) const;
+
 
  public:
   Solver(Global& g);
@@ -185,9 +187,10 @@ class Solver {
   void invalidateLastSol(const VarVec& vars);
 
   void dropExternal(ID id, bool erasable, bool forceDelete);
-  int getNbConstraints() const { return constraints.size(); }
-  const std::vector<CRef>& getRawConstraints() const { return constraints; }
-  const ConstraintAllocator& getCA() const { return ca; }
+  int getNbConstraints() const;
+  const std::vector<CRef>& getRawConstraints() const;
+  const ConstraintAllocator& getCA() const;
+  const SymbolicBound* getSymbBound(const Constr* c) const;
 
   void setAssumptions(const LitVec& assumps, bool coreguided);
   void clearAssumptions();

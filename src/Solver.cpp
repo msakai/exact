@@ -614,6 +614,9 @@ CRef Solver::attachConstraint(const CeSuper& constraint, bool locked) {
 
   CRef cr = constraint->toConstr(ca, locked, global.logger.logProofLineWithInfo(constraint, "Attach"));
   Constr& c = ca[cr];
+  if (constraint->symbBound.isValid()) {
+    symbbounds[&c] = constraint->symbBound;
+  }
   c.initializeWatches(cr, *this);
   constraints.push_back(cr);
   const Origin& orig = constraint->orig;
@@ -889,6 +892,20 @@ void Solver::dropExternal(ID id, bool erasable, bool forceDelete) {
   if (forceDelete) removeConstraint(cr);
 }
 
+int Solver::getNbConstraints() const { return constraints.size(); }
+
+const std::vector<CRef>& Solver::getRawConstraints() const { return constraints; }
+
+const ConstraintAllocator& Solver::getCA() const { return ca; }
+
+const SymbolicBound* Solver::getSymbBound(const Constr* c) const {
+  auto it = symbbounds.find(c);
+  if (it != symbbounds.end()) {
+    return &(it->second);
+  }
+  return nullptr;
+}
+
 // ---------------------------------------------------------------------
 // Assumptions
 
@@ -969,6 +986,7 @@ void Solver::garbage_collect() {
   ca.wasted = 0;
   ca.at = 0;
   unordered_map<uint32_t, CRef> crefmap;
+  const unordered_map<const Constr*, const SymbolicBound> new_symbbounds;
   for (int i = 1; i < (int)constraints.size(); ++i) assert(constraints[i - 1].ofs < constraints[i].ofs);
   for (CRef& cr : constraints) {
     uint32_t offset = cr.ofs;
@@ -977,7 +995,21 @@ void Solver::garbage_collect() {
     cr.ofs = ca.at;
     ca.at += memSize;
     crefmap[offset] = cr;
+    const Constr* oldptr = reinterpret_cast<const Constr*>(ca.memory + maxAlign * cr.ofs);
+    auto node = symbbounds.find(oldptr);  // Removes from map1 but keeps ownership
+    if (node!=symbbounds.end()) {
+      const Constr* newptr = reinterpret_cast<const Constr*>(ca.memory + maxAlign * ca.at);
+      new_symbbounds.insert(newptr, node->second);
+    }
+
+    const SymbolicBound* sb = getSymbBound(oldptr);
+    if (sb) {
+
+      assert(newptr == &ca[cr]);
+      symbbounds.insert_or_assign(newptr,*sb);
+    }
   }
+  aux::cout << "SYMBBOUNDS SIZE " << symbbounds.size() << std::endl;
 
   for (Lit l = -n; l <= n; ++l) {
     for (Watch& w : adj[l]) updatePtr(crefmap, w.cref);
@@ -1025,7 +1057,7 @@ void Solver::reduceDB() {
     CRef cr = constraints[i];
     Constr& c = ca[cr];
     if (c.isMarkedForDelete() || external.count(c.id()) ||
-        !c.canBeSimplified(level, equalities, implications, global.isPool)) {
+        !c.canBeSimplified(*this, global.isPool)) {
       continue;
     }
     ++global.stats.NCONSREADDED;

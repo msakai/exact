@@ -157,7 +157,7 @@ WatchStatus Binary::checkForPropagation(Watch&, const Lit, Solver&, Stats&) {
 
 uint32_t Binary::resolveWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& actSet) const {
   // TODO: simplify resolving with Binary
-  return confl->resolveWith(data, 1, id(), l, solver.getLevel(), solver.getPos(), actSet, nullptr);
+  return confl->resolveWith(data, 1, id(), l, solver.getLevel(), solver.getPos(), actSet, solver.getSymbBound(this));
 }
 uint32_t Binary::subsumeWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& saturatedLits) const {
   // TODO: simplify resolving with Binary
@@ -171,7 +171,6 @@ CeSuper Binary::toExpanded(ConstrExpPools& cePools) const {
   result->addLhs(1, data[1]);
   result->orig = getOrigin();
   result->resetBuffer(id());
-  assert(!result->symbBound.isValid());
   return result;
 }
 
@@ -181,13 +180,20 @@ bool Binary::isSatisfiedAtRoot(const IntMap<int>& level) const {
   return false;
 }
 
-bool Binary::canBeSimplified(const IntMap<int>& level, Equalities& equalities, Implications& implications,
+bool Binary::canBeSimplified(Solver& solver,
                              IntSetPool&) const {
   const bool isEquality = getOrigin() == Origin::EQUALITY;
-  return isUnit(level, data[0]) || isUnit(level, -data[0]) || isUnit(level, data[1]) || isUnit(level, -data[1]) ||
+  const auto& level = solver.getLevel();
+  auto& equalities = solver.equalities;
+  const auto& implications = solver.implications;
+  if (isUnit(level, data[0]) || isUnit(level, -data[0]) || isUnit(level, data[1]) || isUnit(level, -data[1]) ||
          (!isEquality && (!equalities.isCanonical(data[0]) || !equalities.isCanonical(data[1]) ||
                           implications.getImplieds(data[0]).contains(-data[1]) ||
-                          implications.getImplieds(data[1]).contains(-data[0])));
+                          implications.getImplieds(data[1]).contains(-data[0])))) {
+    return true;
+  }
+  const SymbolicBound* sb = solver.getSymbBound(this);
+  return sb!=nullptr && sb->getDegree(solver.lastSymbBoundUpper,solver.lastSymbBoundLower)>degree();
 }
 
 size_t Clause::getMemSize(const uint32_t length) {
@@ -301,7 +307,7 @@ WatchStatus Clause::checkForPropagation(Watch& w, const Lit p, Solver& solver, S
 }
 
 uint32_t Clause::resolveWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& actSet) const {
-  return confl->resolveWith({data, size()}, 1, id(), l, solver.getLevel(), solver.getPos(), actSet, symbBound);
+  return confl->resolveWith({data, size()}, 1, id(), l, solver.getLevel(), solver.getPos(), actSet, solver.getSymbBound(this));
 }
 uint32_t Clause::subsumeWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& saturatedLits) const {
   return confl->subsumeWith({data, size()}, 1, id(), l, solver.getLevel(), solver.getPos(), saturatedLits);
@@ -315,10 +321,6 @@ CeSuper Clause::toExpanded(ConstrExpPools& cePools) const {
   }
   result->orig = getOrigin();
   result->resetBuffer(id());
-  assert(!result->symbBound.isValid());
-  if (symbBound != nullptr) {
-    result->symbBound = *symbBound;
-  }
   return result;
 }
 
@@ -329,9 +331,12 @@ bool Clause::isSatisfiedAtRoot(const IntMap<int>& level) const {
   return false;
 }
 
-bool Clause::canBeSimplified(const IntMap<int>& level, Equalities& equalities, Implications& implications,
+bool Clause::canBeSimplified(Solver& solver,
                              IntSetPool& isp) const {
   const bool isEquality = getOrigin() == Origin::EQUALITY;
+  const auto& level = solver.getLevel();
+  auto& equalities = solver.equalities;
+  const auto& implications = solver.implications;
   for (uint32_t i = 0; i < size(); ++i) {
     if (const Lit l = data[i]; isUnit(level, l) || isUnit(level, -l) || (!isEquality && !equalities.isCanonical(l))) {
       return true;
@@ -352,7 +357,8 @@ bool Clause::canBeSimplified(const IntMap<int>& level, Equalities& equalities, I
     }
     isp.release(saturateds);
   }
-  return false;
+  const SymbolicBound* sb = solver.getSymbBound(this);
+  return sb!=nullptr && sb->getDegree(solver.lastSymbBoundUpper,solver.lastSymbBoundLower)>1;
 }
 
 size_t Cardinality::getMemSize(const uint32_t length) {
@@ -463,7 +469,7 @@ WatchStatus Cardinality::checkForPropagation(Watch& w, [[maybe_unused]] const Li
 }
 
 uint32_t Cardinality::resolveWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& actSet) const {
-  return confl->resolveWith({data, size()}, degr, id(), l, solver.getLevel(), solver.getPos(), actSet, symbBound);
+  return confl->resolveWith({data, size()}, degr, id(), l, solver.getLevel(), solver.getPos(), actSet, solver.getSymbBound(this));
 }
 uint32_t Cardinality::subsumeWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& saturatedLits) const {
   return confl->subsumeWith({data, size()}, degr, id(), l, solver.getLevel(), solver.getPos(), saturatedLits);
@@ -477,10 +483,6 @@ CeSuper Cardinality::toExpanded(ConstrExpPools& cePools) const {
   }
   result->orig = getOrigin();
   result->resetBuffer(id());
-  assert(!result->symbBound.isValid());
-  if (symbBound != nullptr) {
-    result->symbBound = *symbBound;
-  }
   return result;
 }
 
@@ -492,18 +494,22 @@ bool Cardinality::isSatisfiedAtRoot(const IntMap<int>& level) const {
   return eval >= 0;
 }
 
-bool Cardinality::canBeSimplified(const IntMap<int>& level, Equalities& equalities, Implications&, IntSetPool&) const {
+bool Cardinality::canBeSimplified(Solver& solver, IntSetPool&) const {
   const bool isEquality = getOrigin() == Origin::EQUALITY;
+  const auto& level = solver.getLevel();
+  auto& equalities = solver.equalities;
+  const auto& implications = solver.implications;
   for (uint32_t i = 0; i < size(); ++i) {
     if (const Lit l = data[i]; isUnit(level, l) || isUnit(level, -l) || (!isEquality && !equalities.isCanonical(l))) {
       return true;
     }
   }
   // NOTE: no saturated literals in a cardinality, so no need to check for self-subsumption
-  return false;
+  const SymbolicBound* sb = solver.getSymbBound(this);
+  return sb!=nullptr && sb->getDegree(solver.lastSymbBoundUpper,solver.lastSymbBoundLower)>degree();
 }
 
-void Watched32::cleanup() { delete symbBound; }
+void Watched32::cleanup() { }
 
 size_t Watched32::getMemSize(uint32_t length) {
   return aux::ceildiv(sizeof(Watched32) + sizeof(Lit) * length * 2, maxAlign);
@@ -699,7 +705,7 @@ void Watched32::undoFalsified(uint32_t i) {
 
 uint32_t Watched32::resolveWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& actSet) const {
   return confl->resolveWith(data, data + size(), size(), degr, id(), getOrigin(), l, solver.getLevel(), solver.getPos(),
-                            actSet, symbBound);
+                            actSet, solver.getSymbBound(this));
 }
 uint32_t Watched32::subsumeWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& saturatedLits) const {
   return confl->subsumeWith(data, data + size(), size(), degr, id(), l, solver.getLevel(), solver.getPos(),
@@ -715,10 +721,6 @@ Ce32 Watched32::expandTo(ConstrExpPools& cePools) const {
   result->orig = getOrigin();
   result->resetBuffer(id());
   assert(result->isSortedInDecreasingCoefOrder());
-  assert(!result->symbBound.isValid());
-  if (symbBound != nullptr) {
-    result->symbBound = *symbBound;
-  }
   return result;
 }
 
@@ -732,9 +734,12 @@ bool Watched32::isSatisfiedAtRoot(const IntMap<int>& level) const {
   return eval >= 0;
 }
 
-bool Watched32::canBeSimplified(const IntMap<int>& level, Equalities& equalities, Implications& implications,
+bool Watched32::canBeSimplified(Solver& solver,
                                 IntSetPool& isp) const {
   const bool isEquality = getOrigin() == Origin::EQUALITY;
+  const auto& level = solver.getLevel();
+  auto& equalities = solver.equalities;
+  const auto& implications = solver.implications;
   for (uint32_t i = 0; i < size(); ++i) {
     if (const Lit l = lit(i); isUnit(level, l) || isUnit(level, -l) || (!isEquality && !equalities.isCanonical(l)))
       return true;
@@ -754,13 +759,13 @@ bool Watched32::canBeSimplified(const IntMap<int>& level, Equalities& equalities
     }
     isp.release(saturateds);
   }
-  return false;
+  const SymbolicBound* sb = solver.getSymbBound(this);
+  return sb!=nullptr && sb->getDegree(solver.lastSymbBoundUpper,solver.lastSymbBoundLower)>degree();
 }
 
 template <typename CF, typename DG>
 void Watched<CF, DG>::cleanup() {
   delete[] cfs;
-  delete symbBound;
 }
 
 template <typename CF, typename DG>
@@ -988,7 +993,7 @@ void Watched<CF, DG>::undoFalsified(uint32_t i) {
 template <typename CF, typename DG>
 uint32_t Watched<CF, DG>::resolveWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& actSet) const {
   return confl->resolveWith(lits, cfs, size(), degr, id(), getOrigin(), l, solver.getLevel(), solver.getPos(), actSet,
-                            symbBound);
+                            solver.getSymbBound(this));
 }
 template <typename CF, typename DG>
 uint32_t Watched<CF, DG>::subsumeWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& saturatedLits) const {
@@ -1005,10 +1010,6 @@ CePtr<CF, DG> Watched<CF, DG>::expandTo(ConstrExpPools& cePools) const {
   result->orig = getOrigin();
   result->resetBuffer(id());
   assert(result->isSortedInDecreasingCoefOrder());
-  assert(!result->symbBound.isValid());
-  if (symbBound != nullptr) {
-    result->symbBound = *symbBound;
-  }
   return result;
 }
 
@@ -1027,9 +1028,12 @@ bool Watched<CF, DG>::isSatisfiedAtRoot(const IntMap<int>& level) const {
 }
 
 template <typename CF, typename DG>
-bool Watched<CF, DG>::canBeSimplified(const IntMap<int>& level, Equalities& equalities, Implications& implications,
+bool Watched<CF, DG>::canBeSimplified(Solver& solver,
                                       IntSetPool& isp) const {
   const bool isEquality = getOrigin() == Origin::EQUALITY;
+  const auto& level = solver.getLevel();
+  auto& equalities = solver.equalities;
+  const auto& implications = solver.implications;
   for (uint32_t i = 0; i < size(); ++i) {
     if (const Lit l = lit(i); isUnit(level, l) || isUnit(level, -l) || (!isEquality && !equalities.isCanonical(l)))
       return true;
@@ -1049,7 +1053,8 @@ bool Watched<CF, DG>::canBeSimplified(const IntMap<int>& level, Equalities& equa
     }
     isp.release(saturateds);
   }
-  return false;
+  const SymbolicBound* sb = solver.getSymbBound(this);
+  return sb!=nullptr && sb->getDegree(solver.lastSymbBoundUpper,solver.lastSymbBoundLower)>degree();
 }
 
 // TODO: keep below test methods?

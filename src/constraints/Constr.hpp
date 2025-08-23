@@ -121,7 +121,7 @@ struct Constr {  // internal solver constraint optimized for fast propagation
 
   virtual CeSuper toExpanded(ConstrExpPools& cePools) const = 0;
   virtual bool isSatisfiedAtRoot(const IntMap<int>& level) const = 0;
-  virtual bool canBeSimplified(const IntMap<int>& level, Equalities& equalities, Implications& implications,
+  virtual bool canBeSimplified(Solver& solver,
                                IntSetPool& isp) const = 0;
 
   void print(const Solver& solver) const;
@@ -168,12 +168,11 @@ struct Binary final : Constr {
 
   CeSuper toExpanded(ConstrExpPools& cePools) const;
   bool isSatisfiedAtRoot(const IntMap<int>& level) const;
-  bool canBeSimplified(const IntMap<int>& level, Equalities& equalities, Implications& implications,
+  bool canBeSimplified(Solver& solver,
                        IntSetPool& isp) const;
 };
 
 struct Clause final : Constr {
-  const SymbolicBound* symbBound;
   uint32_t next_watch_idx;
   Lit data[];  // Flexible Array Member
 
@@ -192,7 +191,6 @@ struct Clause final : Constr {
   Clause(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id)
       : Constr(_id, constraint->orig, locked, constraint->nVars(), 1.0 / static_cast<double>(constraint->nVars()),
                constraint->global.options.dbMaxLBD.get()),
-        symbBound(constraint->symbBound.isValid() ? new SymbolicBound(constraint->symbBound) : nullptr),
         next_watch_idx(sze) {
     assert(_id > ID_Trivial);
     assert(constraint->nVars() < INF);
@@ -215,12 +213,11 @@ struct Clause final : Constr {
 
   CeSuper toExpanded(ConstrExpPools& cePools) const;
   bool isSatisfiedAtRoot(const IntMap<int>& level) const;
-  bool canBeSimplified(const IntMap<int>& level, Equalities& equalities, Implications& implications,
+  bool canBeSimplified(Solver& solver,
                        IntSetPool& isp) const;
 };
 
 struct Cardinality final : Constr {
-  const SymbolicBound* symbBound;
   const uint32_t degr;
   uint32_t next_watch_idx;
   Lit data[];  // Flexible Array Member
@@ -240,7 +237,6 @@ struct Cardinality final : Constr {
   Cardinality(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id)
       : Constr(_id, constraint->orig, locked, constraint->nVars(), constraint->getStrength(),
                constraint->global.options.dbMaxLBD.get()),
-        symbBound(constraint->symbBound.isValid() ? new SymbolicBound(constraint->symbBound) : nullptr),
         degr(static_cast<uint32_t>(constraint->getDegree())),
         next_watch_idx(constraint->nVars()) {
     assert(degr > 1);  // otherwise should be a clause
@@ -266,12 +262,11 @@ struct Cardinality final : Constr {
 
   CeSuper toExpanded(ConstrExpPools& cePools) const;
   bool isSatisfiedAtRoot(const IntMap<int>& level) const;
-  bool canBeSimplified(const IntMap<int>& level, Equalities& equalities, Implications& implications,
+  bool canBeSimplified(Solver& solver,
                        IntSetPool& isp) const;
 };
 
 struct Watched32 final : Constr {
-  const SymbolicBound* symbBound;
   uint32_t next_watch_idx;
   uint32_t unsaturatedIdx;
   const int64_t degr;
@@ -295,7 +290,6 @@ struct Watched32 final : Constr {
   template <typename SMALL, typename LARGE>
   Watched32(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id, double strngth)
       : Constr(_id, constraint->orig, locked, constraint->nVars(), strngth, constraint->global.options.dbMaxLBD.get()),
-        symbBound(constraint->symbBound.isValid() ? new SymbolicBound(constraint->symbBound) : nullptr),
         next_watch_idx(sze),
         unsaturatedIdx(0),
         degr(static_cast<int64_t>(constraint->getDegree())),
@@ -330,7 +324,7 @@ struct Watched32 final : Constr {
   Ce32 expandTo(ConstrExpPools& cePools) const;
   CeSuper toExpanded(ConstrExpPools& cePools) const;
   bool isSatisfiedAtRoot(const IntMap<int>& level) const;
-  bool canBeSimplified(const IntMap<int>& level, Equalities& equalities, Implications& implications,
+  bool canBeSimplified(Solver& solver,
                        IntSetPool& isp) const;
 
   bool hasCorrectSlack(const Solver& solver);
@@ -339,7 +333,6 @@ struct Watched32 final : Constr {
 
 template <typename CF, typename DG>
 struct Watched final : Constr {
-  const SymbolicBound* symbBound;
   uint32_t next_watch_idx;
   uint32_t unsaturatedIdx;
   const DG degr;
@@ -362,7 +355,6 @@ struct Watched final : Constr {
   template <typename SMALL, typename LARGE>
   Watched(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id, double strngth)
       : Constr(_id, constraint->orig, locked, constraint->nVars(), strngth, constraint->global.options.dbMaxLBD.get()),
-        symbBound(constraint->symbBound.isValid() ? new SymbolicBound(constraint->symbBound) : nullptr),
         next_watch_idx(sze),
         unsaturatedIdx(0),
         degr(static_cast<DG>(constraint->getDegree())),
@@ -398,7 +390,7 @@ struct Watched final : Constr {
   CePtr<CF, DG> expandTo(ConstrExpPools& cePools) const;
   CeSuper toExpanded(ConstrExpPools& cePools) const;
   bool isSatisfiedAtRoot(const IntMap<int>& level) const;
-  bool canBeSimplified(const IntMap<int>& level, Equalities& equalities, Implications& implications,
+  bool canBeSimplified(Solver& solver,
                        IntSetPool& isp) const;
 
   bool hasCorrectSlack(const Solver& solver);
