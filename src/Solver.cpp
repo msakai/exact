@@ -137,6 +137,7 @@ void Solver::setObjective(const CeArb& obj) {
   auto [lb, ub] = obj->getLhsExtrema();
   lastSymbBoundLower = lb - 1;
   lastSymbBoundUpper = ub + 1;
+  symbbounds.clear();
   if (lpSolver) lpSolver->setObjective(objective);
 }
 
@@ -350,7 +351,7 @@ CeSuper Solver::runDatabasePropagation() {
             }
           }
         }
-        CeSuper result = c.toExpanded(global.cePools);
+        CeSuper result = expandWithSymbBound(c);
         c.decreaseLBD(result->getLBD(level));
         c.fixEncountered(global.stats);
         assert(result);
@@ -906,6 +907,15 @@ const SymbolicBound* Solver::getSymbBound(const Constr* c) const {
   return nullptr;
 }
 
+CeSuper Solver::expandWithSymbBound(const Constr& c) const {
+  CeSuper result = c.toExpanded(global.cePools);
+  auto sb_it = symbbounds.find(&c);
+  if (sb_it != symbbounds.end()) {
+    result->symbBound = sb_it->second;
+  }
+  return result;
+}
+
 // ---------------------------------------------------------------------
 // Assumptions
 
@@ -986,30 +996,22 @@ void Solver::garbage_collect() {
   ca.wasted = 0;
   ca.at = 0;
   unordered_map<uint32_t, CRef> crefmap;
-  const unordered_map<const Constr*, const SymbolicBound> new_symbbounds;
+  unordered_map<const Constr*, SymbolicBound> new_symbbounds;
   for (int i = 1; i < (int)constraints.size(); ++i) assert(constraints[i - 1].ofs < constraints[i].ofs);
   for (CRef& cr : constraints) {
+    const Constr* oldptr = &ca[cr];
     uint32_t offset = cr.ofs;
     size_t memSize = ca[cr].getMemSize();
     std::memmove(ca.memory + maxAlign * ca.at, ca.memory + maxAlign * cr.ofs, maxAlign * memSize);
     cr.ofs = ca.at;
     ca.at += memSize;
     crefmap[offset] = cr;
-    const Constr* oldptr = reinterpret_cast<const Constr*>(ca.memory + maxAlign * cr.ofs);
-    auto node = symbbounds.find(oldptr);  // Removes from map1 but keeps ownership
-    if (node!=symbbounds.end()) {
-      const Constr* newptr = reinterpret_cast<const Constr*>(ca.memory + maxAlign * ca.at);
-      new_symbbounds.insert(newptr, node->second);
-    }
-
-    const SymbolicBound* sb = getSymbBound(oldptr);
-    if (sb) {
-
-      assert(newptr == &ca[cr]);
-      symbbounds.insert_or_assign(newptr,*sb);
+    auto node = symbbounds.find(oldptr);
+    if (node != symbbounds.end()) {
+      new_symbbounds[&ca[cr]] = node->second;
     }
   }
-  aux::cout << "SYMBBOUNDS SIZE " << symbbounds.size() << std::endl;
+  std::swap(symbbounds, new_symbbounds);
 
   for (Lit l = -n; l <= n; ++l) {
     for (Watch& w : adj[l]) updatePtr(crefmap, w.cref);
@@ -1056,12 +1058,11 @@ void Solver::reduceDB() {
   for (int64_t i = 0; i < currentConstraints; ++i) {
     CRef cr = constraints[i];
     Constr& c = ca[cr];
-    if (c.isMarkedForDelete() || external.count(c.id()) ||
-        !c.canBeSimplified(*this, global.isPool)) {
+    if (c.isMarkedForDelete() || external.count(c.id()) || !c.canBeSimplified(*this, global.isPool)) {
       continue;
     }
     ++global.stats.NCONSREADDED;
-    CeSuper ce = c.toExpanded(global.cePools);
+    CeSuper ce = expandWithSymbBound(c);
     bool isLocked = c.isLocked();
     unsigned int lbd = c.lbd();
     ce->strongPostProcess(*this, lastSymbBoundUpper, lastSymbBoundLower);
@@ -1083,7 +1084,7 @@ void Solver::reduceDB() {
     Constr& c = ca[db_learnts[i]];
     assert(c.isMarkedForDelete());
     if (!c.isClauseOrCard()) {
-      CeSuper ce = c.toExpanded(global.cePools);
+      CeSuper ce = expandWithSymbBound(c);
       ce->orig = Origin::REDUCED;
       ce->removeUnitsAndZeroes(getLevel(), getPos());
       if (ce->isTautology()) continue;  // possible due to further root propagations during rewriting of constraints
@@ -1399,8 +1400,7 @@ SolveState Solver::solve() {
               lastCore = getUnitClause(l);
             } else {
               lastCore = aux::timeCall<CeSuper>(
-                  [&] { return extractCore(ca[reason[toVar(l)]].toExpanded(global.cePools), -l); },
-                  global.stats.CATIME);
+                  [&] { return extractCore(expandWithSymbBound(ca[reason[toVar(l)]]), -l); }, global.stats.CATIME);
             }
             assert(lastCore->hasNegativeSlack(assumptions.getIndex()));
             assert(decisionLevel() == 0);

@@ -118,7 +118,7 @@ class Solver {
   int lastRemoveSatisfiedsTrail = 0;
   std::unordered_multimap<Lit, Lit> binaryImplicants;  // l implies multimap[l]
   IntMap<int> lit2consOldSize;
-  unordered_map<const Constr*, const SymbolicBound> symbbounds;
+  unordered_map<const Constr*, SymbolicBound> symbbounds;
 
   IntMap<std::vector<Watch>> adj;
   // TODO: make position, level, contiguous memory for better cache efficiency.
@@ -150,7 +150,6 @@ class Solver {
   std::vector<CRef> db_learnts;
 
   CeSuper getAnalysisCE(const CeSuper& conflict) const;
-
 
  public:
   Solver(Global& g);
@@ -191,6 +190,7 @@ class Solver {
   const std::vector<CRef>& getRawConstraints() const;
   const ConstraintAllocator& getCA() const;
   const SymbolicBound* getSymbBound(const Constr* c) const;
+  CeSuper expandWithSymbBound(const Constr& c) const;
 
   void setAssumptions(const LitVec& assumps, bool coreguided);
   void clearAssumptions();
@@ -228,6 +228,7 @@ class Solver {
   void decide(Lit l);
   void propagate(Lit l, CRef r);
   [[nodiscard]] State probe(Lit l, bool deriveImplications);
+
   /**
    * Unit propagation with watched literals.
    * @post: all constraints have been checked for propagation under trail[0..qhead[

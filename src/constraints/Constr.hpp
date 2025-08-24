@@ -121,8 +121,7 @@ struct Constr {  // internal solver constraint optimized for fast propagation
 
   virtual CeSuper toExpanded(ConstrExpPools& cePools) const = 0;
   virtual bool isSatisfiedAtRoot(const IntMap<int>& level) const = 0;
-  virtual bool canBeSimplified(Solver& solver,
-                               IntSetPool& isp) const = 0;
+  virtual bool canBeSimplified(Solver& solver, IntSetPool& isp) const = 0;
 
   void print(const Solver& solver) const;
 
@@ -168,8 +167,7 @@ struct Binary final : Constr {
 
   CeSuper toExpanded(ConstrExpPools& cePools) const;
   bool isSatisfiedAtRoot(const IntMap<int>& level) const;
-  bool canBeSimplified(Solver& solver,
-                       IntSetPool& isp) const;
+  bool canBeSimplified(Solver& solver, IntSetPool& isp) const;
 };
 
 struct Clause final : Constr {
@@ -213,8 +211,7 @@ struct Clause final : Constr {
 
   CeSuper toExpanded(ConstrExpPools& cePools) const;
   bool isSatisfiedAtRoot(const IntMap<int>& level) const;
-  bool canBeSimplified(Solver& solver,
-                       IntSetPool& isp) const;
+  bool canBeSimplified(Solver& solver, IntSetPool& isp) const;
 };
 
 struct Cardinality final : Constr {
@@ -262,8 +259,7 @@ struct Cardinality final : Constr {
 
   CeSuper toExpanded(ConstrExpPools& cePools) const;
   bool isSatisfiedAtRoot(const IntMap<int>& level) const;
-  bool canBeSimplified(Solver& solver,
-                       IntSetPool& isp) const;
+  bool canBeSimplified(Solver& solver, IntSetPool& isp) const;
 };
 
 struct Watched32 final : Constr {
@@ -324,8 +320,7 @@ struct Watched32 final : Constr {
   Ce32 expandTo(ConstrExpPools& cePools) const;
   CeSuper toExpanded(ConstrExpPools& cePools) const;
   bool isSatisfiedAtRoot(const IntMap<int>& level) const;
-  bool canBeSimplified(Solver& solver,
-                       IntSetPool& isp) const;
+  bool canBeSimplified(Solver& solver, IntSetPool& isp) const;
 
   bool hasCorrectSlack(const Solver& solver);
   bool hasCorrectWatches(const Solver& solver);
@@ -390,8 +385,7 @@ struct Watched final : Constr {
   CePtr<CF, DG> expandTo(ConstrExpPools& cePools) const;
   CeSuper toExpanded(ConstrExpPools& cePools) const;
   bool isSatisfiedAtRoot(const IntMap<int>& level) const;
-  bool canBeSimplified(Solver& solver,
-                       IntSetPool& isp) const;
+  bool canBeSimplified(Solver& solver, IntSetPool& isp) const;
 
   bool hasCorrectSlack(const Solver& solver);
   bool hasCorrectWatches(const Solver& solver);
