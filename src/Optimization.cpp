@@ -321,11 +321,15 @@ void Optimization<SMALL, LARGE>::addLowerBound() {
   }
 
   solver.lastSymbBoundLower = lower_bound;
-  aux->symbBound.mult_upper = 0;
-  aux->symbBound.mult_lower = 1;
-  aux->symbBound.offset = aux->getDegree() - lower_bound;
-  assert(aux->symbBound.getDegree(solver.lastSymbBoundUpper, solver.lastSymbBoundLower) == aux->getDegree());
-  assert(aux->symbBound.isValid());
+  if (global.options.liftDegreeSymbolic) {
+    aux->symbBound.mult_upper = 0;
+    aux->symbBound.mult_lower = 1;
+    aux->symbBound.offset = aux->getDegree() - lower_bound;
+    assert(aux->symbBound.getDegree(solver.lastSymbBoundUpper, solver.lastSymbBoundLower) == aux->getDegree());
+    assert(aux->symbBound.isValid());
+  } else {
+    assert(!aux->symbBound.isValid());
+  }
 
   solver.dropExternal(lastLowerBound, true, true);
   std::pair<ID, ID> res = solver.addConstraint(aux);
@@ -509,11 +513,15 @@ void Optimization<SMALL, LARGE>::boundObjByLastSol() {
   aux->addRhs(upbound);
 
   solver.lastSymbBoundUpper = upbound;
-  aux->symbBound.mult_upper = 1;
-  aux->symbBound.mult_lower = 0;
-  aux->symbBound.offset = aux->getDegree() - upbound;
-  assert(aux->symbBound.getDegree(solver.lastSymbBoundUpper, solver.lastSymbBoundLower) == aux->getDegree());
-  assert(aux->symbBound.isValid());
+  if (global.options.liftDegreeSymbolic) {
+    aux->symbBound.mult_upper = 1;
+    aux->symbBound.mult_lower = 0;
+    aux->symbBound.offset = aux->getDegree() - upbound;
+    assert(aux->symbBound.getDegree(solver.lastSymbBoundUpper, solver.lastSymbBoundLower) == aux->getDegree());
+    assert(aux->symbBound.isValid());
+  } else {
+    assert(!aux->symbBound.isValid());
+  }
 
   solver.dropExternal(lastUpperBound, true, true);
   std::pair<ID, ID> res = solver.addConstraint(aux);
