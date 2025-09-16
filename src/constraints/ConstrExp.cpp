@@ -1685,11 +1685,12 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
   assert(degree >= 0);
   assert(!vars.empty());
 
-  if (degree > std::numeric_limits<int32_t>::max() || coefs[vars[0]] == -1 || coefs[vars[0]] == 0 ||
-      aux::abs(coefs[vars[0]]) > std::numeric_limits<int32_t>::max())
+  if (degree == 0 || degree > std::numeric_limits<int32_t>::max() || coefs[vars[0]] == -1 || coefs[vars[0]] == 1 ||
+      aux::abs(coefs[vars[0]]) > std::numeric_limits<int32_t>::max()) {
     return;
+  }
 
-  int64_t total = static_cast<int64_t>(absCoeffSum());  // all coefficients fit in 32 bits
+  const int64_t total = static_cast<int64_t>(absCoeffSum());  // all coefficients fit in 32 bits
   if (total <= degree || total > std::numeric_limits<int32_t>::max() || total - degree - 1 >= size_sbstsm ||
       std::ssize(vars) * (total - degree) > global.options.subsetSum.get()) {
     return;
@@ -1745,7 +1746,7 @@ bool ConstrExp<SMALL, LARGE>::isSortedInDecreasingCoefOrder() const {
   if (vars.size() <= 1) return true;
   SMALL first = aux::abs(coefs[vars[0]]);
   SMALL second = 0;
-  for (int i = 1; i < (int)vars.size(); ++i) {
+  for (int i = 1; i < std::ssize(vars); ++i) {
     second = aux::abs(coefs[vars[i]]);
     if (first < second) return false;
     first = std::move(second);
