@@ -71,24 +71,75 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "Constr.hpp"
 
 namespace xct {
-constexpr int32_t size_sbstsm = 1e6;
+constexpr int32_t size_sbstsm = 1e8;
 int32_t m_sbstsm[size_sbstsm];
+int32_t choice[size_sbstsm];
+unordered_set<int32_t> sums;
+std::vector<int32_t> stack;
 
 int32_t dp_subsetsum(const std::vector<int32_t>& coefs, int32_t degree, int32_t total) {
   assert(degree > 0);
   assert(!coefs.empty());
   assert(total > degree);
   assert(total == std::accumulate(coefs.begin(), coefs.end(), 0));
+  int64_t numsteps = 0;
   const int32_t w = total - degree;
-  for (int32_t i = 0; i <= w; ++i) m_sbstsm[i] = total;
-  for (int32_t i = 0; i < std::ssize(coefs); ++i) {
-    for (int32_t j = 0; j <= w - coefs[i]; ++j) {
-      m_sbstsm[j] = std::min(m_sbstsm[j], m_sbstsm[j + coefs[i]] - coefs[i]);
+  for (int32_t i = 0; i <= w; ++i) {
+    m_sbstsm[i] = total;
+    choice[i] = 0;  // unused
+  }
+  for (int32_t cf : coefs) {
+    for (int32_t j = 0; j <= w - cf; ++j) {
+      if (const int32_t newsum = m_sbstsm[j + cf] - cf; m_sbstsm[j] > newsum) {
+        m_sbstsm[j] = newsum;
+        choice[j] = cf;
+      }
+      ++numsteps;
+    }
+    if (m_sbstsm[0] == degree) {
+      std::cout << "NUMSTEPS " << numsteps << std::endl;
+      int32_t idx = 0;
+      while (idx < size_sbstsm && choice[idx] > 0) {
+        std::cout << choice[idx] << " ";
+        idx += choice[idx];
+      }
+      std::cout << std::endl;
+      return degree;
     }
   }
 
+  std::cout << "NUMSTEPS " << numsteps << std::endl;
+  int32_t idx = 0;
+  while (idx < size_sbstsm && choice[idx] > 0) {
+    std::cout << choice[idx] << " ";
+    idx += choice[idx];
+  }
+  std::cout << std::endl;
   assert(m_sbstsm[0] >= degree);
   return m_sbstsm[0];
+}
+
+int32_t subsetsum2(const std::vector<int32_t>& coefs, int32_t degree, int32_t total) {
+  stack.clear();
+  sums.clear();
+  sums.insert(total);
+  int64_t numsteps = 0;
+  for (int32_t cf : coefs) {
+    for (int32_t sum : sums) {
+      if (sum - cf >= degree) stack.push_back(sum - cf);
+      ++numsteps;
+    }
+    std::ranges::move(stack, std::inserter(sums, sums.end()));
+    if (sums.contains(degree)) {
+      std::cout << "SUMS SIZE 1 " << sums.size() << std::endl;
+      std::cout << "NUMSTEPS " << numsteps << std::endl;
+      return degree;
+    }
+    stack.clear();
+  }
+  std::cout << "SUMS SIZE 2 " << sums.size() << std::endl;
+  std::cout << "NUMSTEPS " << numsteps << std::endl;
+  return *std::ranges::min_element(sums);
 }
 
 void SymbolicBound::add(const SymbolicBound& sb, const bigint& m) {

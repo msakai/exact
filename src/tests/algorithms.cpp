@@ -33,4 +33,32 @@ TEST_CASE("subset sum") {
   CHECK(dp_subsetsum({1, 2, 3, 4, 5}, 1, 15) == 1);
 }
 
+TEST_CASE("subset sum 2") {
+  CHECK(subsetsum2({23, 34, 45, 56, 67}, 88, 225) == 90);
+  CHECK(subsetsum2({3, 34, 4, 12, 5, 2}, 9, 60) == 9);
+  CHECK(subsetsum2({2, 34, 4, 12, 5, 12}, 22, 69) == 23);
+  CHECK(subsetsum2({1, 2, 3, 4, 5}, 14, 15) == 14);
+  CHECK(subsetsum2({1, 2, 3, 4, 5}, 1, 15) == 1);
+}
+
+TEST_CASE("subset sum performance test") {
+  std::vector<int32_t> coefs;
+  const int32_t n = 2000;
+  int32_t sum = 0;
+  for (int32_t i = 0; i < n; ++i) {
+    coefs.push_back(n + i / 100);
+    sum += n + i;
+  }
+  std::cout << sum << " " << sum * 3 / 5 << std::endl;
+  auto start = std::chrono::high_resolution_clock::now();
+  std::cout << dp_subsetsum(coefs, sum * 3 / 5, sum) << std::endl;
+  auto duration =
+      std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start);
+  std::cout << duration << std::endl;
+  start = std::chrono::high_resolution_clock::now();
+  std::cout << subsetsum2(coefs, sum * 3 / 5, sum) << std::endl;
+  duration = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start);
+  std::cout << duration << std::endl;
+}
+
 TEST_SUITE_END();

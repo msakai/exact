@@ -73,6 +73,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 namespace xct {
 
 int32_t dp_subsetsum(const std::vector<int32_t>& coefs, int32_t degree, int32_t total);
+int32_t subsetsum2(const std::vector<int32_t>& coefs, int32_t degree, int32_t total);
 
 enum class AssertionStatus { NONASSERTING, ASSERTING, FALSIFIED };
 
