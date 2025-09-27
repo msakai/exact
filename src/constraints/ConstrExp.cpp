@@ -74,14 +74,16 @@ namespace xct {
 constexpr int32_t size_sbstsm = 1e8;
 int32_t m_sbstsm[size_sbstsm];
 int32_t choice[size_sbstsm];
-unordered_set<int32_t> sums;
-std::vector<int32_t> stack;
+std::pair<int32_t, int32_t> sumsvec[size_sbstsm];
+unordered_map<int32_t, int32_t> sums;
+std::vector<std::pair<int32_t, int32_t>> stack;
 
 int32_t dp_subsetsum(const std::vector<int32_t>& coefs, int32_t degree, int32_t total) {
   assert(degree > 0);
   assert(!coefs.empty());
   assert(total > degree);
   assert(total == std::accumulate(coefs.begin(), coefs.end(), 0));
+  total = std::accumulate(coefs.begin(), coefs.end(), 0);
   int64_t numsteps = 0;
   const int32_t w = total - degree;
   for (int32_t i = 0; i <= w; ++i) {
@@ -89,6 +91,9 @@ int32_t dp_subsetsum(const std::vector<int32_t>& coefs, int32_t degree, int32_t 
     choice[i] = 0;  // unused
   }
   for (int32_t cf : coefs) {
+    if (m_sbstsm[0] == degree) {
+      break;
+    }
     for (int32_t j = 0; j <= w - cf; ++j) {
       if (const int32_t newsum = m_sbstsm[j + cf] - cf; m_sbstsm[j] > newsum) {
         m_sbstsm[j] = newsum;
@@ -96,50 +101,91 @@ int32_t dp_subsetsum(const std::vector<int32_t>& coefs, int32_t degree, int32_t 
       }
       ++numsteps;
     }
-    if (m_sbstsm[0] == degree) {
-      std::cout << "NUMSTEPS " << numsteps << std::endl;
-      int32_t idx = 0;
-      while (idx < size_sbstsm && choice[idx] > 0) {
-        std::cout << choice[idx] << " ";
-        idx += choice[idx];
-      }
-      std::cout << std::endl;
-      return degree;
-    }
   }
+  std::cout << "NUMSTEPS = " << numsteps << std::endl;
 
-  std::cout << "NUMSTEPS " << numsteps << std::endl;
+  std::cout << "VERIFICATION" << std::endl;
+  std::unordered_multiset<int32_t> in_subset(coefs.begin(), coefs.end());
+  int32_t subset_sum_total = std::accumulate(in_subset.begin(), in_subset.end(), 0);
   int32_t idx = 0;
   while (idx < size_sbstsm && choice[idx] > 0) {
-    std::cout << choice[idx] << " ";
+    in_subset.erase(choice[idx]);
     idx += choice[idx];
   }
-  std::cout << std::endl;
+  int32_t subset_sum = std::accumulate(in_subset.begin(), in_subset.end(), 0);
+  std::cout << "HMM " << subset_sum_total << " - " << subset_sum << std::endl;
   assert(m_sbstsm[0] >= degree);
   return m_sbstsm[0];
 }
 
-int32_t subsetsum2(const std::vector<int32_t>& coefs, int32_t degree, int32_t total) {
+int32_t subsetsum_dp_topdown(const std::vector<int32_t>& vals, int32_t target,
+                             std::unordered_multiset<int32_t>& subset) {
+  assert(target > 0);
+  assert(!vals.empty());
+  const int32_t total = std::accumulate(vals.begin(), vals.end(), 0);
+  assert(total > target);
+  const int32_t w = total - target;
+  for (int32_t i = 0; i <= w; ++i) {
+    sumsvec[i] = {total, 0};
+  }
+  for (const int32_t v : vals) {
+    if (sumsvec[0].first == target) {
+      break;
+    }
+    for (int32_t j = 0; j <= w - v; ++j) {
+      if (const int32_t newsum = sumsvec[j + v].first - v; sumsvec[j].first > newsum) {
+        sumsvec[j] = {newsum, v};
+      }
+    }
+  }
+  assert(sumsvec[0].first >= target);
+
+  subset.clear();
+  subset.insert(vals.begin(), vals.end());
+  int32_t smallest = sumsvec[0].first;
+  for (int32_t i = 0; i <= w; ++i) {
+    if (sumsvec[i].first == smallest) {
+      subset.extract(sumsvec[i].second);
+      smallest += sumsvec[i].second;
+    }
+  }
+  assert(std::accumulate(subset.begin(), subset.end(), 0) == sumsvec[0].first);
+
+  return sumsvec[0].first;
+}
+
+int32_t subsetsum_set_topdown(const std::vector<int32_t>& vals, int32_t target,
+                              std::unordered_multiset<int32_t>& subset) {
   stack.clear();
   sums.clear();
-  sums.insert(total);
-  int64_t numsteps = 0;
-  for (int32_t cf : coefs) {
-    for (int32_t sum : sums) {
-      if (sum - cf >= degree) stack.push_back(sum - cf);
-      ++numsteps;
+  const int32_t total = std::accumulate(vals.begin(), vals.end(), 0);
+  sums[total] = 0;
+  int32_t smallest = total;
+  for (const int32_t v : vals) {
+    if (smallest == target) break;
+    for (const auto& sum : sums) {
+      const int32_t newsum = sum.first - v;
+      if (newsum >= target) {
+        stack.emplace_back(newsum, v);
+        smallest = std::min(smallest, newsum);
+      }
     }
-    std::ranges::move(stack, std::inserter(sums, sums.end()));
-    if (sums.contains(degree)) {
-      std::cout << "SUMS SIZE 1 " << sums.size() << std::endl;
-      std::cout << "NUMSTEPS " << numsteps << std::endl;
-      return degree;
-    }
+    sums.insert(stack.begin(), stack.end());  // NOTE: only inserts if key does not yet exist
     stack.clear();
   }
-  std::cout << "SUMS SIZE 2 " << sums.size() << std::endl;
-  std::cout << "NUMSTEPS " << numsteps << std::endl;
-  return *std::ranges::min_element(sums);
+
+  subset.clear();
+  subset.insert(vals.begin(), vals.end());
+  const int32_t result = smallest;
+  while (true) {
+    if (smallest == total) break;
+    const int32_t& v = sums.at(smallest);
+    subset.extract(v);
+    smallest += v;
+  }
+  assert(std::accumulate(subset.begin(), subset.end(), 0) == result);
+
+  return result;
 }
 
 void SymbolicBound::add(const SymbolicBound& sb, const bigint& m) {
