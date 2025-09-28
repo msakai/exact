@@ -72,54 +72,12 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 namespace xct {
 constexpr int32_t size_sbstsm = 1e8;
-int32_t m_sbstsm[size_sbstsm];
-int32_t choice[size_sbstsm];
 std::pair<int32_t, int32_t> sumsvec[size_sbstsm];
 unordered_map<int32_t, int32_t> sums;
 std::vector<std::pair<int32_t, int32_t>> stack;
 
-int32_t dp_subsetsum(const std::vector<int32_t>& coefs, int32_t degree, int32_t total) {
-  assert(degree > 0);
-  assert(!coefs.empty());
-  assert(total > degree);
-  assert(total == std::accumulate(coefs.begin(), coefs.end(), 0));
-  total = std::accumulate(coefs.begin(), coefs.end(), 0);
-  int64_t numsteps = 0;
-  const int32_t w = total - degree;
-  for (int32_t i = 0; i <= w; ++i) {
-    m_sbstsm[i] = total;
-    choice[i] = 0;  // unused
-  }
-  for (int32_t cf : coefs) {
-    if (m_sbstsm[0] == degree) {
-      break;
-    }
-    for (int32_t j = 0; j <= w - cf; ++j) {
-      if (const int32_t newsum = m_sbstsm[j + cf] - cf; m_sbstsm[j] > newsum) {
-        m_sbstsm[j] = newsum;
-        choice[j] = cf;
-      }
-      ++numsteps;
-    }
-  }
-  std::cout << "NUMSTEPS = " << numsteps << std::endl;
-
-  std::cout << "VERIFICATION" << std::endl;
-  std::unordered_multiset<int32_t> in_subset(coefs.begin(), coefs.end());
-  int32_t subset_sum_total = std::accumulate(in_subset.begin(), in_subset.end(), 0);
-  int32_t idx = 0;
-  while (idx < size_sbstsm && choice[idx] > 0) {
-    in_subset.erase(choice[idx]);
-    idx += choice[idx];
-  }
-  int32_t subset_sum = std::accumulate(in_subset.begin(), in_subset.end(), 0);
-  std::cout << "HMM " << subset_sum_total << " - " << subset_sum << std::endl;
-  assert(m_sbstsm[0] >= degree);
-  return m_sbstsm[0];
-}
-
 int32_t subsetsum_dp_topdown(const std::vector<int32_t>& vals, int32_t target,
-                             std::unordered_multiset<int32_t>& subset) {
+                             unordered_map<int32_t, int32_t>* subset) {
   assert(std::is_sorted(vals.begin(), vals.end(), std::greater<int>()));
   assert(target > 0);
   assert(!vals.empty());
@@ -141,22 +99,26 @@ int32_t subsetsum_dp_topdown(const std::vector<int32_t>& vals, int32_t target,
   }
   assert(sumsvec[0].first >= target);
 
-  subset.clear();
-  subset.insert(vals.begin(), vals.end());
-  int32_t smallest = sumsvec[0].first;
-  for (int32_t i = 0; i <= w; ++i) {
-    if (sumsvec[i].first == smallest) {
-      subset.extract(sumsvec[i].second);
-      smallest += sumsvec[i].second;
+  if (subset != nullptr) {
+    subset->clear();
+    for (int32_t v : vals) {
+      aux::insertmulti(*subset, v);
     }
+    int32_t smallest = sumsvec[0].first;
+    for (int32_t i = 0; i <= w; ++i) {
+      if (sumsvec[i].first == smallest) {
+        aux::erasemulti(*subset, sumsvec[i].second);
+        smallest += sumsvec[i].second;
+      }
+    }
+    assert(aux::summulti(*subset) == sumsvec[0].first);
   }
-  assert(std::accumulate(subset.begin(), subset.end(), 0) == sumsvec[0].first);
 
   return sumsvec[0].first;
 }
 
 int32_t subsetsum_set_topdown(const std::vector<int32_t>& vals, int32_t target,
-                              std::unordered_multiset<int32_t>& subset) {
+                              unordered_map<int32_t, int32_t>* subset) {
   assert(std::is_sorted(vals.begin(), vals.end(), std::greater<int>()));
   assert(target > 0);
   assert(!vals.empty());
@@ -186,16 +148,20 @@ int32_t subsetsum_set_topdown(const std::vector<int32_t>& vals, int32_t target,
     stack.clear();
   }
 
-  subset.clear();
-  subset.insert(vals.begin(), vals.end());
   const int32_t result = smallest;
-  while (true) {
-    if (smallest == total) break;
-    const int32_t& v = sums.at(smallest);
-    subset.extract(v);
-    smallest += v;
+  if (subset != nullptr) {
+    subset->clear();
+    for (int32_t v : vals) {
+      aux::insertmulti(*subset, v);
+    }
+    while (true) {
+      if (smallest == total) break;
+      const int32_t& v = sums.at(smallest);
+      aux::erasemulti(*subset, v);
+      smallest += v;
+    }
+    assert(aux::summulti(*subset) == result);
   }
-  assert(std::accumulate(subset.begin(), subset.end(), 0) == result);
 
   return result;
 }
@@ -1821,7 +1787,7 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
     }
   }
 
-  int32_t newdegree = dp_subsetsum(cfs, static_cast<int32_t>(degree), static_cast<int32_t>(total));
+  int32_t newdegree = subsetsum_dp_topdown(cfs, static_cast<int32_t>(degree));
   if (newdegree > degree) {
     rhs += newdegree - degree;
     degree = newdegree;

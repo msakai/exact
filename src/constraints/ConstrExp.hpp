@@ -72,11 +72,10 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 namespace xct {
 
-int32_t dp_subsetsum(const std::vector<int32_t>& coefs, int32_t degree, int32_t total);
 int32_t subsetsum_dp_topdown(const std::vector<int32_t>& vals, int32_t target,
-                             std::unordered_multiset<int32_t>& subset);
+                             unordered_map<int32_t, int32_t>* subset = nullptr);
 int32_t subsetsum_set_topdown(const std::vector<int32_t>& vals, int32_t target,
-                              std::unordered_multiset<int32_t>& subset);
+                              unordered_map<int32_t, int32_t>* subset = nullptr);
 
 enum class AssertionStatus { NONASSERTING, ASSERTING, FALSIFIED };
 

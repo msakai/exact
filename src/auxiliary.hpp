@@ -597,6 +597,31 @@ struct StringHash {
 void* align_alloc(size_t alignment, size_t size);
 void align_free(void* ptr);
 
+template <typename KEY>
+void insertmulti(unordered_map<KEY, int32_t>& xs, const KEY& x) {
+  ++xs[x];  // make use of default 0 for int32_t values
+}
+
+template <typename KEY>
+void erasemulti(unordered_map<KEY, int32_t>& xs, const KEY& x) {
+  auto it = xs.find(x);
+  if (it != xs.end()) {
+    if (--(it->second) == 0) {
+      xs.erase(it);
+    }
+  }
+}
+
+template <typename KEY>
+auto summulti(const unordered_map<KEY, int32_t>& xs) {
+  using SumType = decltype(std::declval<KEY>() * 1);  // handles numeric types
+  SumType total = 0;
+  for (const auto& [key, count] : xs) {
+    total += key * count;
+  }
+  return total;
+}
+
 }  // namespace aux
 
 }  // namespace xct
