@@ -55,30 +55,44 @@ TEST_CASE("subset sum performance test") {
 
 TEST_CASE("subset sum dp topdown") {
   std::unordered_multiset<int32_t> subset;
-  CHECK(subsetsum_dp_topdown({23, 34, 45, 56, 67}, 88, subset) == 90);
+  CHECK(subsetsum_dp_topdown({67, 56, 45, 34, 23}, 88, subset) == 90);
   CHECK(std::accumulate(subset.begin(), subset.end(), 0) == 90);
-  CHECK(subsetsum_dp_topdown({3, 34, 4, 12, 5, 2}, 9, subset) == 9);
+  CHECK(subsetsum_dp_topdown({34, 12, 5, 4, 3, 2}, 9, subset) == 9);
   CHECK(std::accumulate(subset.begin(), subset.end(), 0) == 9);
-  CHECK(subsetsum_dp_topdown({2, 34, 4, 12, 5, 12}, 22, subset) == 23);
-  CHECK(std::accumulate(subset.begin(), subset.end(), 0) == 23);
-  CHECK(subsetsum_dp_topdown({1, 2, 3, 4, 5}, 14, subset) == 14);
+  CHECK(subsetsum_dp_topdown({5, 4, 3, 2, 1}, 14, subset) == 14);
   CHECK(std::accumulate(subset.begin(), subset.end(), 0) == 14);
-  CHECK(subsetsum_dp_topdown({1, 2, 3, 4, 5}, 1, subset) == 1);
+  CHECK(subsetsum_dp_topdown({5, 4, 3, 2, 1}, 1, subset) == 1);
   CHECK(std::accumulate(subset.begin(), subset.end(), 0) == 1);
+  for (int i = 15; i < 79; ++i) {
+    CHECK(subsetsum_dp_topdown({11, 11, 11, 11, 7, 7, 7, 7, 5, 5, 5, 5}, i, subset) == i);
+    CHECK(std::accumulate(subset.begin(), subset.end(), 0) == i);
+  }
+  unordered_set<int32_t> off_by_one{1, 3, 8, 10, 13, 15, 20, 22, 25, 27, 32, 37, 42, 44, 47, 49, 54, 56, 59, 61, 66};
+  for (int i = 1; i < 67; ++i) {
+    CHECK(subsetsum_dp_topdown({34, 12, 12, 5, 4, 2}, i, subset) == i + off_by_one.count(i));
+    CHECK(std::accumulate(subset.begin(), subset.end(), 0) == i + off_by_one.count(i));
+  }
 }
 
 TEST_CASE("subset sum set topdown") {
   std::unordered_multiset<int32_t> subset;
-  CHECK(subsetsum_set_topdown({23, 34, 45, 56, 67}, 88, subset) == 90);
+  CHECK(subsetsum_set_topdown({67, 56, 45, 34, 23}, 88, subset) == 90);
   CHECK(std::accumulate(subset.begin(), subset.end(), 0) == 90);
-  CHECK(subsetsum_set_topdown({3, 34, 4, 12, 5, 2}, 9, subset) == 9);
+  CHECK(subsetsum_set_topdown({34, 12, 5, 4, 3, 2}, 9, subset) == 9);
   CHECK(std::accumulate(subset.begin(), subset.end(), 0) == 9);
-  CHECK(subsetsum_set_topdown({2, 34, 4, 12, 5, 12}, 22, subset) == 23);
-  CHECK(std::accumulate(subset.begin(), subset.end(), 0) == 23);
-  CHECK(subsetsum_set_topdown({1, 2, 3, 4, 5}, 14, subset) == 14);
+  CHECK(subsetsum_set_topdown({5, 4, 3, 2, 1}, 14, subset) == 14);
   CHECK(std::accumulate(subset.begin(), subset.end(), 0) == 14);
-  CHECK(subsetsum_set_topdown({1, 2, 3, 4, 5}, 1, subset) == 1);
+  CHECK(subsetsum_set_topdown({5, 4, 3, 2, 1}, 1, subset) == 1);
   CHECK(std::accumulate(subset.begin(), subset.end(), 0) == 1);
+  for (int i = 15; i < 79; ++i) {
+    CHECK(subsetsum_set_topdown({11, 11, 11, 11, 7, 7, 7, 7, 5, 5, 5, 5}, i, subset) == i);
+    CHECK(std::accumulate(subset.begin(), subset.end(), 0) == i);
+  }
+  unordered_set<int32_t> off_by_one{1, 3, 8, 10, 13, 15, 20, 22, 25, 27, 32, 37, 42, 44, 47, 49, 54, 56, 59, 61, 66};
+  for (int i = 1; i < 67; ++i) {
+    CHECK(subsetsum_set_topdown({34, 12, 12, 5, 4, 2}, i, subset) == i + off_by_one.count(i));
+    CHECK(std::accumulate(subset.begin(), subset.end(), 0) == i + off_by_one.count(i));
+  }
 }
 
 TEST_SUITE_END();

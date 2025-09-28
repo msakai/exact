@@ -120,6 +120,7 @@ int32_t dp_subsetsum(const std::vector<int32_t>& coefs, int32_t degree, int32_t 
 
 int32_t subsetsum_dp_topdown(const std::vector<int32_t>& vals, int32_t target,
                              std::unordered_multiset<int32_t>& subset) {
+  assert(std::is_sorted(vals.begin(), vals.end(), std::greater<int>()));
   assert(target > 0);
   assert(!vals.empty());
   const int32_t total = std::accumulate(vals.begin(), vals.end(), 0);
@@ -156,19 +157,30 @@ int32_t subsetsum_dp_topdown(const std::vector<int32_t>& vals, int32_t target,
 
 int32_t subsetsum_set_topdown(const std::vector<int32_t>& vals, int32_t target,
                               std::unordered_multiset<int32_t>& subset) {
+  assert(std::is_sorted(vals.begin(), vals.end(), std::greater<int>()));
+  assert(target > 0);
+  assert(!vals.empty());
+  const int32_t total = std::accumulate(vals.begin(), vals.end(), 0);
+  assert(total > target);
   stack.clear();
   sums.clear();
-  const int32_t total = std::accumulate(vals.begin(), vals.end(), 0);
   sums[total] = 0;
   int32_t smallest = total;
-  for (const int32_t v : vals) {
+  uint32_t i = 0;
+  while (i < vals.size()) {
     if (smallest == target) break;
-    for (const auto& sum : sums) {
-      const int32_t newsum = sum.first - v;
-      if (newsum >= target) {
-        stack.emplace_back(newsum, v);
-        smallest = std::min(smallest, newsum);
+    const int32_t& v = vals[i];
+    int32_t v_multiple = 0;
+    while (i < vals.size() && v == vals[i]) {
+      v_multiple += v;
+      for (const auto& sum : sums) {
+        const int32_t newsum = sum.first - v_multiple;
+        if (newsum >= target) {
+          stack.emplace_back(newsum, v);
+          smallest = std::min(smallest, newsum);
+        }
       }
+      ++i;
     }
     sums.insert(stack.begin(), stack.end());  // NOTE: only inserts if key does not yet exist
     stack.clear();
