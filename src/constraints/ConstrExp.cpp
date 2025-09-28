@@ -83,9 +83,8 @@ int32_t subsetsum_dp_topdown(const std::vector<int32_t>& vals, int32_t target,
   sums.clear();
   sums.resize(w + 1, {total, 0});
   for (const int32_t v : vals) {
-    if (sums[0].first == target) {
-      break;
-    }
+    if (sums[0].first == target) break;
+    // quit::checkInterrupt(); TODO ?
     for (int32_t j = 0; j <= w - v; ++j) {
       if (const int32_t newsum = sums[j + v].first - v; sums[j].first > newsum) {
         sums[j] = {newsum, v};
@@ -94,7 +93,7 @@ int32_t subsetsum_dp_topdown(const std::vector<int32_t>& vals, int32_t target,
   }
   assert(sums[0].first >= target);
 
-  if (subset != nullptr) {
+  if (subset != nullptr) {  // calculate subset
     subset->clear();
     for (int32_t v : vals) {
       aux::insertmulti(*subset, v);

@@ -85,6 +85,43 @@ SMALL subsetsum_set_topdown(const std::vector<SMALL>& vals, LARGE target, unorde
   assert(!vals.empty());
   const LARGE total = std::accumulate(vals.begin(), vals.end(), 0);
   assert(total > target);
+  if (subset != nullptr) subset->clear();
+
+  // Quick heuristic check
+  LARGE heur = 0;
+  for (const SMALL& v : vals) {
+    heur += v * static_cast<int32_t>(heur + v <= target);
+  }
+  if (heur == target) {
+    heur = 0;
+    if (subset != nullptr) {
+      for (const SMALL& v : vals) {
+        if (heur + v <= target) {
+          heur += v;
+          aux::insertmulti(*subset, v);
+        }
+      }
+    }
+    return target;
+  }
+  heur = total;
+  for (const SMALL& v : vals) {
+    heur -= v * static_cast<int32_t>(heur - v >= target);
+  }
+  if (heur == target) {
+    if (subset != nullptr) {
+      heur = total;
+      for (const SMALL& v : vals) {
+        if (heur - v >= target) {
+          heur -= v;
+        } else {
+          aux::insertmulti(*subset, v);
+        }
+      }
+    }
+    return target;
+  }
+
   stack.clear();
   sums.clear();
   sums[total] = 0;
@@ -92,6 +129,7 @@ SMALL subsetsum_set_topdown(const std::vector<SMALL>& vals, LARGE target, unorde
   uint32_t i = 0;
   while (i < vals.size()) {
     if (smallest == target) break;
+    // quit::checkInterrupt(); TODO ?
     const SMALL& v = vals[i];
     LARGE v_multiple = 0;
     while (i < vals.size() && v == vals[i]) {
@@ -110,8 +148,7 @@ SMALL subsetsum_set_topdown(const std::vector<SMALL>& vals, LARGE target, unorde
   }
 
   const LARGE result = smallest;
-  if (subset != nullptr) {
-    subset->clear();
+  if (subset != nullptr) {  // calculate subset
     for (const SMALL& v : vals) {
       aux::insertmulti(*subset, v);
     }
