@@ -73,9 +73,59 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 namespace xct {
 
 int32_t subsetsum_dp_topdown(const std::vector<int32_t>& vals, int32_t target,
+                             std::vector<std::pair<int32_t, int32_t>>& sums,
                              unordered_map<int32_t, int32_t>* subset = nullptr);
-int32_t subsetsum_set_topdown(const std::vector<int32_t>& vals, int32_t target,
-                              unordered_map<int32_t, int32_t>* subset = nullptr);
+
+template <typename SMALL, typename LARGE>
+SMALL subsetsum_set_topdown(const std::vector<SMALL>& vals, LARGE target, unordered_map<LARGE, SMALL>& sums,
+                            std::vector<std::pair<LARGE, SMALL>>& stack,
+                            unordered_map<SMALL, int32_t>* subset = nullptr) {
+  assert(std::ranges::is_sorted(vals, std::greater<int>()));
+  assert(target > 0);
+  assert(!vals.empty());
+  const LARGE total = std::accumulate(vals.begin(), vals.end(), 0);
+  assert(total > target);
+  stack.clear();
+  sums.clear();
+  sums[total] = 0;
+  LARGE smallest = total;
+  uint32_t i = 0;
+  while (i < vals.size()) {
+    if (smallest == target) break;
+    const SMALL& v = vals[i];
+    LARGE v_multiple = 0;
+    while (i < vals.size() && v == vals[i]) {
+      v_multiple += v;
+      for (const auto& sum : sums) {
+        const LARGE newsum = sum.first - v_multiple;
+        if (newsum >= target) {
+          stack.emplace_back(newsum, v);
+          smallest = std::min(smallest, newsum);
+        }
+      }
+      ++i;
+    }
+    sums.insert(stack.begin(), stack.end());  // NOTE: only inserts if key does not yet exist
+    stack.clear();
+  }
+
+  const LARGE result = smallest;
+  if (subset != nullptr) {
+    subset->clear();
+    for (const SMALL& v : vals) {
+      aux::insertmulti(*subset, v);
+    }
+    while (true) {
+      if (smallest == total) break;
+      const SMALL& v = sums.at(smallest);
+      aux::erasemulti(*subset, v);
+      smallest += v;
+    }
+    assert(aux::summulti(*subset) == result);
+  }
+
+  return result;
+}
 
 enum class AssertionStatus { NONASSERTING, ASSERTING, FALSIFIED };
 
