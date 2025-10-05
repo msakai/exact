@@ -78,7 +78,7 @@ ext_modules = [
         # REPLACE TWO LINES ABOVE WITH FOUR BELOW TO INCLUDE SOPLEX (pre-built in soplex_build)
         # include_dirs=["./src","./soplex/src","./soplex_build"],
         # library_dirs=["./soplex_build/lib"],
-        # libraries=["soplexshared"],  # or "soplex" if using static libsoplex.a instead of dynamic libsoplex.so
+        # libraries=["soplex"], # or soplexshared for the shared .so library instead of the static .a
         # define_macros=[("UNIXLIKE",1),("ANKERLMAPS",1),("WITHSOPLEX",1)],
         extra_compile_args=["-O3","-std=c++20"],
     ),
