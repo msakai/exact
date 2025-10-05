@@ -74,9 +74,17 @@ ext_modules = [
         # define_macros=[("UNIXLIKE",0),("ANKERLMAPS",1)]
         # FOR LINUX / OSX
         include_dirs=["./src"],
+        define_macros=[("UNIXLIKE",1),("ANKERLMAPS",1)],
+        # REPLACE TWO LINES ABOVE WITH FOUR BELOW TO INCLUDE SOPLEX (pre-built in soplex_build)
+        # include_dirs=["./src","./soplex/src","./soplex_build"],
+        # library_dirs=["./soplex_build/lib"],
+        # libraries=["soplexshared"],  # or "soplex" if using static libsoplex.a instead of dynamic libsoplex.so
+        # define_macros=[("UNIXLIKE",1),("ANKERLMAPS",1),("WITHSOPLEX",1)],
         extra_compile_args=["-O3","-std=c++20"],
-        define_macros=[("UNIXLIKE",1),("ANKERLMAPS",0)]
     ),
 ]
+
+# NOTE
+# For optimal hash map performance, disable Ankerl maps (by setting "ANKERLMAPS" macro to 0) when Boost library version is at least 1.81
 
 setup(ext_modules=ext_modules)
