@@ -1,0 +1,6 @@
+- statistics
+- immediately improve bounds
+- disable core-guided search
+- send you command options
+- overview of exotic symbolic-bound invalidating operations
+- disable LP solving
