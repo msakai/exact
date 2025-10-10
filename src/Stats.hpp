@@ -247,7 +247,7 @@ struct Stats {
   Stat NMULTWEAKENEDINDIRECT{0, "indirect multiply-weakens"};
   Stat NSUBSETSUM{0, "lifted degrees"};
   Stat NSYMBBOUND{0, "symbolic bound improvements"};
-  Stat NSYMBBOUNDADDED {0, "added constraints with symbolic bounds"};
+  Stat NSYMBBOUNDADDED{0, "added constraints with symbolic bounds"};
   Stat NORIGVARS{0, "original variables"};
   Stat NAUXVARS{0, "auxiliary variables"};
 

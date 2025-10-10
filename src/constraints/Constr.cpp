@@ -192,7 +192,7 @@ bool Binary::canBeSimplified(Solver& solver, IntSetPool&) const {
     return true;
   }
   const SymbolicBound* sb = solver.getSymbBound(this);
-  return sb != nullptr && sb->getDegree(solver.lastSymbBoundUpper, solver.lastSymbBoundLower) > degree();
+  return sb != nullptr && sb->getDegree(solver.getSymbBoundUpper(), solver.getSymbBoundLower()) > degree();
 }
 
 size_t Clause::getMemSize(const uint32_t length) {
@@ -357,7 +357,7 @@ bool Clause::canBeSimplified(Solver& solver, IntSetPool& isp) const {
     isp.release(saturateds);
   }
   const SymbolicBound* sb = solver.getSymbBound(this);
-  return sb != nullptr && sb->getDegree(solver.lastSymbBoundUpper, solver.lastSymbBoundLower) > 1;
+  return sb != nullptr && sb->getDegree(solver.getSymbBoundUpper(), solver.getSymbBoundLower()) > 1;
 }
 
 size_t Cardinality::getMemSize(const uint32_t length) {
@@ -505,7 +505,7 @@ bool Cardinality::canBeSimplified(Solver& solver, IntSetPool&) const {
   }
   // NOTE: no saturated literals in a cardinality, so no need to check for self-subsumption
   const SymbolicBound* sb = solver.getSymbBound(this);
-  return sb != nullptr && sb->getDegree(solver.lastSymbBoundUpper, solver.lastSymbBoundLower) > degr;
+  return sb != nullptr && sb->getDegree(solver.getSymbBoundUpper(), solver.getSymbBoundLower()) > degr;
 }
 
 void Watched32::cleanup() {}
@@ -758,7 +758,7 @@ bool Watched32::canBeSimplified(Solver& solver, IntSetPool& isp) const {
     isp.release(saturateds);
   }
   const SymbolicBound* sb = solver.getSymbBound(this);
-  return sb != nullptr && sb->getDegree(solver.lastSymbBoundUpper, solver.lastSymbBoundLower) > degr;
+  return sb != nullptr && sb->getDegree(solver.getSymbBoundUpper(), solver.getSymbBoundLower()) > degr;
 }
 
 template <typename CF, typename DG>
@@ -1051,7 +1051,7 @@ bool Watched<CF, DG>::canBeSimplified(Solver& solver, IntSetPool& isp) const {
     isp.release(saturateds);
   }
   const SymbolicBound* sb = solver.getSymbBound(this);
-  return sb != nullptr && sb->getDegree(solver.lastSymbBoundUpper, solver.lastSymbBoundLower) > degr;
+  return sb != nullptr && sb->getDegree(solver.getSymbBoundUpper(), solver.getSymbBoundLower()) > degr;
 }
 
 // TODO: keep below test methods?

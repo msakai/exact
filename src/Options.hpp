@@ -310,7 +310,8 @@ struct Options {
                            "0 =< float <= 1", [](const double& x) -> bool { return 1 >= x && x >= 0; }};
   ValOption<DetTime> basetime{"inp-basetime", "Initial deterministic time allotted to presolve techniques", 1,
                               "0 =< float", [](const DetTime& x) -> bool { return x >= 0; }};
-  BoolOption liftDegreeSymbolic{"inp-liftsymb", "Use symbolic bounds to lift the degree of a constraint", false};
+  ValOption<int> liftDegreeSymbolic{"inp-liftsymb", "Use symbolic bounds to lift the degree of a constraint", 0,
+                                    "0 =< int =< 2", [](const int& x) -> bool { return x >= 0 && x <= 2; }};
   BoolOption test{"test", "Activate experimental option", false};
 
   const std::vector<Option*> options = {

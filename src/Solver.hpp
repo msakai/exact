@@ -98,8 +98,6 @@ class Solver {
   CeSuper lastCore;
   CeSuper lastGlobalDual;
   CeArb objective;
-  bigint lastSymbBoundUpper;
-  bigint lastSymbBoundLower;
   Global& global;
 
  private:
@@ -108,6 +106,8 @@ class Solver {
   bool firstRun = true;
   bool unsatReached = false;
   bool objectiveSet = false;
+  bigint lastSymbBoundUpper;
+  bigint lastSymbBoundLower;
 
   ConstraintAllocator ca;
   Heuristic heur;
@@ -163,6 +163,11 @@ class Solver {
   void setNbVars(int nvars, bool orig);
   Var addVar(bool orig);
   bool isOrig(Var v) const;
+
+  const bigint& getSymbBoundUpper() const;
+  const bigint& getSymbBoundLower() const;
+  void setSymbBoundUpper(const bigint& ub);
+  void setSymbBoundLower(const bigint& lb);
 
   Options& getOptions();
   Stats& getStats();

@@ -131,6 +131,18 @@ bool Solver::isOrig(Var v) const {
   return isorig[v];
 }
 
+const bigint& Solver::getSymbBoundUpper() const { return lastSymbBoundUpper; }
+const bigint& Solver::getSymbBoundLower() const { return lastSymbBoundLower; }
+
+void Solver::setSymbBoundUpper(const bigint& ub) {
+  assert(lastSymbBoundUpper > ub);
+  lastSymbBoundUpper = ub;
+}
+void Solver::setSymbBoundLower(const bigint& lb) {
+  assert(lastSymbBoundLower < lb);
+  lastSymbBoundLower = lb;
+}
+
 void Solver::setObjective(const CeArb& obj) {
   objectiveSet = true;
   objective = obj;
