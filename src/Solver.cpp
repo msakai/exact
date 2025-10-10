@@ -617,6 +617,7 @@ CRef Solver::attachConstraint(const CeSuper& constraint, bool locked) {
   Constr& c = ca[cr];
   if (constraint->symbBound.isValid()) {
     symbbounds[&c] = constraint->symbBound;
+    ++global.stats.NSYMBBOUNDADDED.z;
   }
   c.initializeWatches(cr, *this);
   constraints.push_back(cr);
@@ -662,7 +663,7 @@ CRef Solver::attachConstraint(const CeSuper& constraint, bool locked) {
   global.stats.NCONSFORMULA.z += orig == Origin::FORMULA;
   global.stats.NCONSDOMBREAKER.z += orig == Origin::DOMBREAKER;
   global.stats.NCONSLEARNED.z += orig == Origin::LEARNED;
-  global.stats.NCONSBOUND.z += isBound(orig) || orig == Origin::REFORMBOUND;
+  global.stats.NCONSBOUND.z += isBound(orig);
   global.stats.NCONSCOREGUIDED.z += orig == Origin::COREGUIDED || orig == Origin::BOTTOMUP;
   global.stats.NLPGOMORYCUTS.z += orig == Origin::GOMORY;
   global.stats.NLPDUAL.z += orig == Origin::DUAL;
@@ -803,7 +804,7 @@ std::pair<ID, ID> Solver::addInputConstraint(const CeSuper& ce) {  // NOTE: shou
     if (isExternal(orig)) {
       external[id] = cr;
     }
-    if (lpSolver && (orig == Origin::FORMULA || isBound(orig))) {
+    if (lpSolver && (orig == Origin::FORMULA || orig == Origin::UPPERBOUND || orig == Origin::LOWERBOUND)) {
       lpSolver->addConstraint(cr, false, orig == Origin::UPPERBOUND, orig == Origin::LOWERBOUND);
     }
 

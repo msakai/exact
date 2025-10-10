@@ -109,7 +109,7 @@ void Constr::fixEncountered(Stats& stats) const {  // TODO: better as method of 
   stats.NENCFORMULA.z += o == Origin::FORMULA;
   stats.NENCDOMBREAKER.z += o == Origin::DOMBREAKER;
   stats.NENCLEARNED.z += o == Origin::LEARNED;
-  stats.NENCBOUND.z += isBound(o) || o == Origin::REFORMBOUND;
+  stats.NENCBOUND.z += isBound(o);
   stats.NENCCOREGUIDED.z += o == Origin::COREGUIDED || o == Origin::BOTTOMUP;
   stats.NLPENCGOMORY.z += o == Origin::GOMORY;
   stats.NLPENCDUAL.z += o == Origin::DUAL;
