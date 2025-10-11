@@ -218,14 +218,22 @@ void ConstrExpSuper::postProcess(const IntMap<int>& level, const std::vector<int
   liftDegree();
 }
 
-void ConstrExpSuper::strongPostProcess(Solver& solver, const bigint& lastUpperBound, const bigint& lastLowerBound) {
+void ConstrExpSuper::strongPostProcess(Solver& solver) {
   [[maybe_unused]] int nvars = nNonZeroVars();
-  if (global.options.liftDegreeSymbolic.get() > 0) liftDegreeSymbolic(lastUpperBound, lastLowerBound);
+  if (global.options.liftDegreeSymbolic.get() == 1)
+    liftDegreeSymbolic(solver.getSymbBoundUpper(), solver.getSymbBoundLower());
   removeEqualities(solver.getEqualities());
   selfSubsumeImplications(solver.getImplications());
   postProcess(solver.getLevel(), solver.getPos(), solver.getHeuristic(), true, solver.getStats());
   assert(hasRhsDegreeInvariant());
   assert(nvars >= nNonZeroVars());
+}
+
+void ConstrExpSuper::symbBoundPostProcess(Solver& solver) {
+  assert(global.options.liftDegreeSymbolic.get() == 2);
+  liftDegreeSymbolic(solver.getSymbBoundUpper(), solver.getSymbBoundLower());
+  postProcess(solver.getLevel(), solver.getPos(), solver.getHeuristic(), true, solver.getStats());
+  assert(hasRhsDegreeInvariant());
 }
 
 std::ostream& operator<<(std::ostream& o, const ConstrExpSuper& ce) {

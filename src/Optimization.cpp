@@ -320,8 +320,12 @@ void Optimization<SMALL, LARGE>::addLowerBound() {
     aux->addLhs(static_cast<SMALL>(aux->getDegree()), -l);  // bound only holds under assumptions
   }
 
-  solver.setSymbBoundLower(lower_bound);
+  solver.dropExternal(lastLowerBound, true, true);
+  std::pair<ID, ID> res = solver.addConstraint(aux);
+  lastLowerBound = res.second;
+
   if (global.options.liftDegreeSymbolic.get() > 0) {
+    solver.setSymbBoundLower(lower_bound);
     aux->symbBound.mult_upper = 0;
     aux->symbBound.mult_lower = 1;
     aux->symbBound.offset = aux->getDegree() - lower_bound;
@@ -330,10 +334,6 @@ void Optimization<SMALL, LARGE>::addLowerBound() {
   } else {
     assert(!aux->symbBound.isValid());
   }
-
-  solver.dropExternal(lastLowerBound, true, true);
-  std::pair<ID, ID> res = solver.addConstraint(aux);
-  lastLowerBound = res.second;
 }
 
 template <typename SMALL, typename LARGE>
@@ -512,8 +512,14 @@ void Optimization<SMALL, LARGE>::boundObjByLastSol() {
   aux->invert();
   aux->addRhs(upbound);
 
-  solver.setSymbBoundUpper(upbound);
+  solver.dropExternal(lastUpperBound, true, true);
+  std::pair<ID, ID> res = solver.addConstraint(aux);
+  lastUpperBound = res.second;
+
+  if (global.options.proofAssumps) addReformUpperBound(true);
+
   if (global.options.liftDegreeSymbolic.get() > 0) {
+    solver.setSymbBoundUpper(upbound);
     aux->symbBound.mult_upper = 1;
     aux->symbBound.mult_lower = 0;
     aux->symbBound.offset = aux->getDegree() - upbound;
@@ -522,12 +528,6 @@ void Optimization<SMALL, LARGE>::boundObjByLastSol() {
   } else {
     assert(!aux->symbBound.isValid());
   }
-
-  solver.dropExternal(lastUpperBound, true, true);
-  std::pair<ID, ID> res = solver.addConstraint(aux);
-  lastUpperBound = res.second;
-
-  if (global.options.proofAssumps) addReformUpperBound(true);
 }
 
 template <typename SMALL, typename LARGE>

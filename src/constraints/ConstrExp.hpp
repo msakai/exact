@@ -133,7 +133,8 @@ struct ConstrExpSuper {
   // NOTE: only equivalence preserving operations over the Bools!
   void postProcess(const IntMap<int>& level, const std::vector<int>& pos, const Heuristic& heur, bool sortFirst,
                    Stats& stats);
-  void strongPostProcess(Solver& solver, const bigint& lastUpperBound, const bigint& lastLowerBound);
+  void strongPostProcess(Solver& solver);
+  void symbBoundPostProcess(Solver& solver);
 
   explicit ConstrExpSuper(Global& g);
   virtual ~ConstrExpSuper() = default;
