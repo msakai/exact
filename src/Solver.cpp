@@ -151,14 +151,24 @@ void Solver::setSymbBoundLower(const bigint& lb) {
   }
 }
 void Solver::improveSymbBounds() {
-  for (const auto& [c, sb] : symbbounds) {
-    if (c->isMarkedForDelete()) continue;
-    // above check prevents that old bounding constraints get added as identical to the new bounding constraints
+  const unordered_map<const Constr*, std::pair<SymbolicBound, CRef>> symbbounds_clone = symbbounds;
+  // clone needed to not alter symbbounds in loop
+  for (const auto& [c, sb] : symbbounds_clone) {
+    assert(&ca[sb.second] == c);
+    if (c->isMarkedForDelete() || c->isLocked()) {
+      // this check prevents that old bounding constraints get added as identical to the new bounding constraints
+      symbbounds.erase(c);
+      continue;
+    }
     if (sb.first.getDegree(getSymbBoundUpper(), getSymbBoundLower()) <= c->degree()) continue;
+    symbbounds.erase(c);
+    removeConstraint(sb.second);
     CeSuper ce = c->toExpanded(global.cePools);
     ce->symbBoundPostProcess(*this);
-    addConstraint(ce);
-    removeConstraint(sb.second);
+    learnConstraint(ce);
+  }
+  for (const auto& [c, sb] : symbbounds) {
+    assert(&ca[sb.second] == c);
   }
 }
 
@@ -527,17 +537,17 @@ void Solver::minimize(CeSuper& conflict) {
             [&](const std::pair<int, Lit>& x, const std::pair<int, Lit>& y) { return x.first > y.first; });
 
   std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-  for (const std::pair<int, Lit>& pr : litsToSubsumeMem) {
-    Lit l = pr.second;
-    assert(conflict->getLit(toVar(l)) != 0);
-    Constr& reasonC = ca[reason[toVar(l)]];
-    unsigned int lbd = reasonC.subsumeWith(conflict, -l, *this, saturatedLits);
-    if (lbd > 0) {
-      reasonC.decreaseLBD(lbd);
-      reasonC.fixEncountered(global.stats);
-    }
-    if (saturatedLits.isEmpty()) break;
-  }
+  // for (const std::pair<int, Lit>& pr : litsToSubsumeMem) {
+  //   Lit l = pr.second;
+  //   assert(conflict->getLit(toVar(l)) != 0);
+  //   Constr& reasonC = ca[reason[toVar(l)]];
+  //   unsigned int lbd = reasonC.subsumeWith(conflict, -l, *this, saturatedLits);
+  //   if (lbd > 0) {
+  //     reasonC.decreaseLBD(lbd);
+  //     reasonC.fixEncountered(global.stats);
+  //   }
+  //   if (saturatedLits.isEmpty()) break;
+  // }
   global.stats.MINTIME.z +=
       std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - start).count();
   conflict->removeZeroes();  // remove weakened literals
@@ -648,6 +658,7 @@ CRef Solver::attachConstraint(const CeSuper& constraint, bool locked) {
   Constr& c = ca[cr];
   if (constraint->symbBound.isValid()) {
     symbbounds[&c] = {constraint->symbBound, cr};
+    assert(&ca[symbbounds[&c].second] == &c);
     ++global.stats.NSYMBBOUNDADDED.z;
   }
   c.initializeWatches(cr, *this);
@@ -727,7 +738,7 @@ void Solver::learnConstraint(const CeSuper& ce) {
   // if (orig != Origin::EQUALITY) {
   // learned->removeEqualities(getEqualities());
   // }
-  learned->selfSubsumeImplications(implications);  // only strengthens the constraint
+  // learned->selfSubsumeImplications(implications);  // only strengthens the constraint
   learned->removeUnitsAndZeroes(getLevel(), getPos());
   if (learned->isTautology()) return;
   learned->saturateAndFixOverflow(getLevel(), global.options.bitsLearned.get(), global.options.bitsLearned.get(), 0,
@@ -746,6 +757,9 @@ void Solver::learnConstraint(const CeSuper& ce) {
   learned->postProcess(getLevel(), getPos(), getHeuristic(), false, global.stats);
   assert(learned->isSaturated());
   if (learned->isTautology()) return;
+  if (learned->symbBound.isValid() && learned->symbBound.getDegree(getSymbBoundUpper(), getSymbBoundLower()) <= 0) {
+    learned->symbBound.reset();
+  }
   CRef cr = attachConstraint(learned, false);
   Constr& c = ca[cr];
   c.decreaseLBD(isAsserting ? learned->getLBD(level) : learned->nVars());
@@ -1040,10 +1054,13 @@ void Solver::garbage_collect() {
     crefmap[offset] = cr;
     auto node = symbbounds.find(oldptr);
     if (node != symbbounds.end()) {
-      new_symbbounds[&ca[cr]] = node->second;
+      new_symbbounds[&ca[cr]] = {node->second.first, cr};
     }
   }
   std::swap(symbbounds, new_symbbounds);
+  for (const auto& [c, sb] : symbbounds) {
+    assert(&ca[sb.second] == c);
+  }
 
   for (Lit l = -n; l <= n; ++l) {
     for (Watch& w : adj[l]) updatePtr(crefmap, w.cref);

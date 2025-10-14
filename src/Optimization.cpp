@@ -321,8 +321,6 @@ void Optimization<SMALL, LARGE>::addLowerBound() {
   }
 
   solver.dropExternal(lastLowerBound, true, true);
-  std::pair<ID, ID> res = solver.addConstraint(aux);
-  lastLowerBound = res.second;
 
   if (global.options.liftDegreeSymbolic.get() > 0) {
     solver.setSymbBoundLower(lower_bound);
@@ -334,6 +332,9 @@ void Optimization<SMALL, LARGE>::addLowerBound() {
   } else {
     assert(!aux->symbBound.isValid());
   }
+
+  std::pair<ID, ID> res = solver.addConstraint(aux);
+  lastLowerBound = res.second;
 }
 
 template <typename SMALL, typename LARGE>
@@ -513,8 +514,6 @@ void Optimization<SMALL, LARGE>::boundObjByLastSol() {
   aux->addRhs(upbound);
 
   solver.dropExternal(lastUpperBound, true, true);
-  std::pair<ID, ID> res = solver.addConstraint(aux);
-  lastUpperBound = res.second;
 
   if (global.options.proofAssumps) addReformUpperBound(true);
 
@@ -528,6 +527,9 @@ void Optimization<SMALL, LARGE>::boundObjByLastSol() {
   } else {
     assert(!aux->symbBound.isValid());
   }
+
+  std::pair<ID, ID> res = solver.addConstraint(aux);
+  lastUpperBound = res.second;
 }
 
 template <typename SMALL, typename LARGE>

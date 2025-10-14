@@ -223,7 +223,7 @@ void ConstrExpSuper::strongPostProcess(Solver& solver) {
   if (global.options.liftDegreeSymbolic.get() == 1)
     liftDegreeSymbolic(solver.getSymbBoundUpper(), solver.getSymbBoundLower());
   removeEqualities(solver.getEqualities());
-  selfSubsumeImplications(solver.getImplications());
+  // selfSubsumeImplications(solver.getImplications());
   postProcess(solver.getLevel(), solver.getPos(), solver.getHeuristic(), true, solver.getStats());
   assert(hasRhsDegreeInvariant());
   assert(nvars >= nNonZeroVars());
@@ -883,7 +883,6 @@ void ConstrExp<SMALL, LARGE>::saturate(const VarVec& vs, bool check, bool sorted
     return;
   }
   if (global.logger.isActive()) proofBuffer << "s ";  // log saturation only if it modifies the constraint
-  symbBound.reset();
   if (degree <= 0) {
     reset(true);
     return;
@@ -894,8 +893,10 @@ void ConstrExp<SMALL, LARGE>::saturate(const VarVec& vs, bool check, bool sorted
     if (coefs[v] < -smallDeg) {
       rhs -= coefs[v] + smallDeg;
       coefs[v] = -smallDeg;
+      symbBound.addOffset(coefs[v] - smallDeg);
     } else if (coefs[v] > smallDeg) {
       coefs[v] = smallDeg;
+      symbBound.addOffset(smallDeg - coefs[v]);
     } else if (sorted) {
       break;
     }
@@ -1895,15 +1896,16 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
     if (largestCF > getDegree()) {
       global.stats.NSATURATESTEPS += data.size();
       if (global.logger.isActive()) proofBuffer << "s ";
-      symbBound.reset();
       largestCF = static_cast<SMALL>(degree);
       for (Lit l : data) {
         Var v = toVar(l);
         if (coefs[v] < -largestCF) {
           rhs -= coefs[v] + largestCF;
           coefs[v] = -largestCF;
+          symbBound.addOffset(coefs[v] + largestCF);
         } else {
           coefs[v] = std::min(coefs[v], largestCF);
+          symbBound.addOffset(largestCF - coefs[v]);
         }
       }
     }
