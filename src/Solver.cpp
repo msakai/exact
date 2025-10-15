@@ -1059,7 +1059,7 @@ void Solver::garbage_collect() {
   }
   std::swap(symbbounds, new_symbbounds);
   for (const auto& [c, sb] : symbbounds) {
-    assert(&ca[sb.second] == c);
+    assert(&ca[symbbounds[c].second] == c);
   }
 
   for (Lit l = -n; l <= n; ++l) {
