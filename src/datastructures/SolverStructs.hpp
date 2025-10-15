@@ -126,7 +126,8 @@ struct ConstraintAllocator {
     return res;
   }
 
-  Constr& operator[](CRef cr) const;
+  Constr& operator[](const CRef& cr) const;
+  CRef operator()(const Constr& c) const;
 
   void cleanup();
 };

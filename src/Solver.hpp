@@ -118,7 +118,7 @@ class Solver {
   int lastRemoveSatisfiedsTrail = 0;
   std::unordered_multimap<Lit, Lit> binaryImplicants;  // l implies multimap[l]
   IntMap<int> lit2consOldSize;
-  unordered_map<const Constr*, std::pair<SymbolicBound, CRef>> symbbounds;
+  unordered_map<CRef, SymbolicBound> symbbounds;
 
   IntMap<std::vector<Watch>> adj;
   // TODO: make position, level, contiguous memory for better cache efficiency.

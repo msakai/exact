@@ -82,7 +82,14 @@ void ConstraintAllocator::capacity(int64_t min_cap) {
   memory = xrealloc(memory, oldsize, maxAlign * cap);
 }
 
-Constr& ConstraintAllocator::operator[](CRef cr) const { return (Constr&)*(memory + maxAlign * cr.ofs); }
+// convert CRef to Constr
+Constr& ConstraintAllocator::operator[](const CRef& cr) const { return (Constr&)*(memory + maxAlign * cr.ofs); }
+// convert Constr to CRef
+CRef ConstraintAllocator::operator()(const Constr& c) const {
+  CRef result{static_cast<uint32_t>(((std::byte*)(&c) - memory) / maxAlign)};
+  assert((Constr*)(memory + maxAlign * result.ofs) == &c);
+  return result;
+}
 
 void ConstraintAllocator::cleanup() { aux::align_free(memory); }
 

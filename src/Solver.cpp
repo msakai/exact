@@ -151,24 +151,20 @@ void Solver::setSymbBoundLower(const bigint& lb) {
   }
 }
 void Solver::improveSymbBounds() {
-  const unordered_map<const Constr*, std::pair<SymbolicBound, CRef>> symbbounds_clone = symbbounds;
+  const unordered_map<CRef, SymbolicBound> symbbounds_clone = symbbounds;
   // clone needed to not alter symbbounds in loop
-  for (const auto& [c, sb] : symbbounds_clone) {
-    assert(&ca[sb.second] == c);
-    if (c->isMarkedForDelete() || c->isLocked()) {
+  for (const auto& [cr, sb] : symbbounds_clone) {
+    const Constr& c = ca[cr];
+    if (c.isMarkedForDelete() || c.isLocked()) {
       // this check prevents that old bounding constraints get added as identical to the new bounding constraints
-      symbbounds.erase(c);
+      symbbounds.erase(cr);
       continue;
     }
-    if (sb.first.getDegree(getSymbBoundUpper(), getSymbBoundLower()) <= c->degree()) continue;
-    symbbounds.erase(c);
-    removeConstraint(sb.second);
-    CeSuper ce = c->toExpanded(global.cePools);
+    if (sb.getDegree(getSymbBoundUpper(), getSymbBoundLower()) <= c.degree()) continue;
+    removeConstraint(cr);
+    CeSuper ce = c.toExpanded(global.cePools);
     ce->symbBoundPostProcess(*this);
     learnConstraint(ce);
-  }
-  for (const auto& [c, sb] : symbbounds) {
-    assert(&ca[sb.second] == c);
   }
 }
 
@@ -657,8 +653,7 @@ CRef Solver::attachConstraint(const CeSuper& constraint, bool locked) {
   CRef cr = constraint->toConstr(ca, locked, global.logger.logProofLineWithInfo(constraint, "Attach"));
   Constr& c = ca[cr];
   if (constraint->symbBound.isValid()) {
-    symbbounds[&c] = {constraint->symbBound, cr};
-    assert(&ca[symbbounds[&c].second] == &c);
+    symbbounds[cr] = constraint->symbBound;
     ++global.stats.NSYMBBOUNDADDED.z;
   }
   c.initializeWatches(cr, *this);
@@ -924,6 +919,7 @@ void Solver::removeConstraint(const CRef& cr, [[maybe_unused]] bool override) {
     }
     // global.logger.logDeletion(c.id); TODO: needed?
   }
+  symbbounds.erase(cr);
 }
 
 void Solver::dropExternal(ID id, bool erasable, bool forceDelete) {
@@ -946,18 +942,18 @@ const std::vector<CRef>& Solver::getRawConstraints() const { return constraints;
 const ConstraintAllocator& Solver::getCA() const { return ca; }
 
 const SymbolicBound* Solver::getSymbBound(const Constr* c) const {
-  auto it = symbbounds.find(c);
+  auto it = symbbounds.find(ca(*c));
   if (it != symbbounds.end()) {
-    return &(it->second.first);
+    return &(it->second);
   }
   return nullptr;
 }
 
 CeSuper Solver::expandWithSymbBound(const Constr& c) const {
   CeSuper result = c.toExpanded(global.cePools);
-  auto sb_it = symbbounds.find(&c);
+  auto sb_it = symbbounds.find(ca(c));
   if (sb_it != symbbounds.end()) {
-    result->symbBound = sb_it->second.first;
+    result->symbBound = sb_it->second;
   }
   return result;
 }
@@ -1042,25 +1038,22 @@ void Solver::garbage_collect() {
   ca.wasted = 0;
   ca.at = 0;
   unordered_map<uint32_t, CRef> crefmap;
-  unordered_map<const Constr*, std::pair<SymbolicBound, CRef>> new_symbbounds;
+  unordered_map<CRef, SymbolicBound> new_symbbounds;
   for (int i = 1; i < (int)constraints.size(); ++i) assert(constraints[i - 1].ofs < constraints[i].ofs);
   for (CRef& cr : constraints) {
-    const Constr* oldptr = &ca[cr];
+    CRef old_cr = cr;
     uint32_t offset = cr.ofs;
     size_t memSize = ca[cr].getMemSize();
     std::memmove(ca.memory + maxAlign * ca.at, ca.memory + maxAlign * cr.ofs, maxAlign * memSize);
     cr.ofs = ca.at;
     ca.at += memSize;
     crefmap[offset] = cr;
-    auto node = symbbounds.find(oldptr);
+    auto node = symbbounds.find(old_cr);
     if (node != symbbounds.end()) {
-      new_symbbounds[&ca[cr]] = {node->second.first, cr};
+      new_symbbounds[cr] = node->second;
     }
   }
   std::swap(symbbounds, new_symbbounds);
-  for (const auto& [c, sb] : symbbounds) {
-    assert(&ca[sb.second] == c);
-  }
 
   for (Lit l = -n; l <= n; ++l) {
     for (Watch& w : adj[l]) updatePtr(crefmap, w.cref);
