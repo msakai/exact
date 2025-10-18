@@ -1347,7 +1347,8 @@ std::pair<int, bool> ConstrExp<SMALL, LARGE>::getAssertionStatus(const IntMap<in
     assert(l != 0);
     if (isFalse(level, l)) litsByPos.push_back(-l);
   }
-  std::sort(litsByPos.begin(), litsByPos.end(), [&](Lit l1, Lit l2) { return pos[toVar(l1)] < pos[toVar(l2)]; });
+  boost::sort::pdqsort(litsByPos.begin(), litsByPos.end(),
+                       [&](Lit l1, Lit l2) { return pos[toVar(l1)] < pos[toVar(l2)]; });
 
   // calculate earliest propagating decision level by decreasing slack one decision level at a time
   auto posIt = litsByPos.cbegin();
@@ -1692,7 +1693,7 @@ bool ConstrExp<SMALL, LARGE>::isSortedInDecreasingCoefOrder() const {
 template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::sortInDecreasingCoefOrder(const std::function<bool(Var, Var)>& tiebreaker) {
   if (vars.size() <= 1 || isSortedInDecreasingCoefOrder()) return;
-  std::sort(vars.begin(), vars.end(), [&](Var v1, Var v2) {
+  boost::sort::pdqsort(vars.begin(), vars.end(), [&](Var v1, Var v2) {
     const SMALL res = aux::abs(coefs[v1]) - aux::abs(coefs[v2]);
     return res > 0 || (res == 0 && tiebreaker(v1, v2));
   });
@@ -1702,7 +1703,7 @@ void ConstrExp<SMALL, LARGE>::sortInDecreasingCoefOrder(const std::function<bool
 template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::sortWithCoefTiebreaker(const std::function<int(Var, Var)>& comp) {
   if (vars.size() <= 1) return;
-  std::sort(vars.begin(), vars.end(), [&](Var v1, Var v2) {
+  boost::sort::pdqsort(vars.begin(), vars.end(), [&](Var v1, Var v2) {
     const int res = comp(v1, v2);
     return res > 0 || (res == 0 && aux::abs(coefs[v1]) > aux::abs(coefs[v2]));
   });
@@ -1712,7 +1713,7 @@ void ConstrExp<SMALL, LARGE>::sortWithCoefTiebreaker(const std::function<int(Var
 template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::toStreamAsOPBlhs(std::ostream& o, bool withConstant) const {
   VarVec vs = vars;
-  std::sort(vs.begin(), vs.end(), [](Var v1, Var v2) { return v1 < v2; });
+  boost::sort::pdqsort(vs.begin(), vs.end(), [](Var v1, Var v2) { return v1 < v2; });
   for (Var v : vs) {
     Lit l = getLit(v);
     if (l == 0) continue;
@@ -1733,7 +1734,7 @@ template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::toStreamWithAssignment(std::ostream& o, const IntMap<int>& level,
                                                      const std::vector<int>& pos) const {
   VarVec vs = vars;
-  std::sort(vs.begin(), vs.end(), [](Var v1, Var v2) { return v1 < v2; });
+  boost::sort::pdqsort(vs.begin(), vs.end(), [](Var v1, Var v2) { return v1 < v2; });
   for (Var v : vs) {
     Lit l = getLit(v);
     if (l == 0) continue;
@@ -1761,6 +1762,7 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
                                                   IntSet& actSet) {
   assert(getCoef(-toProp) > 0);
   assert(hasNoZeroes());
+  assert(isTrue(level, toProp));
   global.stats.NADDEDLITERALS += data.size();
 
   if (global.options.varReasonAct) {
@@ -1771,59 +1773,91 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
     }
   }
 
-  LARGE oldDegree = getDegree();
-  SMALL largestCF = 0;
-  SMALL cmult = getCoef(-toProp);
-  assert(cmult >= 1);
-  if (global.logger.isActive()) {
-    Logger::proofMult(proofBuffer << id << " ", cmult) << "+ ";
+  if (getDegree() == 1 && deg == 1) {
+    // resolving clauses with clauses can be done efficiently
     for (Lit l : data) {
-      if (isUnit(level, l)) {
-        Logger::proofWeaken(proofBuffer, l, -cmult);
-      } else if (isUnit(level, -l)) {
-        Logger::proofWeakenFalseUnit(proofBuffer, global.logger.getUnitID(l, pos), -cmult);
-      }
-    }
-  }
-  addRhs(cmult * deg);
-  for (Lit l : data) {
-    if (isUnit(level, -l)) {
-      continue;
-    }
-    if (isUnit(level, l)) {
-      addRhs(-cmult);
-      continue;
-    }
-    Var v = toVar(l);
-    SMALL cf = cmult;
-    if (l < 0) {
-      rhs -= cmult;
-      cf = -cmult;
-    }
-    add(v, cf, true);
-    largestCF = std::max(largestCF, aux::abs(coefs[v]));
-  }
-
-  assert(getDegree() > 0);
-  if (oldDegree <= getDegree()) {
-    if (largestCF > getDegree()) {
-      global.stats.NSATURATESTEPS += data.size();
-      if (global.logger.isActive()) proofBuffer << "s ";
-      largestCF = static_cast<SMALL>(degree);
-      for (Lit l : data) {
+      assert(coefs[toVar(l)] == 0 || coefs[toVar(l)] == aux::sgn(l) || l == toProp);
+      assert(!isUnit(level, l));
+      if (!isUnit(level, -l)) {
         Var v = toVar(l);
-        if (coefs[v] < -largestCF) {
-          rhs -= coefs[v] + largestCF;
-          coefs[v] = -largestCF;
-        } else {
-          coefs[v] = std::min(coefs[v], largestCF);
+        SMALL& c = coefs[v];
+        if (c == 0) {
+          assert(!used(v));
+          rhs -= (l < 0);
+          c = aux::sgn(l);
+          index[v] = vars.size();
+          vars.push_back(v);
         }
       }
     }
-    fixOverflow(level, global.options.bitsOverflow.get(), global.options.bitsReduced.get(), largestCF, 0);
+    rhs += (toProp > 0);
+    remove(toVar(toProp));
+
+    if (global.logger.isActive()) {
+      proofBuffer << id << " + s ";
+      for (Lit l : data) {
+        if (isUnit(level, -l)) {
+          Logger::proofWeakenFalseUnit(proofBuffer, global.logger.getUnitID(l, pos), -1);
+        }
+      }
+    }
+    ++global.stats.NSATURATESTEPS;
   } else {
-    saturateAndFixOverflow(level, global.options.bitsOverflow.get(), global.options.bitsReduced.get(), 0, false);
+    LARGE oldDegree = getDegree();
+    SMALL largestCF = 0;
+    SMALL cmult = getCoef(-toProp);
+    assert(cmult >= 1);
+    if (global.logger.isActive()) {
+      Logger::proofMult(proofBuffer << id << " ", cmult) << "+ ";
+      for (Lit l : data) {
+        if (isUnit(level, l)) {
+          Logger::proofWeaken(proofBuffer, l, -cmult);
+        } else if (isUnit(level, -l)) {
+          Logger::proofWeakenFalseUnit(proofBuffer, global.logger.getUnitID(l, pos), -cmult);
+        }
+      }
+    }
+    addRhs(cmult * deg);
+    for (Lit l : data) {
+      if (isUnit(level, -l)) {
+        continue;
+      }
+      if (isUnit(level, l)) {
+        addRhs(-cmult);
+        continue;
+      }
+      Var v = toVar(l);
+      SMALL cf = cmult;
+      if (l < 0) {
+        rhs -= cmult;
+        cf = -cmult;
+      }
+      add(v, cf, true);
+      largestCF = std::max(largestCF, aux::abs(coefs[v]));
+    }
+
+    assert(getDegree() > 0);
+    if (oldDegree <= getDegree()) {
+      if (largestCF > getDegree()) {
+        global.stats.NSATURATESTEPS += data.size();
+        if (global.logger.isActive()) proofBuffer << "s ";
+        largestCF = static_cast<SMALL>(degree);
+        for (Lit l : data) {
+          Var v = toVar(l);
+          if (coefs[v] < -largestCF) {
+            rhs -= coefs[v] + largestCF;
+            coefs[v] = -largestCF;
+          } else {
+            coefs[v] = std::min(coefs[v], largestCF);
+          }
+        }
+      }
+      fixOverflow(level, global.options.bitsOverflow.get(), global.options.bitsReduced.get(), largestCF, 0);
+    } else {
+      saturateAndFixOverflow(level, global.options.bitsOverflow.get(), global.options.bitsReduced.get(), 0, false);
+    }
   }
+
   assert(getCoef(-toProp) == 0);
   assert(hasNegativeSlack(level));
 

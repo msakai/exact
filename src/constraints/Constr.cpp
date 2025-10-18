@@ -545,8 +545,8 @@ void Watched32::initializeWatches(CRef cr, Solver& solver) {
     for (uint32_t i = 0; i < size(); ++i) {
       if (isFalse(level, lit(i)) && position[toVar(lit(i))] < qhead) falsifiedIdcs.push_back(i);
     }
-    std::sort(falsifiedIdcs.begin(), falsifiedIdcs.end(),
-              [&](uint32_t i1, uint32_t i2) { return position[toVar(lit(i1))] > position[toVar(lit(i2))]; });
+    boost::sort::pdqsort(falsifiedIdcs.begin(), falsifiedIdcs.end(),
+                         [&](uint32_t i1, uint32_t i2) { return position[toVar(lit(i1))] > position[toVar(lit(i2))]; });
     int64_t diff = lrgstCf - watchslack;
     for (uint32_t i : falsifiedIdcs) {
       assert(!hasWatch(i));
@@ -820,8 +820,8 @@ void Watched<CF, DG>::initializeWatches(CRef cr, Solver& solver) {
     for (uint32_t i = 0; i < size(); ++i) {
       if (isFalse(level, lit(i)) && position[toVar(lit(i))] < qhead) falsifiedIdcs.push_back(i);
     }
-    std::sort(falsifiedIdcs.begin(), falsifiedIdcs.end(),
-              [&](uint32_t i1, uint32_t i2) { return position[toVar(lit(i1))] > position[toVar(lit(i2))]; });
+    boost::sort::pdqsort(falsifiedIdcs.begin(), falsifiedIdcs.end(),
+                         [&](uint32_t i1, uint32_t i2) { return position[toVar(lit(i1))] > position[toVar(lit(i2))]; });
     DG diff = lrgstCf - watchslack;
     for (uint32_t i : falsifiedIdcs) {
       assert(!hasWatch(i));
