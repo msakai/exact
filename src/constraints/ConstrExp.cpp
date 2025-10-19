@@ -893,7 +893,7 @@ void ConstrExp<SMALL, LARGE>::saturate(const VarVec& vs, bool check, bool sorted
     if (coefs[v] < -smallDeg) {
       rhs -= coefs[v] + smallDeg;
       coefs[v] = -smallDeg;
-      symbBound.addOffset(coefs[v] - smallDeg);
+      symbBound.addOffset(smallDeg + coefs[v]);
     } else if (coefs[v] > smallDeg) {
       coefs[v] = smallDeg;
       symbBound.addOffset(smallDeg - coefs[v]);
