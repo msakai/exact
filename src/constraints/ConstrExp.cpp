@@ -1692,7 +1692,7 @@ bool ConstrExp<SMALL, LARGE>::isSortedInDecreasingCoefOrder() const {
 
 template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::sortInDecreasingCoefOrder(const std::function<bool(Var, Var)>& tiebreaker) {
-  if (vars.size() <= 1 || isSortedInDecreasingCoefOrder()) return;
+  if (vars.size() <= 1) return;
   boost::sort::pdqsort(vars.begin(), vars.end(), [&](Var v1, Var v2) {
     const SMALL res = aux::abs(coefs[v1]) - aux::abs(coefs[v2]);
     return res > 0 || (res == 0 && tiebreaker(v1, v2));
