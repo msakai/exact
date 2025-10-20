@@ -694,7 +694,9 @@ void Solver::learnConstraint(const CeSuper& ce) {
   learned->saturateAndFixOverflow(getLevel(), global.options.bitsLearned.get(), global.options.bitsLearned.get(), 0,
                                   false);
   const std::vector<ActNode>& actList = getHeuristic().getActList();
-  learned->sortInDecreasingCoefOrder([&](Var v1, Var v2) { return actList[v1].activity > actList[v2].activity; });
+  if (!learned->isClause()) {
+    learned->sortInDecreasingCoefOrder([&](Var v1, Var v2) { return actList[v1].activity > actList[v2].activity; });
+  }
   auto [assertionLevel, isAsserting] = learned->getAssertionStatus(level, position, assertionStateMem);
   if (assertionLevel < 0) {
     backjumpTo(0);
