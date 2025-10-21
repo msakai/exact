@@ -728,12 +728,14 @@ void Solver::learnConstraint(const CeSuper& ce) {
   assert(ce);
   assert(isLearned(ce->orig));
   CeSuper learned = ce->clone(global.cePools);
-  // NOTE: below line can cause loops when the equalities are not yet propagated, as the conflict constraint becomes
-  // non-falsified
-  // if (orig != Origin::EQUALITY) {
-  // learned->removeEqualities(getEqualities());
+  // NOTE: below line can cause conflict analysis loops when the equalities are not yet propagated, as the conflict
+  // constraint becomes non-falsified
+  // if (learned->orig != Origin::EQUALITY) {
+  //   learned->removeEqualities(getEqualities());
   // }
-  // learned->selfSubsumeImplications(implications);  // only strengthens the constraint
+  if (!learned->symbBound.isValid()) {
+    learned->selfSubsumeImplications(implications);  // only strengthens the constraint
+  }
   learned->removeUnitsAndZeroes(getLevel(), getPos());
   if (learned->isTautology()) return;
   learned->saturateAndFixOverflow(getLevel(), global.options.bitsLearned.get(), global.options.bitsLearned.get(), 0,

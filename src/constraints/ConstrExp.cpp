@@ -220,10 +220,14 @@ void ConstrExpSuper::postProcess(const IntMap<int>& level, const std::vector<int
 
 void ConstrExpSuper::strongPostProcess(Solver& solver) {
   [[maybe_unused]] int nvars = nNonZeroVars();
-  if (global.options.liftDegreeSymbolic.get() == 1)
+  if (global.options.liftDegreeSymbolic.get() == 1) {
     liftDegreeSymbolic(solver.getSymbBoundUpper(), solver.getSymbBoundLower());
+  }
+
   removeEqualities(solver.getEqualities());
-  // selfSubsumeImplications(solver.getImplications());
+  if (!symbBound.isValid()) {
+    selfSubsumeImplications(solver.getImplications());
+  }
   postProcess(solver.getLevel(), solver.getPos(), solver.getHeuristic(), true, solver.getStats());
   assert(hasRhsDegreeInvariant());
   assert(nvars >= nNonZeroVars());
