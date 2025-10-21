@@ -155,14 +155,10 @@ void Solver::improveSymbBounds() {
   // clone needed to not alter symbbounds in loop
   for (const auto& [cr, sb] : symbbounds_clone) {
     const Constr& c = ca[cr];
-    if (c.isMarkedForDelete() || c.isLocked()) {
-      // this check prevents that old bounding constraints get added as identical to the new bounding constraints
-      symbbounds.erase(cr);
-      continue;
-    }
-    if (sb.getDegree(getSymbBoundUpper(), getSymbBoundLower()) <= c.degree()) continue;
-    removeConstraint(cr);
+    if (!isLearned(c.getOrigin()) || sb.getDegree(getSymbBoundUpper(), getSymbBoundLower()) <= c.degree()) continue;
+    ++global.stats.NSYMBBOUND;
     CeSuper ce = c.toExpanded(global.cePools);
+    removeConstraint(cr);
     ce->symbBoundPostProcess(*this);
     learnConstraint(ce);
   }

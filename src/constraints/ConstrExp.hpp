@@ -378,7 +378,7 @@ struct ConstrExp final : ConstrExpSuper {
       symbBound.add(c->symbBound, cmult);
     }
     if (symbBound.isValid() && !c->symbBound.isValid()) {
-      bigint big_int = c->getDegree();
+      const bigint big_int = c->getDegree();
       symbBound.addOffset(big_int * cmult);
     }
     if (!symbBound.isValid() && c->symbBound.isValid()) {
@@ -534,7 +534,7 @@ struct ConstrExp final : ConstrExpSuper {
         const CF& cf = cfs[i];
         if (!isFalse(level, l) && l != asserting) {
           addLhs(static_cast<SMALL>(cf / div), l);  // partial weakening
-          auto toWeaken = cf % div;
+          const DG toWeaken = cf % div;
           weakenedDegree -= toWeaken;
           symbBound.addOffset(-toWeaken);
         } else {

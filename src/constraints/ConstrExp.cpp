@@ -377,7 +377,7 @@ void ConstrExp<SMALL, LARGE>::add(Var v, SMALL c, bool removeZeroes, bool fixSym
     vars.push_back(v);
   } else {
     if ((cf < 0) != (c < 0)) {
-      SMALL change = std::min(aux::abs(cf), aux::abs(c));
+      const SMALL change = std::min(aux::abs(cf), aux::abs(c));
       degree -= change;
       if (fixSymbBound) symbBound.addOffset(-change);
     }
@@ -663,7 +663,7 @@ void ConstrExp<SMALL, LARGE>::weaken(const SMALL& m, Var v) {  // add m*(v>=0) i
   const bool tmp = m < 0;
   SMALL& c = coefs[v];
   if ((c < 0) != tmp) {
-    SMALL change = std::min(aux::abs(c), aux::abs(m));
+    const SMALL change = std::min(aux::abs(c), aux::abs(m));
     degree -= change;
     symbBound.addOffset(-change);
   }
@@ -842,8 +842,8 @@ void ConstrExp<SMALL, LARGE>::removeEqualities(Equalities& equalities) {
 
 template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::selfSubsumeImplications(const Implications& implications) {
-  assert(!symbBound.isValid());
-  saturate(true, false);  // needed to get the proof to agree
+  assert(!symbBound.isValid());  // almost always some form of saturation going on
+  saturate(true, false);         // needed to get the proof to agree
   IntSet& saturateds = global.isPool.take();
   getSaturatedLits(saturateds);
   for (Var v : vars) {
@@ -854,7 +854,6 @@ void ConstrExp<SMALL, LARGE>::selfSubsumeImplications(const Implications& implic
       ++global.stats.NSUBSUMESTEPS.z;
       SMALL cf = aux::abs(coefs[v]);
       if (global.logger.isActive()) Logger::proofMult(proofBuffer << global.logger.logRUP(-l, ll) << " ", cf) << "+ s ";
-      // symbBound.reset();  // almost always some form of saturation going on
       addRhs(cf);
       addLhs(cf, -l);
       assert(coefs[v] == 0);
@@ -887,7 +886,7 @@ void ConstrExp<SMALL, LARGE>::saturate(const VarVec& vs, bool check, bool sorted
     return;
   }
   assert(getLargestCoef() > degree);
-  SMALL smallDeg = static_cast<SMALL>(degree);  // safe cast because of above assert
+  const SMALL smallDeg = static_cast<SMALL>(degree);  // safe cast because of above assert
   for (Var v : vs) {
     if (coefs[v] < -smallDeg) {
       rhs -= coefs[v] + smallDeg;
@@ -1848,7 +1847,7 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
 
   LARGE oldDegree = getDegree();
   SMALL largestCF = 0;
-  SMALL cmult = getCoef(-toProp);
+  const SMALL cmult = getCoef(-toProp);
   assert(cmult >= 1);
   if (global.logger.isActive()) {
     Logger::proofMult(proofBuffer << id << " ", cmult) << "+ ";

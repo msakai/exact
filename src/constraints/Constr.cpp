@@ -191,6 +191,7 @@ bool Binary::canBeSimplified(Solver& solver, IntSetPool&) const {
                        implications.getImplieds(data[1]).contains(-data[0])))) {
     return true;
   }
+  if (!isLearned(getOrigin())) return false;
   const SymbolicBound* sb = solver.getSymbBound(this);
   return sb != nullptr && sb->getDegree(solver.getSymbBoundUpper(), solver.getSymbBoundLower()) > degree();
 }
@@ -356,6 +357,7 @@ bool Clause::canBeSimplified(Solver& solver, IntSetPool& isp) const {
     }
     isp.release(saturateds);
   }
+  if (!isLearned(getOrigin())) return false;
   const SymbolicBound* sb = solver.getSymbBound(this);
   return sb != nullptr && sb->getDegree(solver.getSymbBoundUpper(), solver.getSymbBoundLower()) > 1;
 }
@@ -504,6 +506,7 @@ bool Cardinality::canBeSimplified(Solver& solver, IntSetPool&) const {
     }
   }
   // NOTE: no saturated literals in a cardinality, so no need to check for self-subsumption
+  if (!isLearned(getOrigin())) return false;
   const SymbolicBound* sb = solver.getSymbBound(this);
   return sb != nullptr && sb->getDegree(solver.getSymbBoundUpper(), solver.getSymbBoundLower()) > degr;
 }
@@ -757,6 +760,7 @@ bool Watched32::canBeSimplified(Solver& solver, IntSetPool& isp) const {
     }
     isp.release(saturateds);
   }
+  if (!isLearned(getOrigin())) return false;
   const SymbolicBound* sb = solver.getSymbBound(this);
   return sb != nullptr && sb->getDegree(solver.getSymbBoundUpper(), solver.getSymbBoundLower()) > degr;
 }
@@ -1050,6 +1054,7 @@ bool Watched<CF, DG>::canBeSimplified(Solver& solver, IntSetPool& isp) const {
     }
     isp.release(saturateds);
   }
+  if (!isLearned(getOrigin())) return false;
   const SymbolicBound* sb = solver.getSymbBound(this);
   return sb != nullptr && sb->getDegree(solver.getSymbBoundUpper(), solver.getSymbBoundLower()) > degr;
 }
