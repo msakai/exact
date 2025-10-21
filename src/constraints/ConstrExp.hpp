@@ -89,13 +89,15 @@ struct SymbolicBound {
   ratio offset = 0;
 
   void add(const SymbolicBound& sb, const bigint& mult);
-  void addOffset(const bigint& mult);
+  void addOffset(const bigint& os);
   void divide(const bigint& div);
   void multiply(const bigint& mult);
   void reset();
   bool isValid() const;
 
   bigint getDegree(const bigint& upbound, const bigint& lowbound) const;
+
+  bool operator==(const SymbolicBound&) const = default;
 };
 
 std::ostream& operator<<(std::ostream& os, const SymbolicBound& bound);

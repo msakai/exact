@@ -820,34 +820,29 @@ void ConstrExp<SMALL, LARGE>::removeEqualities(Equalities& equalities) {
     if (coefs[v] == 0) continue;
     Lit l = getLit(v);
     if (const Repr& repr = equalities.getRepr(l); repr.l != l) {  // literal is not its own canonical representative
-      SMALL mult = aux::abs(coefs[v]);
-      addLhs(mult, repr.l);
-      Var reprv = toVar(repr.l);
-      if (stillFits<SMALL>(coefs[reprv])) {  // TODO: check can be dropped by intertwining saturation...
-        addLhs(mult, -l);
-        addRhs(mult);
-        assert(coefs[v] == 0);
-        if (global.logger.isActive()) Logger::proofMult(proofBuffer << repr.id << " ", mult) << "+ ";
-        SMALL repr_coef = getCoef(repr.l);
-        if (repr_coef < mult) {
-          // canceling lits, fix the symbBound degree, depending on how much cancelation is going on
-          if (repr_coef <= 0) {
-            // full cancelation
-            symbBound.addOffset(-mult);
-          } else {
-            // partial cancelation
-            symbBound.addOffset(-(mult - repr_coef));
-          }
-        }
-      } else {
-        addLhs(-mult, repr.l);  // revert change
+      const SMALL mult = aux::abs(coefs[v]);
+      if (!stillFits<SMALL>(mult + getCoef(repr.l)))
+        continue;  // TODO: check can be dropped by intertwining saturation...
+      if (global.logger.isActive()) Logger::proofMult(proofBuffer << repr.id << " ", mult) << "+ ";
+      const SMALL repr_coef = getCoef(repr.l);
+      if (repr_coef < -mult) {
+        // full cancelation
+        symbBound.addOffset(-mult);
+      } else if (repr_coef < 0) {
+        // partial cancelation
+        symbBound.addOffset(repr_coef);
       }
+      addLhs(mult, repr.l);
+      addLhs(mult, -l);
+      addRhs(mult);
+      assert(coefs[v] == 0);
     }
   }
 }
 
 template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::selfSubsumeImplications(const Implications& implications) {
+  assert(!symbBound.isValid());
   saturate(true, false);  // needed to get the proof to agree
   IntSet& saturateds = global.isPool.take();
   getSaturatedLits(saturateds);
@@ -859,7 +854,7 @@ void ConstrExp<SMALL, LARGE>::selfSubsumeImplications(const Implications& implic
       ++global.stats.NSUBSUMESTEPS.z;
       SMALL cf = aux::abs(coefs[v]);
       if (global.logger.isActive()) Logger::proofMult(proofBuffer << global.logger.logRUP(-l, ll) << " ", cf) << "+ s ";
-      symbBound.reset();  // almost always some form of saturation going on
+      // symbBound.reset();  // almost always some form of saturation going on
       addRhs(cf);
       addLhs(cf, -l);
       assert(coefs[v] == 0);
@@ -896,15 +891,16 @@ void ConstrExp<SMALL, LARGE>::saturate(const VarVec& vs, bool check, bool sorted
   for (Var v : vs) {
     if (coefs[v] < -smallDeg) {
       rhs -= coefs[v] + smallDeg;
-      coefs[v] = -smallDeg;
       symbBound.addOffset(smallDeg + coefs[v]);
+      coefs[v] = -smallDeg;
     } else if (coefs[v] > smallDeg) {
-      coefs[v] = smallDeg;
       symbBound.addOffset(smallDeg - coefs[v]);
+      coefs[v] = smallDeg;
     } else if (sorted) {
       break;
     }
   }
+
   assert(isSaturated());
 }
 
@@ -1905,11 +1901,13 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
         Var v = toVar(l);
         if (coefs[v] < -largestCF) {
           rhs -= coefs[v] + largestCF;
+          symbBound.addOffset(largestCF + coefs[v]);
           coefs[v] = -largestCF;
-          symbBound.addOffset(coefs[v] + largestCF);
         } else {
+          if (coefs[v] > largestCF) {
+            symbBound.addOffset(largestCF - coefs[v]);
+          }
           coefs[v] = std::min(coefs[v], largestCF);
-          symbBound.addOffset(largestCF - coefs[v]);
         }
       }
     }

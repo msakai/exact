@@ -515,6 +515,7 @@ void Solver::minimize(CeSuper& conflict) {
   assert(conflict->isSaturated());
   assert(conflict->isAssertingBefore(getLevel(), decisionLevel()) == AssertionStatus::ASSERTING);
   assert(litsToSubsumeMem.empty());
+  if (conflict->symbBound.isValid()) return;
   IntSet& saturatedLits = global.isPool.take();
   conflict->removeZeroes();
   conflict->getSaturatedLits(saturatedLits);
@@ -533,17 +534,17 @@ void Solver::minimize(CeSuper& conflict) {
             [&](const std::pair<int, Lit>& x, const std::pair<int, Lit>& y) { return x.first > y.first; });
 
   std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-  // for (const std::pair<int, Lit>& pr : litsToSubsumeMem) {
-  //   Lit l = pr.second;
-  //   assert(conflict->getLit(toVar(l)) != 0);
-  //   Constr& reasonC = ca[reason[toVar(l)]];
-  //   unsigned int lbd = reasonC.subsumeWith(conflict, -l, *this, saturatedLits);
-  //   if (lbd > 0) {
-  //     reasonC.decreaseLBD(lbd);
-  //     reasonC.fixEncountered(global.stats);
-  //   }
-  //   if (saturatedLits.isEmpty()) break;
-  // }
+  for (const std::pair<int, Lit>& pr : litsToSubsumeMem) {
+    Lit l = pr.second;
+    assert(conflict->getLit(toVar(l)) != 0);
+    Constr& reasonC = ca[reason[toVar(l)]];
+    unsigned int lbd = reasonC.subsumeWith(conflict, -l, *this, saturatedLits);
+    if (lbd > 0) {
+      reasonC.decreaseLBD(lbd);
+      reasonC.fixEncountered(global.stats);
+    }
+    if (saturatedLits.isEmpty()) break;
+  }
   global.stats.MINTIME.z +=
       std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - start).count();
   conflict->removeZeroes();  // remove weakened literals
@@ -651,11 +652,12 @@ CRef Solver::attachConstraint(const CeSuper& constraint, bool locked) {
   assert(constraint->orig != Origin::UNKNOWN);
 
   CRef cr = constraint->toConstr(ca, locked, global.logger.logProofLineWithInfo(constraint, "Attach"));
-  Constr& c = ca[cr];
   if (constraint->symbBound.isValid()) {
     symbbounds[cr] = constraint->symbBound;
     ++global.stats.NSYMBBOUNDADDED.z;
+    assert(symbbounds[ca(ca[cr])] == constraint->symbBound);
   }
+  Constr& c = ca[cr];
   c.initializeWatches(cr, *this);
   constraints.push_back(cr);
   const Origin& orig = constraint->orig;
