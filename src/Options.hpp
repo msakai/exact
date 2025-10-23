@@ -312,6 +312,9 @@ struct Options {
                               "0 =< float", [](const DetTime& x) -> bool { return x >= 0; }};
   ValOption<int> liftDegreeSymbolic{"inp-liftsymb", "Use symbolic bounds to lift the degree of a constraint", 0,
                                     "0 =< int =< 2", [](const int& x) -> bool { return x >= 0 && x <= 2; }};
+  BoolOption symbDegNoSat{"inp-liftsymbsat",
+                          "If true, saturation weakens symbolic bounds, else saturation invalidates symbolic bounds",
+                          true};
   BoolOption test{"test", "Activate experimental option", false};
 
   const std::vector<Option*> options = {
@@ -380,6 +383,7 @@ struct Options {
       &inpAMO,
       &basetime,
       &liftDegreeSymbolic,
+      &symbDegNoSat,
       //      &test,
   };
   unordered_map<std::string, Option*> name2opt;

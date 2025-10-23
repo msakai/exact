@@ -885,6 +885,7 @@ void ConstrExp<SMALL, LARGE>::saturate(const VarVec& vs, bool check, bool sorted
     reset(true);
     return;
   }
+  if (!global.options.symbDegNoSat) symbBound.reset();
   assert(getLargestCoef() > degree);
   const SMALL smallDeg = static_cast<SMALL>(degree);  // safe cast because of above assert
   for (Var v : vs) {
@@ -1494,8 +1495,8 @@ LARGE ConstrExp<SMALL, LARGE>::absCoeffSum() const {
 
 template <typename SMALL, typename LARGE>
 std::pair<LARGE, LARGE> ConstrExp<SMALL, LARGE>::getLhsExtrema() const {
-  LARGE lb = 0;
-  LARGE ub = 0;
+  LARGE lb = -getRhs();
+  LARGE ub = -getRhs();
   for (Var v : vars) {
     if (coefs[v] < 0) lb += coefs[v];
     if (coefs[v] > 0) ub += coefs[v];
@@ -1895,6 +1896,7 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
     if (largestCF > getDegree()) {
       global.stats.NSATURATESTEPS += data.size();
       if (global.logger.isActive()) proofBuffer << "s ";
+      if (!global.options.symbDegNoSat) symbBound.reset();
       largestCF = static_cast<SMALL>(degree);
       for (Lit l : data) {
         Var v = toVar(l);
