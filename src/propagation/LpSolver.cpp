@@ -594,8 +594,10 @@ void LpSolver::addConstraint(const CeSuper& c, bool removable, bool upperbound, 
     boundsToAdd[lowerbound].id = id;
     c->copyTo(boundsToAdd[lowerbound].cs);
   } else {
-    toAdd[id] = {ConstrSimple64(), removable};
-    c->copyTo(toAdd[id].cs);
+    if (toAddSet.insert(id).second) {
+      toAdd.emplace_back(id, removable, ConstrSimple64());
+      c->copyTo(toAdd.back().cs);
+    }
   }
 }
 
@@ -625,12 +627,12 @@ void LpSolver::flushConstraints() {
   if (!toAdd.empty()) {  // then add rows
     soplex::LPRowSetReal rowsToAdd(toAdd.size());
     row2data.reserve(row2data.size() + toAdd.size());
-    for (auto& p : toAdd) {
+    for (const AdditionData& p : toAdd) {
       double rhs;
-      soplex::DSVectorReal row(p.second.cs.size());
-      convertConstraint(p.second.cs, row, rhs);
+      soplex::DSVectorReal row(p.cs.size());
+      convertConstraint(p.cs, row, rhs);
       rowsToAdd.add(soplex::LPRowReal(row, soplex::LPRowReal::Type::GREATER_EQUAL, rhs));
-      row2data.emplace_back(p.first, p.second.removable);
+      row2data.emplace_back(p.id, p.removable);
       ++global.stats.NLPADDEDROWS;
     }
     lp.addRowsReal(rowsToAdd);

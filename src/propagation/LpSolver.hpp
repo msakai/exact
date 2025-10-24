@@ -92,8 +92,9 @@ struct RowData {
 };
 
 struct AdditionData {
+  ID id;
+  bool removable;
   ConstrSimple64 cs;
-  bool removable = false;
 };
 
 struct BoundData {
@@ -152,7 +153,8 @@ class LpSolver {
 
   std::vector<RowData> row2data;
   std::vector<int> toRemove;  // rows
-  unordered_map<ID, AdditionData> toAdd;
+  unordered_set<ID> toAddSet;
+  std::vector<AdditionData> toAdd;
   BoundData boundsToAdd[2];  // [0] is upper bound, [1] lower bound
 
   std::vector<CandidateCut> candidateCuts;
