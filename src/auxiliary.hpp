@@ -612,12 +612,11 @@ void erasemulti(unordered_map<KEY, int32_t>& xs, const KEY& x) {
   }
 }
 
-template <typename KEY>
-auto summulti(const unordered_map<KEY, int32_t>& xs) {
-  using SumType = decltype(std::declval<KEY>() * 1);  // handles numeric types
-  SumType total = 0;
+template <typename KEY, typename SUM>
+SUM summulti(const unordered_map<KEY, int32_t>& xs) {
+  SUM total = 0;
   for (const auto& [key, count] : xs) {
-    total += key * count;
+    total += static_cast<SUM>(key) * count;
   }
   return total;
 }

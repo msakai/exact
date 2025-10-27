@@ -78,6 +78,45 @@ int32_t subsetsum_dp_topdown(const std::vector<int32_t>& vals, int32_t target,
   assert(target > 0);
   assert(!vals.empty());
   const int32_t total = std::accumulate(vals.begin(), vals.end(), 0);
+  if (subset != nullptr) {
+    subset->clear();
+  }
+
+  int32_t heur = 0;
+  for (int32_t v : vals) {
+    if (heur + v <= target) heur += v;
+  }
+  if (heur == target) {
+    if (subset != nullptr) {
+      heur = 0;
+      for (int32_t v : vals) {
+        if (heur + v <= target) {
+          heur += v;
+          aux::insertmulti(*subset, v);
+        }
+      }
+    }
+    return target;
+  }
+
+  heur = total;
+  for (int32_t v : vals) {
+    if (heur - v >= target) heur -= v;
+  }
+  if (heur == target) {
+    if (subset != nullptr) {
+      heur = total;
+      for (int32_t v : vals) {
+        if (heur - v >= target) {
+          heur -= v;
+        } else {
+          aux::insertmulti(*subset, v);
+        }
+      }
+    }
+    return target;
+  }
+
   assert(total > target);
   const int32_t w = total - target;
   sums.clear();
@@ -105,7 +144,7 @@ int32_t subsetsum_dp_topdown(const std::vector<int32_t>& vals, int32_t target,
         smallest += sums[i].second;
       }
     }
-    assert(aux::summulti(*subset) == sums[0].first);
+    assert((aux::summulti<int32_t, int32_t>(*subset) == sums[0].first));
   }
 
   return sums[0].first;
@@ -1708,11 +1747,13 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
   assert(degree >= 0);
   assert(!vars.empty());
 
-  if (degree == 0 || degree > std::numeric_limits<int32_t>::max() || coefs[vars[0]] == -1 || coefs[vars[0]] == 1 ||
-      aux::abs(coefs[vars[0]]) > std::numeric_limits<int32_t>::max()) {
-    return;
+  if (degree == 0 || coefs[vars[0]] == -1 || coefs[vars[0]] == 1) {
+    return;  // tautologies or cardinalities are not liftable
   }
 
+  if (aux::abs(coefs[vars[0]]) > std::numeric_limits<int32_t>::max() || degree > std::numeric_limits<int32_t>::max()) {
+    return;
+  }
   const int64_t total = static_cast<int64_t>(absCoeffSum());  // all coefficients fit in 32 bits
   if (total <= degree || total > std::numeric_limits<int32_t>::max() || total - degree - 1 >= size_sbstsm ||
       std::ssize(vars) * (total - degree) > global.options.subsetSum.get()) {
@@ -1720,19 +1761,10 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
   }
 
   std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-  int32_t heur1 = total;
-  int32_t heur2 = 0;
+  unordered_map<int32_t, int32_t> subset;
   std::vector<int32_t> cfs(vars.size());
   for (uint32_t i = 0; i < std::size(vars); ++i) {
-    if ((i & static_cast<uint32_t>(1023)) == 0) quit::checkInterrupt(global);  // check every 1024 iterations
     cfs[i] = static_cast<int32_t>(aux::abs(coefs[vars[i]]));
-    if (heur1 - cfs[i] >= degree) heur1 -= cfs[i];
-    if (heur2 + cfs[i] <= degree) heur2 += cfs[i];
-    if (heur1 == degree || heur2 == degree) {
-      global.stats.SUBSETSUMTIME.z +=
-          std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - start).count();
-      return;
-    }
   }
 
   int32_t newdegree = subsetsum_dp_topdown(cfs, static_cast<int32_t>(degree), _sums_);

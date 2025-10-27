@@ -158,7 +158,7 @@ SMALL subsetsum_set_topdown(const std::vector<SMALL>& vals, LARGE target, unorde
       aux::erasemulti(*subset, v);
       smallest += v;
     }
-    assert(aux::summulti(*subset) == result);
+    assert((aux::summulti<SMALL, LARGE>(*subset) == result));
   }
 
   return result;
