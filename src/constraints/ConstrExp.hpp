@@ -72,29 +72,30 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 namespace xct {
 
-int32_t subsetsum_dp_topdown(const std::vector<int32_t>& vals, int32_t target,
+int32_t subsetsum_dp_topdown(const Global& global, const std::vector<int32_t>& vals, int32_t target,
                              std::vector<std::pair<int32_t, int32_t>>& sums,
                              unordered_map<int32_t, int32_t>* subset = nullptr);
 
 template <typename SMALL, typename LARGE>
-SMALL subsetsum_set_topdown(const std::vector<SMALL>& vals, LARGE target, unordered_map<LARGE, SMALL>& sums,
-                            std::vector<std::pair<LARGE, SMALL>>& stack,
+LARGE subsetsum_set_topdown(const Global& global, const std::vector<SMALL>& vals, const LARGE& target,
+                            unordered_map<LARGE, SMALL>& sums, std::vector<std::pair<LARGE, SMALL>>& stack,
                             unordered_map<SMALL, int32_t>* subset = nullptr) {
-  assert(std::ranges::is_sorted(vals, std::greater<int>()));
+  assert(std::ranges::is_sorted(vals, std::greater<SMALL>()));
   assert(target > 0);
   assert(!vals.empty());
-  const LARGE total = std::accumulate(vals.begin(), vals.end(), 0);
+  LARGE total = 0;
+  for (const SMALL& v : vals) total += v;
   assert(total > target);
   if (subset != nullptr) subset->clear();
 
   // Quick heuristic check
   LARGE heur = 0;
   for (const SMALL& v : vals) {
-    heur += v * static_cast<int32_t>(heur + v <= target);
+    if (heur + v <= target) heur += v;
   }
   if (heur == target) {
-    heur = 0;
     if (subset != nullptr) {
+      heur = 0;
       for (const SMALL& v : vals) {
         if (heur + v <= target) {
           heur += v;
@@ -106,7 +107,7 @@ SMALL subsetsum_set_topdown(const std::vector<SMALL>& vals, LARGE target, unorde
   }
   heur = total;
   for (const SMALL& v : vals) {
-    heur -= v * static_cast<int32_t>(heur - v >= target);
+    if (heur - v >= target) heur -= v;
   }
   if (heur == target) {
     if (subset != nullptr) {
@@ -127,9 +128,9 @@ SMALL subsetsum_set_topdown(const std::vector<SMALL>& vals, LARGE target, unorde
   sums[total] = 0;
   LARGE smallest = total;
   uint32_t i = 0;
+  quit::checkInterrupt(global);
   while (i < vals.size()) {
     if (smallest == target) break;
-    // quit::checkInterrupt(); TODO ?
     const SMALL& v = vals[i];
     LARGE v_multiple = 0;
     while (i < vals.size() && v == vals[i]) {

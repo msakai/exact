@@ -72,15 +72,14 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 namespace xct {
 
-int32_t subsetsum_dp_topdown(const std::vector<int32_t>& vals, int32_t target,
+int32_t subsetsum_dp_topdown(const Global& global, const std::vector<int32_t>& vals, int32_t target,
                              std::vector<std::pair<int32_t, int32_t>>& sums, unordered_map<int32_t, int32_t>* subset) {
   assert(std::ranges::is_sorted(vals, std::greater<int>()));
   assert(target > 0);
   assert(!vals.empty());
   const int32_t total = std::accumulate(vals.begin(), vals.end(), 0);
-  if (subset != nullptr) {
-    subset->clear();
-  }
+  assert(total > target);
+  if (subset != nullptr) subset->clear();
 
   int32_t heur = 0;
   for (int32_t v : vals) {
@@ -121,9 +120,9 @@ int32_t subsetsum_dp_topdown(const std::vector<int32_t>& vals, int32_t target,
   const int32_t w = total - target;
   sums.clear();
   sums.resize(w + 1, {total, 0});
+  quit::checkInterrupt(global);
   for (const int32_t v : vals) {
     if (sums[0].first == target) break;
-    // quit::checkInterrupt(); TODO ?
     for (int32_t j = 0; j <= w - v; ++j) {
       if (const int32_t newsum = sums[j + v].first - v; sums[j].first > newsum) {
         sums[j] = {newsum, v};
@@ -133,7 +132,6 @@ int32_t subsetsum_dp_topdown(const std::vector<int32_t>& vals, int32_t target,
   assert(sums[0].first >= target);
 
   if (subset != nullptr) {  // calculate subset
-    subset->clear();
     for (int32_t v : vals) {
       aux::insertmulti(*subset, v);
     }
@@ -1734,8 +1732,8 @@ void ConstrExp<SMALL, LARGE>::simplifyToUnit(const IntMap<int>& level, const std
   assert(isUnitConstraint());
 }
 
+constexpr int32_t size_sbstsm = 1e7;              // TODO: fix
 std::vector<std::pair<int32_t, int32_t>> _sums_;  // TODO: fix
-const int32_t size_sbstsm = 1e8;                  // TODO: fix
 
 template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::liftDegree() {
@@ -1743,39 +1741,75 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
   assert(isSaturated());
   assert(isSortedInDecreasingCoefOrder());
   assert(hasNoZeroes());
-
-  assert(degree >= 0);
+  assert(!isTautology());
+  assert(!isUnsat());
   assert(!vars.empty());
 
-  if (degree == 0 || coefs[vars[0]] == -1 || coefs[vars[0]] == 1) {
-    return;  // tautologies or cardinalities are not liftable
-  }
-
-  if (aux::abs(coefs[vars[0]]) > std::numeric_limits<int32_t>::max() || degree > std::numeric_limits<int32_t>::max()) {
-    return;
-  }
-  const int64_t total = static_cast<int64_t>(absCoeffSum());  // all coefficients fit in 32 bits
-  if (total <= degree || total > std::numeric_limits<int32_t>::max() || total - degree - 1 >= size_sbstsm ||
-      std::ssize(vars) * (total - degree) > global.options.subsetSum.get()) {
-    return;
-  }
+  if (coefs[vars[0]] == -1 || coefs[vars[0]] == 1) return;  // tautologies or cardinalities are not liftable
 
   std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-  unordered_map<int32_t, int32_t> subset;
-  std::vector<int32_t> cfs(vars.size());
-  for (uint32_t i = 0; i < std::size(vars); ++i) {
-    cfs[i] = static_cast<int32_t>(aux::abs(coefs[vars[i]]));
+
+  if (aux::abs(coefs[vars[0]]) < std::numeric_limits<int32_t>::max() && degree < std::numeric_limits<int32_t>::max()) {
+    const int64_t total = static_cast<int64_t>(absCoeffSum());  // all coefficients fit in 32 bits
+    if (total < std::numeric_limits<int32_t>::max() && total - degree <= size_sbstsm &&
+        std::ssize(vars) * (total - degree) <= global.options.subsetSum.get()) {
+      std::vector<int32_t> cfs(vars.size());
+      for (uint32_t i = 0; i < std::size(vars); ++i) {
+        cfs[i] = static_cast<int32_t>(aux::abs(coefs[vars[i]]));
+      }
+
+      int32_t newdegree = subsetsum_dp_topdown(global, cfs, static_cast<int32_t>(degree), _sums_);
+
+      if (newdegree > degree) {
+        rhs += newdegree - degree;
+        degree = newdegree;
+        global.stats.NLIFTDEGREE += 1;
+        global.logger.logAssumption(*this, global.options.proofAssumps.operator bool());
+        symbBound.reset();
+      }
+
+      global.stats.LIFTTIME +=
+          std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - start).count();
+      return;
+    }
   }
 
-  int32_t newdegree = subsetsum_dp_topdown(cfs, static_cast<int32_t>(degree), _sums_);
+  int64_t steps = 10;  // initial weight, changing this changes how often alternative lift degree is executed
+  uint32_t i = 0;
+  while (i < vars.size()) {
+    const SMALL v = aux::abs(coefs[vars[i]]);
+    ++i;
+    uint32_t multiple = 2;  // NOTE: only one new variable will already double the work
+    while (i < vars.size() && v == aux::abs(coefs[vars[i]])) {
+      ++i;
+      ++multiple;
+    }
+    steps *= multiple;
+    if (steps > global.options.subsetSum.get()) {
+      global.stats.LIFTTIME +=
+          std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - start).count();
+      return;
+    }
+  }
+
+  std::vector<SMALL> cfs;  // TODO fix
+  cfs.reserve(vars.size());
+  for (Var v : vars) {
+    cfs.emplace_back(aux::abs(coefs[v]));
+  }
+
+  unordered_map<LARGE, SMALL> sums;            // TODO: fix
+  std::vector<std::pair<LARGE, SMALL>> stack;  // TODO: fix
+  const LARGE newdegree = subsetsum_set_topdown(global, cfs, degree, sums, stack);
+
   if (newdegree > degree) {
     rhs += newdegree - degree;
     degree = newdegree;
-    global.stats.NSUBSETSUM += 1;
+    global.stats.NLIFTDEGREE += 1;
     global.logger.logAssumption(*this, global.options.proofAssumps.operator bool());
     symbBound.reset();
   }
-  global.stats.SUBSETSUMTIME +=
+  global.stats.LIFTTIME +=
       std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - start).count();
 }
 

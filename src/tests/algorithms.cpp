@@ -26,6 +26,7 @@ using namespace xct;
 TEST_SUITE_BEGIN("Algorithms test");
 
 TEST_CASE("subset sum performance test") {
+  Global global;
   std::vector<std::pair<int32_t, int32_t>> sums_dp;
   unordered_map<int64_t, int32_t> sums_set;
   std::vector<std::pair<int64_t, int32_t>> stack;
@@ -40,60 +41,62 @@ TEST_CASE("subset sum performance test") {
   coefs.push_back(100000);
   int32_t target = std::accumulate(coefs.begin(), coefs.end(), 0) * 3 / 7;
   auto start = std::chrono::high_resolution_clock::now();
-  aux::cout << subsetsum_dp_topdown(coefs, target, sums_dp) << std::endl;
+  aux::cout << subsetsum_dp_topdown(global, coefs, target, sums_dp) << std::endl;
   auto duration =
       std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start);
   aux::cout << duration << std::endl;
   start = std::chrono::high_resolution_clock::now();
-  aux::cout << subsetsum_set_topdown(coefs, static_cast<int64_t>(target), sums_set, stack) << std::endl;
+  aux::cout << subsetsum_set_topdown(global, coefs, static_cast<int64_t>(target), sums_set, stack) << std::endl;
   duration = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start);
   aux::cout << duration << std::endl;
 }
 
 TEST_CASE("subset sum dp topdown") {
+  Global global;
   std::vector<std::pair<int32_t, int32_t>> stack;
 
   unordered_map<int32_t, int32_t> subset;
-  CHECK(subsetsum_dp_topdown({67, 56, 45, 34, 23}, 88, stack, &subset) == 90);
+  CHECK(subsetsum_dp_topdown(global, {67, 56, 45, 34, 23}, 88, stack, &subset) == 90);
   CHECK(aux::summulti<int32_t, int32_t>(subset) == 90);
-  CHECK(subsetsum_dp_topdown({34, 12, 5, 4, 3, 2}, 9, stack, &subset) == 9);
+  CHECK(subsetsum_dp_topdown(global, {34, 12, 5, 4, 3, 2}, 9, stack, &subset) == 9);
   CHECK(aux::summulti<int32_t, int32_t>(subset) == 9);
-  CHECK(subsetsum_dp_topdown({5, 4, 3, 2, 1}, 14, stack, &subset) == 14);
+  CHECK(subsetsum_dp_topdown(global, {5, 4, 3, 2, 1}, 14, stack, &subset) == 14);
   CHECK(aux::summulti<int32_t, int32_t>(subset) == 14);
-  CHECK(subsetsum_dp_topdown({5, 4, 3, 2, 1}, 1, stack, &subset) == 1);
+  CHECK(subsetsum_dp_topdown(global, {5, 4, 3, 2, 1}, 1, stack, &subset) == 1);
   CHECK(aux::summulti<int32_t, int32_t>(subset) == 1);
   for (int i = 15; i < 79; ++i) {
-    CHECK(subsetsum_dp_topdown({11, 11, 11, 11, 7, 7, 7, 7, 5, 5, 5, 5}, i, stack, &subset) == i);
+    CHECK(subsetsum_dp_topdown(global, {11, 11, 11, 11, 7, 7, 7, 7, 5, 5, 5, 5}, i, stack, &subset) == i);
     CHECK(aux::summulti<int32_t, int32_t>(subset) == i);
   }
   unordered_set<int32_t> off_by_one{1, 3, 8, 10, 13, 15, 20, 22, 25, 27, 32, 37, 42, 44, 47, 49, 54, 56, 59, 61, 66};
   for (int i = 1; i < 67; ++i) {
-    CHECK(subsetsum_dp_topdown({34, 12, 12, 5, 4, 2}, i, stack, &subset) == i + off_by_one.count(i));
+    CHECK(subsetsum_dp_topdown(global, {34, 12, 12, 5, 4, 2}, i, stack, &subset) == i + off_by_one.count(i));
     CHECK(aux::summulti<int32_t, int32_t>(subset) == i + off_by_one.count(i));
   }
 }
 
 TEST_CASE("subset sum set topdown") {
+  Global global;
   unordered_map<int64_t, int32_t> sums;
   std::vector<std::pair<int64_t, int32_t>> stack;
 
   unordered_map<int32_t, int32_t> subset;
-  CHECK(subsetsum_set_topdown({67, 56, 45, 34, 23}, static_cast<int64_t>(88), sums, stack, &subset) == 90);
+  CHECK(subsetsum_set_topdown(global, {67, 56, 45, 34, 23}, static_cast<int64_t>(88), sums, stack, &subset) == 90);
   CHECK(aux::summulti<int32_t, int32_t>(subset) == 90);
-  CHECK(subsetsum_set_topdown({34, 12, 5, 4, 3, 2}, static_cast<int64_t>(9), sums, stack, &subset) == 9);
+  CHECK(subsetsum_set_topdown(global, {34, 12, 5, 4, 3, 2}, static_cast<int64_t>(9), sums, stack, &subset) == 9);
   CHECK(aux::summulti<int32_t, int32_t>(subset) == 9);
-  CHECK(subsetsum_set_topdown({5, 4, 3, 2, 1}, static_cast<int64_t>(14), sums, stack, &subset) == 14);
+  CHECK(subsetsum_set_topdown(global, {5, 4, 3, 2, 1}, static_cast<int64_t>(14), sums, stack, &subset) == 14);
   CHECK(aux::summulti<int32_t, int32_t>(subset) == 14);
-  CHECK(subsetsum_set_topdown({5, 4, 3, 2, 1}, static_cast<int64_t>(1), sums, stack, &subset) == 1);
+  CHECK(subsetsum_set_topdown(global, {5, 4, 3, 2, 1}, static_cast<int64_t>(1), sums, stack, &subset) == 1);
   CHECK(aux::summulti<int32_t, int32_t>(subset) == 1);
   for (int i = 15; i < 79; ++i) {
-    CHECK(subsetsum_set_topdown({11, 11, 11, 11, 7, 7, 7, 7, 5, 5, 5, 5}, static_cast<int64_t>(i), sums, stack,
+    CHECK(subsetsum_set_topdown(global, {11, 11, 11, 11, 7, 7, 7, 7, 5, 5, 5, 5}, static_cast<int64_t>(i), sums, stack,
                                 &subset) == i);
     CHECK(aux::summulti<int32_t, int32_t>(subset) == i);
   }
   unordered_set<int32_t> off_by_one{1, 3, 8, 10, 13, 15, 20, 22, 25, 27, 32, 37, 42, 44, 47, 49, 54, 56, 59, 61, 66};
   for (int i = 1; i < 67; ++i) {
-    CHECK(subsetsum_set_topdown({34, 12, 12, 5, 4, 2}, static_cast<int64_t>(i), sums, stack, &subset) ==
+    CHECK(subsetsum_set_topdown(global, {34, 12, 12, 5, 4, 2}, static_cast<int64_t>(i), sums, stack, &subset) ==
           i + off_by_one.count(i));
     CHECK(aux::summulti<int32_t, int32_t>(subset) == i + off_by_one.count(i));
   }

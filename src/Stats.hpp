@@ -245,7 +245,6 @@ struct Stats {
   Stat NMULTWEAKENEDCONFLICT{0, "multiply-weakens on conflict"};
   Stat NMULTWEAKENEDDIRECT{0, "direct multiply-weakens"};
   Stat NMULTWEAKENEDINDIRECT{0, "indirect multiply-weakens"};
-  Stat NSUBSETSUM{0, "lifted degrees"};
   Stat NSYMBBOUND{0, "symbolic bound improvements"};
   Stat NORIGVARS{0, "original variables"};
   Stat NAUXVARS{0, "auxiliary variables"};
@@ -309,7 +308,6 @@ struct Stats {
   Stat GCTIME{0, "garbage collection time"};
   Stat LEARNTIME{0, "constraint learning time"};
   Stat HEURTIME{0, "time spent in activity heuristic"};
-  Stat SUBSETSUMTIME{0, "time spent in lift degree optimization"};
 
   Stat EXTERNLENGTHAVG{0, "input length average"};
   Stat EXTERNDEGREEAVG{0, "input degree average"};
@@ -321,6 +319,10 @@ struct Stats {
 
   Stat LASTLB{std::numeric_limits<StatNum>::quiet_NaN(), "best lower bound"};
   Stat LASTUB{std::numeric_limits<StatNum>::quiet_NaN(), "best upper bound"};
+
+  Stat SUBSETSUMTIME{0, "time spent in subsetsum optimizations"};
+  Stat NLIFTDEGREE{0, "lifted degrees"};
+  Stat NSUPERFLUOUS{0, "superfluous literals"};
 
   std::chrono::steady_clock::time_point startTime;
   std::chrono::steady_clock::time_point runStartTime;
@@ -366,8 +368,6 @@ struct Stats {
       &HEURTIME,
       &ATMOSTONETIME,
       &ATMOSTONEDETTIME,
-      &SUBSETSUMTIME,
-      &NSUBSETSUM,
       &NSYMBBOUND,
 #if WITHSOPLEX
       &LPSOLVETIME,
@@ -481,6 +481,9 @@ struct Stats {
       &NLPENCFARKAS,
       &NLPENCDUAL,
 #endif  // WITHSOPLEX
+      &SUBSETSUMTIME,
+      &NLIFTDEGREE,
+      &NSUPERFLUOUS,
   };
 
   [[nodiscard]] StatNum getTime() const;
