@@ -257,10 +257,11 @@ struct Options {
                                "Weaken non-implying falsified literals from learned constraints", false};
   BoolOption learnedMin{"ca-min", "Minimize learned constraints through generalized self-subsumption.", true};
   BoolOption caCancelingUnkns{"ca-cancelingunknowns", "Exploit canceling unknowns", false};
-  ValOption<int64_t> subsetSum{
-      "ca-subsetsum",
-      "Use subset sum calculations to lift the degree and remove superfluous literals when the estimated cost is at most this value (0 disables)",
-      static_cast<int32_t>(0), "0 =< 1e9", [](const int64_t& x) -> bool { return x >= 0 && x <= 1e9; }};
+  ValOption<int64_t> subsetSum{"ca-subsetsum",
+                               "Use subset sum calculations to lift the degree and remove superfluous literals when "
+                               "the estimated cost is at most this value (0 disables)",
+                               static_cast<int32_t>(0), "0 =< 1e9",
+                               [](const int64_t& x) -> bool { return x >= 0 && x <= 1e9; }};
   ValOption<int32_t> bitsOverflow{
       "bits-overflow",
       "Bit width of maximum coefficient during conflict analysis calculations (0 is unlimited, "

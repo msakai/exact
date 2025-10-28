@@ -1732,12 +1732,11 @@ void ConstrExp<SMALL, LARGE>::simplifyToUnit(const IntMap<int>& level, const std
   assert(isUnitConstraint());
 }
 
-constexpr int32_t size_sbstsm = 1e7;              // TODO: fix
-std::vector<std::pair<int32_t, int32_t>> _sums_;  // TODO: fix
+std::vector<std::pair<int32_t, int32_t>> _sums_;
 
 template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::liftDegree() {
-  if (!global.options.proofAssumps) return;
+  if (!global.options.proofAssumps || symbBound.isValid()) return;
   assert(isSaturated());
   assert(isSortedInDecreasingCoefOrder());
   assert(hasNoZeroes());
@@ -1745,13 +1744,13 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
   assert(!isUnsat());
   assert(!vars.empty());
 
-  if (coefs[vars[0]] == -1 || coefs[vars[0]] == 1) return;  // tautologies or cardinalities are not liftable
+  if (coefs[vars[0]] == -1 || coefs[vars[0]] == 1) return;  // clauses and cardinalities are not liftable
 
   std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 
   if (aux::abs(coefs[vars[0]]) < std::numeric_limits<int32_t>::max() && degree < std::numeric_limits<int32_t>::max()) {
     const int64_t total = static_cast<int64_t>(absCoeffSum());  // all coefficients fit in 32 bits
-    if (total < std::numeric_limits<int32_t>::max() && total - degree <= size_sbstsm &&
+    if (total < std::numeric_limits<int32_t>::max() &&
         std::ssize(vars) * (total - degree) <= global.options.subsetSum.get()) {
       std::vector<int32_t> cfs(vars.size());
       for (uint32_t i = 0; i < std::size(vars); ++i) {
@@ -1763,12 +1762,11 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
       if (newdegree > degree) {
         rhs += newdegree - degree;
         degree = newdegree;
-        global.stats.NLIFTDEGREE += 1;
+        global.stats.NLIFTDEGREE.z += 1;
         global.logger.logAssumption(*this, global.options.proofAssumps.operator bool());
-        symbBound.reset();
       }
 
-      global.stats.LIFTTIME +=
+      global.stats.SUBSETSUMTIME.z +=
           std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - start).count();
       return;
     }
@@ -1786,7 +1784,7 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
     }
     steps *= multiple;
     if (steps > global.options.subsetSum.get()) {
-      global.stats.LIFTTIME +=
+      global.stats.SUBSETSUMTIME.z +=
           std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - start).count();
       return;
     }
@@ -1805,11 +1803,10 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
   if (newdegree > degree) {
     rhs += newdegree - degree;
     degree = newdegree;
-    global.stats.NLIFTDEGREE += 1;
+    global.stats.NLIFTDEGREE.z += 1;
     global.logger.logAssumption(*this, global.options.proofAssumps.operator bool());
-    symbBound.reset();
   }
-  global.stats.LIFTTIME +=
+  global.stats.SUBSETSUMTIME.z +=
       std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - start).count();
 }
 
