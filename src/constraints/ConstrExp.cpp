@@ -78,6 +78,7 @@ int32_t subsetsum_dp_topdown(const Global& global, const std::vector<int32_t>& v
   assert(target > 0);
   assert(!vals.empty());
   const int32_t total = std::accumulate(vals.begin(), vals.end(), 0);
+  if (total == target) return target;
   assert(total > target);
   if (subset != nullptr) subset->clear();
 
@@ -1744,11 +1745,13 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
   assert(!isUnsat());
   assert(!vars.empty());
 
-  if (coefs[vars[0]] == -1 || coefs[vars[0]] == 1) return;  // clauses and cardinalities are not liftable
+  // cardinalities and saturated constraints are not liftable
+  const SMALL& largest = getCoef(vars[0]);
+  if (largest == 1 || largest == degree) return;
 
   std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 
-  if (aux::abs(coefs[vars[0]]) < std::numeric_limits<int32_t>::max() && degree < std::numeric_limits<int32_t>::max()) {
+  if (largest < std::numeric_limits<int32_t>::max() && degree < std::numeric_limits<int32_t>::max()) {
     const int64_t total = static_cast<int64_t>(absCoeffSum());  // all coefficients fit in 32 bits
     if (total < std::numeric_limits<int32_t>::max() &&
         std::ssize(vars) * (total - degree) <= global.options.subsetSum.get()) {
@@ -1757,12 +1760,42 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
         cfs[i] = static_cast<int32_t>(aux::abs(coefs[vars[i]]));
       }
 
-      int32_t newdegree = subsetsum_dp_topdown(global, cfs, static_cast<int32_t>(degree), _sums_);
-
+      int32_t target = static_cast<int32_t>(degree);
+      int32_t newdegree = subsetsum_dp_topdown(global, cfs, target, _sums_);
       if (newdegree > degree) {
         rhs += newdegree - degree;
         degree = newdegree;
         global.stats.NLIFTDEGREE.z += 1;
+        global.logger.logAssumption(*this, global.options.proofAssumps.operator bool());
+      }
+
+      bool foundSuperfluous = false;
+      while (!cfs.empty()) {
+        int32_t smallest = cfs.back();
+        assert(aux::abs(coefs[vars.back()]) == smallest);
+        if (smallest == degree) break;  // target will be 0
+        cfs.pop_back();
+        target = static_cast<int32_t>(degree) - smallest;
+        newdegree = subsetsum_dp_topdown(global, cfs, target, _sums_);
+        if (newdegree >= target + smallest) {
+          foundSuperfluous = true;
+          global.stats.NSUPERFLUOUS.z += 1;
+          popLast();
+        } else {
+          if (newdegree > target) {
+            foundSuperfluous = true;
+            global.stats.NSUPERFLUOUSPART.z += 1;
+            if (coefs[vars.back()] > 0) {
+              coefs[vars.back()] += target - newdegree;
+            } else {
+              assert(coefs[vars.back()] < 0);
+              coefs[vars.back()] += newdegree - target;
+            }
+          }
+          break;
+        }
+      }
+      if (foundSuperfluous) {
         global.logger.logAssumption(*this, global.options.proofAssumps.operator bool());
       }
 
@@ -1798,7 +1831,7 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
 
   unordered_map<LARGE, SMALL> sums;            // TODO: fix
   std::vector<std::pair<LARGE, SMALL>> stack;  // TODO: fix
-  const LARGE newdegree = subsetsum_set_topdown(global, cfs, degree, sums, stack);
+  LARGE newdegree = subsetsum_set_topdown(global, cfs, degree, sums, stack);
 
   if (newdegree > degree) {
     rhs += newdegree - degree;
@@ -1806,6 +1839,38 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
     global.stats.NLIFTDEGREE.z += 1;
     global.logger.logAssumption(*this, global.options.proofAssumps.operator bool());
   }
+
+  bool foundSuperfluous = false;
+  LARGE target = degree;
+  while (!cfs.empty()) {
+    const SMALL smallest = std::move(cfs.back());
+    assert(aux::abs(coefs[vars.back()]) == smallest);
+    if (smallest == degree) break;  // target will be 0
+    cfs.pop_back();
+    target = degree - smallest;
+    newdegree = subsetsum_set_topdown(global, cfs, target, sums, stack);
+    if (newdegree >= target + smallest) {
+      foundSuperfluous = true;
+      global.stats.NSUPERFLUOUS.z += 1;
+      popLast();
+    } else {
+      if (newdegree > target) {
+        foundSuperfluous = true;
+        global.stats.NSUPERFLUOUSPART.z += 1;
+        if (coefs[vars.back()] > 0) {
+          coefs[vars.back()] += static_cast<SMALL>(target - newdegree);
+        } else {
+          assert(coefs[vars.back()] < 0);
+          coefs[vars.back()] += static_cast<SMALL>(newdegree - target);
+        }
+      }
+      break;
+    }
+  }
+  if (foundSuperfluous) {
+    global.logger.logAssumption(*this, global.options.proofAssumps.operator bool());
+  }
+
   global.stats.SUBSETSUMTIME.z +=
       std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - start).count();
 }

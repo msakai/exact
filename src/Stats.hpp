@@ -323,6 +323,7 @@ struct Stats {
   Stat SUBSETSUMTIME{0, "time spent in subsetsum optimizations"};
   Stat NLIFTDEGREE{0, "lifted degrees"};
   Stat NSUPERFLUOUS{0, "superfluous literals"};
+  Stat NSUPERFLUOUSPART{0, "partially superfluous literals"};
 
   std::chrono::steady_clock::time_point startTime;
   std::chrono::steady_clock::time_point runStartTime;
@@ -484,6 +485,7 @@ struct Stats {
       &SUBSETSUMTIME,
       &NLIFTDEGREE,
       &NSUPERFLUOUS,
+      &NSUPERFLUOUSPART,
   };
 
   [[nodiscard]] StatNum getTime() const;

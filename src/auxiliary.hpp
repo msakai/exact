@@ -621,6 +621,11 @@ SUM summulti(const unordered_map<KEY, int32_t>& xs) {
   return total;
 }
 
+template <typename R, typename E>
+bool in(const R& range, const E& element) {
+  return (std::ranges::any_of(range, [element](auto e) { return e == element; }));
+}
+
 }  // namespace aux
 
 }  // namespace xct

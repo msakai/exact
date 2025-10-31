@@ -85,6 +85,7 @@ LARGE subsetsum_set_topdown(const Global& global, const std::vector<SMALL>& vals
   assert(!vals.empty());
   LARGE total = 0;
   for (const SMALL& v : vals) total += v;
+  if (total == target) return target;
   assert(total > target);
   if (subset != nullptr) subset->clear();
 
