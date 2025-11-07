@@ -72,7 +72,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 namespace xct {
 
-int32_t subsetsum_dp_topdown(const Global& global, const std::vector<int32_t>& vals, int32_t target,
+int32_t subsetsum_dp_withsol(const Global& global, const std::vector<int32_t>& vals, int32_t target,
                              std::vector<std::pair<int32_t, int32_t>>& sums, unordered_map<int32_t, int32_t>* subset) {
   assert(std::ranges::is_sorted(vals, std::greater<int>()));
   assert(target > 0);
@@ -147,6 +147,64 @@ int32_t subsetsum_dp_topdown(const Global& global, const std::vector<int32_t>& v
   }
 
   return sums[0].first;
+}
+
+std::pair<int32_t, bool> subsetsum_dp(const Global& global, const std::vector<int32_t>& vals, int32_t target,
+                                      int32_t total, std::vector<std::pair<int32_t, int32_t>>& sums) {
+  assert(std::ranges::is_sorted(vals, std::greater<int>()));
+  assert(target > 0);
+  assert(!vals.empty());
+  assert(total > target);
+
+  uint32_t smallestNotUsed = 0;
+  int32_t heur = 0;
+  for (int32_t v : vals) {
+    if (heur + v <= target) {
+      heur += v;
+      smallestNotUsed = smallestNotUsed || v == vals.back();
+      if (heur == target) {
+        return {target, smallestNotUsed};
+      }
+    }
+  }
+
+  smallestNotUsed = 0;
+  heur = total;
+  for (int32_t v : vals) {
+    if (heur - v >= target) {
+      heur -= v;
+      smallestNotUsed += v == vals.back();
+      if (heur == target) {
+        return {target, vals.back() == vals.at(std::ssize(vals) - smallestNotUsed - 1)};
+      }
+    }
+  }
+
+  assert(total > target);
+  const int32_t w = total - target;
+  sums.clear();
+  sums.resize(w + 1, {total, 0});
+  quit::checkInterrupt(global);
+  for (const int32_t v : vals) {
+    if (sums[0].first == target) break;
+    for (int32_t j = 0; j <= w - v; ++j) {
+      if (const int32_t newsum = sums[j + v].first - v; sums[j].first > newsum) {
+        sums[j] = {newsum, v};
+      }
+    }
+  }
+  assert(sums[0].first >= target);
+
+  smallestNotUsed = 0;
+  int32_t sum = sums[0].first;
+  for (int32_t i = 0; i <= w; ++i) {
+    if (sums[i].first == sum) {
+      smallestNotUsed += sums[i].second == vals.back();
+      sum += sums[i].second;
+    }
+  }
+  assert(smallestNotUsed < std::ssize(vals));
+  return {sums[0].first, vals.back() == vals.at(std::ssize(vals) - smallestNotUsed - 1)};
 }
 
 void SymbolicBound::add(const SymbolicBound& sb, const bigint& m) {
@@ -1761,7 +1819,7 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
       }
 
       int32_t target = static_cast<int32_t>(degree);
-      int32_t newdegree = subsetsum_dp_topdown(global, cfs, target, _sums_);
+      int32_t newdegree = subsetsum_dp_withsol(global, cfs, target, _sums_);
       if (newdegree > degree) {
         rhs += newdegree - degree;
         degree = newdegree;
@@ -1776,7 +1834,7 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
         if (smallest == degree) break;  // target will be 0
         cfs.pop_back();
         target = static_cast<int32_t>(degree) - smallest;
-        newdegree = subsetsum_dp_topdown(global, cfs, target, _sums_);
+        newdegree = subsetsum_dp_withsol(global, cfs, target, _sums_);
         if (newdegree >= target + smallest) {
           foundSuperfluous = true;
           global.stats.NSUPERFLUOUS.z += 1;
@@ -1831,7 +1889,7 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
 
   unordered_map<LARGE, SMALL> sums;            // TODO: fix
   std::vector<std::pair<LARGE, SMALL>> stack;  // TODO: fix
-  LARGE newdegree = subsetsum_set_topdown(global, cfs, degree, sums, stack);
+  LARGE newdegree = subsetsum_set_withsol(global, cfs, degree, sums, stack);
 
   if (newdegree > degree) {
     rhs += newdegree - degree;
@@ -1848,7 +1906,7 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
     if (smallest == degree) break;  // target will be 0
     cfs.pop_back();
     target = degree - smallest;
-    newdegree = subsetsum_set_topdown(global, cfs, target, sums, stack);
+    newdegree = subsetsum_set_withsol(global, cfs, target, sums, stack);
     if (newdegree >= target + smallest) {
       foundSuperfluous = true;
       global.stats.NSUPERFLUOUS.z += 1;

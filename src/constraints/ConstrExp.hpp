@@ -72,12 +72,15 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 namespace xct {
 
-int32_t subsetsum_dp_topdown(const Global& global, const std::vector<int32_t>& vals, int32_t target,
+int32_t subsetsum_dp_withsol(const Global& global, const std::vector<int32_t>& vals, int32_t target,
                              std::vector<std::pair<int32_t, int32_t>>& sums,
                              unordered_map<int32_t, int32_t>* subset = nullptr);
 
+std::pair<int32_t, bool> subsetsum_dp(const Global& global, const std::vector<int32_t>& vals, int32_t target,
+                                      int32_t total, std::vector<std::pair<int32_t, int32_t>>& sums);
+
 template <typename SMALL, typename LARGE>
-LARGE subsetsum_set_topdown(const Global& global, const std::vector<SMALL>& vals, const LARGE& target,
+LARGE subsetsum_set_withsol(const Global& global, const std::vector<SMALL>& vals, const LARGE& target,
                             unordered_map<LARGE, SMALL>& sums, std::vector<std::pair<LARGE, SMALL>>& stack,
                             unordered_map<SMALL, int32_t>* subset = nullptr) {
   assert(std::ranges::is_sorted(vals, std::greater<SMALL>()));
@@ -164,6 +167,77 @@ LARGE subsetsum_set_topdown(const Global& global, const std::vector<SMALL>& vals
   }
 
   return result;
+}
+
+template <typename SMALL, typename LARGE>
+std::pair<LARGE, bool> subsetsum_set(const Global& global, const std::vector<SMALL>& vals, const LARGE& target,
+                                     const LARGE& total, unordered_map<LARGE, SMALL>& sums,
+                                     std::vector<std::pair<LARGE, SMALL>>& stack) {
+  assert(std::ranges::is_sorted(vals, std::greater<SMALL>()));
+  assert(target > 0);
+  assert(!vals.empty());
+  assert(total > target);
+
+  // Quick heuristic check
+  uint32_t smallestNotUsed = 0;
+  LARGE heur = 0;
+  for (const SMALL& v : vals) {
+    if (heur + v <= target) {
+      heur += v;
+      smallestNotUsed = smallestNotUsed || v == vals.back();
+      if (heur == target) {
+        return {target, smallestNotUsed == 1};
+      }
+    }
+  }
+
+  smallestNotUsed = 0;
+  heur = total;
+  for (const SMALL& v : vals) {
+    if (heur - v >= target) {
+      heur -= v;
+      smallestNotUsed += v == vals.back();
+      if (heur == target) {
+        return {target, vals.back() == vals.at(std::ssize(vals) - smallestNotUsed - 1)};
+      }
+    }
+  }
+
+  stack.clear();
+  sums.clear();
+  sums[total] = 0;
+  LARGE smallest = total;
+  uint32_t i = 0;
+  quit::checkInterrupt(global);
+  while (i < vals.size()) {
+    if (smallest == target) break;
+    const SMALL& v = vals[i];
+    LARGE v_multiple = 0;
+    while (i < vals.size() && v == vals[i]) {
+      v_multiple += v;
+      for (const auto& sum : sums) {
+        const LARGE newsum = sum.first - v_multiple;
+        if (newsum >= target) {
+          stack.emplace_back(newsum, v);
+          smallest = std::min(smallest, newsum);
+        }
+      }
+      ++i;
+    }
+    sums.insert(stack.begin(), stack.end());  // NOTE: only inserts if key does not yet exist
+    stack.clear();
+  }
+
+  const LARGE result = smallest;
+  smallestNotUsed = 0;
+  while (true) {
+    if (smallest == total) break;
+    const SMALL& v = sums.at(smallest);
+    smallestNotUsed += v == vals.back();
+    smallest += v;
+  }
+  assert(smallestNotUsed < std::ssize(vals));
+  return {result, vals.back() == vals.at(std::ssize(vals) - smallestNotUsed - 1)};
 }
 
 enum class AssertionStatus { NONASSERTING, ASSERTING, FALSIFIED };
