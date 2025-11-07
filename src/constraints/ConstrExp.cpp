@@ -1810,7 +1810,7 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
   std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 
   if (largest < std::numeric_limits<int32_t>::max() && degree < std::numeric_limits<int32_t>::max()) {
-    const int64_t total = static_cast<int64_t>(absCoeffSum());  // all coefficients fit in 32 bits
+    int64_t total = static_cast<int64_t>(absCoeffSum());  // all coefficients fit in 32 bits
     if (total < std::numeric_limits<int32_t>::max() &&
         std::ssize(vars) * (total - degree) <= global.options.subsetSum.get()) {
       std::vector<int32_t> cfs(vars.size());
@@ -1819,7 +1819,7 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
       }
 
       int32_t target = static_cast<int32_t>(degree);
-      int32_t newdegree = subsetsum_dp_withsol(global, cfs, target, _sums_);
+      auto [newdegree, hasLast] = subsetsum_dp(global, cfs, target, total, _sums_);
       if (newdegree > degree) {
         rhs += newdegree - degree;
         degree = newdegree;
@@ -1828,13 +1828,15 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
       }
 
       bool foundSuperfluous = false;
-      while (!cfs.empty()) {
+      while (hasLast && !cfs.empty()) {
         int32_t smallest = cfs.back();
         assert(aux::abs(coefs[vars.back()]) == smallest);
         if (smallest == degree) break;  // target will be 0
         cfs.pop_back();
+        total -= smallest;
         target = static_cast<int32_t>(degree) - smallest;
-        newdegree = subsetsum_dp_withsol(global, cfs, target, _sums_);
+        auto [newdegree, hl] = subsetsum_dp(global, cfs, target, total, _sums_);
+        hasLast = hl;
         if (newdegree >= target + smallest) {
           foundSuperfluous = true;
           global.stats.NSUPERFLUOUS.z += 1;
@@ -1889,7 +1891,8 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
 
   unordered_map<LARGE, SMALL> sums;            // TODO: fix
   std::vector<std::pair<LARGE, SMALL>> stack;  // TODO: fix
-  LARGE newdegree = subsetsum_set_withsol(global, cfs, degree, sums, stack);
+  LARGE total = absCoeffSum();
+  auto [newdegree, hasLast] = subsetsum_set(global, cfs, degree, total, sums, stack);
 
   if (newdegree > degree) {
     rhs += newdegree - degree;
@@ -1900,13 +1903,15 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
 
   bool foundSuperfluous = false;
   LARGE target = degree;
-  while (!cfs.empty()) {
+  while (hasLast && !cfs.empty()) {
     const SMALL smallest = std::move(cfs.back());
     assert(aux::abs(coefs[vars.back()]) == smallest);
     if (smallest == degree) break;  // target will be 0
     cfs.pop_back();
     target = degree - smallest;
-    newdegree = subsetsum_set_withsol(global, cfs, target, sums, stack);
+    total -= smallest;
+    auto [newdegree, hl] = subsetsum_set(global, cfs, target, total, sums, stack);
+    hasLast = hl;
     if (newdegree >= target + smallest) {
       foundSuperfluous = true;
       global.stats.NSUPERFLUOUS.z += 1;
