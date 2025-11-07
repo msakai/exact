@@ -154,6 +154,7 @@ std::pair<int32_t, bool> subsetsum_dp(const Global& global, const std::vector<in
   assert(std::ranges::is_sorted(vals, std::greater<int>()));
   assert(target > 0);
   assert(!vals.empty());
+  if (total == target) return {target, true};
   assert(total > target);
 
   uint32_t smallestNotUsed = 0;
@@ -1791,8 +1792,6 @@ void ConstrExp<SMALL, LARGE>::simplifyToUnit(const IntMap<int>& level, const std
   assert(isUnitConstraint());
 }
 
-std::vector<std::pair<int32_t, int32_t>> _sums_;
-
 template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::liftDegree() {
   if (!global.options.proofAssumps || symbBound.isValid()) return;
@@ -1813,13 +1812,16 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
     int64_t total = static_cast<int64_t>(absCoeffSum());  // all coefficients fit in 32 bits
     if (total < std::numeric_limits<int32_t>::max() &&
         std::ssize(vars) * (total - degree) <= global.options.subsetSum.get()) {
-      std::vector<int32_t> cfs(vars.size());
-      for (uint32_t i = 0; i < std::size(vars); ++i) {
-        cfs[i] = static_cast<int32_t>(aux::abs(coefs[vars[i]]));
+      std::vector<int32_t>& cfs = tmpintvec;
+      cfs.clear();
+      cfs.reserve(vars.size());
+      for (Var v : vars) {
+        cfs.emplace_back(static_cast<int32_t>(aux::abs(coefs[v])));
       }
 
+      std::vector<std::pair<int32_t, int32_t>>& sums = tmpintpairvec;
       int32_t target = static_cast<int32_t>(degree);
-      auto [newdegree, hasLast] = subsetsum_dp(global, cfs, target, total, _sums_);
+      auto [newdegree, hasLast] = subsetsum_dp(global, cfs, target, total, sums);
       if (newdegree > degree) {
         rhs += newdegree - degree;
         degree = newdegree;
@@ -1828,14 +1830,14 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
       }
 
       bool foundSuperfluous = false;
-      while (hasLast && !cfs.empty()) {
+      while (!hasLast && !cfs.empty()) {
         int32_t smallest = cfs.back();
         assert(aux::abs(coefs[vars.back()]) == smallest);
         if (smallest == degree) break;  // target will be 0
         cfs.pop_back();
         total -= smallest;
         target = static_cast<int32_t>(degree) - smallest;
-        auto [newdegree, hl] = subsetsum_dp(global, cfs, target, total, _sums_);
+        auto [newdegree, hl] = subsetsum_dp(global, cfs, target, total, sums);
         hasLast = hl;
         if (newdegree >= target + smallest) {
           foundSuperfluous = true;
@@ -1883,14 +1885,15 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
     }
   }
 
-  std::vector<SMALL> cfs;  // TODO fix
+  std::vector<SMALL>& cfs = tmpvec;
+  cfs.clear();
   cfs.reserve(vars.size());
   for (Var v : vars) {
     cfs.emplace_back(aux::abs(coefs[v]));
   }
 
-  unordered_map<LARGE, SMALL> sums;            // TODO: fix
-  std::vector<std::pair<LARGE, SMALL>> stack;  // TODO: fix
+  unordered_map<LARGE, SMALL>& sums = tmpmap;
+  std::vector<std::pair<LARGE, SMALL>>& stack = tmppairvec;
   LARGE total = absCoeffSum();
   auto [newdegree, hasLast] = subsetsum_set(global, cfs, degree, total, sums, stack);
 
@@ -1903,7 +1906,7 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
 
   bool foundSuperfluous = false;
   LARGE target = degree;
-  while (hasLast && !cfs.empty()) {
+  while (!hasLast && !cfs.empty()) {
     const SMALL smallest = std::move(cfs.back());
     assert(aux::abs(coefs[vars.back()]) == smallest);
     if (smallest == degree) break;  // target will be 0

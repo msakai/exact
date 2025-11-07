@@ -176,6 +176,7 @@ std::pair<LARGE, bool> subsetsum_set(const Global& global, const std::vector<SMA
   assert(std::ranges::is_sorted(vals, std::greater<SMALL>()));
   assert(target > 0);
   assert(!vals.empty());
+  if (total == target) return {target, true};
   assert(total > target);
 
   // Quick heuristic check
@@ -439,6 +440,12 @@ struct ConstrExp final : ConstrExpSuper {
   LARGE calcRhs() const;
   bool testConstraint() const;
   bool falsified(const IntMap<int>& level, Var v) const;
+
+  std::vector<SMALL> tmpvec;
+  unordered_map<LARGE, SMALL> tmpmap;
+  std::vector<std::pair<LARGE, SMALL>> tmppairvec;
+  std::vector<int32_t> tmpintvec;
+  std::vector<std::pair<int32_t, int32_t>> tmpintpairvec;
 
  public:
   explicit ConstrExp(Global& g);
