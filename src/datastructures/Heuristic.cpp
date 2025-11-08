@@ -130,7 +130,7 @@ void Heuristic::bumpObjective(const CeArb& obj, const std::vector<int>& position
   assert(obj->hasNoZeroes());
   // set initial phase and activity so that we try optimal objective assignment first
   VarVec vars = obj->vars;
-  std::sort(vars.begin(), vars.end(), [&](Var v1, Var v2) {
+  boost::sort::pdqsort(vars.begin(), vars.end(), [&](Var v1, Var v2) {
     const bigint diff = obj->absCoef(v1) - obj->absCoef(v2);
     return diff > 0 || (diff == 0 && actList[v1].activity > actList[v2].activity);  // takes into account randomization
   });
@@ -156,7 +156,7 @@ void Heuristic::vBumpActivity(VarVec& vars, const std::vector<int>& position, Ac
     actList[v].activity = aux::max(actList[v].activity, weightOld * actList[v].activity + toAdd);
     // NOTE: max guard is needed when bumpObjective was used
   }
-  std::sort(vars.begin(), vars.end(), [&](const Var& v1, const Var& v2) { return before(v1, v2); });
+  boost::sort::pdqsort(vars.begin(), vars.end(), [&](const Var& v1, const Var& v2) { return before(v1, v2); });
   // NOTE: order is complete, breaking ties on variable index. This means weightNew == 1 (== VMTF) will always sort ties
   // based on variable index. This is probably not the greatest idea. TODO: fix?
   for (Var v : vars) {

@@ -98,8 +98,6 @@ class Solver {
   CeSuper lastCore;
   CeSuper lastGlobalDual;
   CeArb objective;
-  bigint lastSymbBoundUpper;
-  bigint lastSymbBoundLower;
   Global& global;
 
  private:
@@ -108,6 +106,8 @@ class Solver {
   bool firstRun = true;
   bool unsatReached = false;
   bool objectiveSet = false;
+  bigint lastSymbBoundUpper;
+  bigint lastSymbBoundLower;
 
   ConstraintAllocator ca;
   Heuristic heur;
@@ -118,7 +118,7 @@ class Solver {
   int lastRemoveSatisfiedsTrail = 0;
   std::unordered_multimap<Lit, Lit> binaryImplicants;  // l implies multimap[l]
   IntMap<int> lit2consOldSize;
-  unordered_map<const Constr*, SymbolicBound> symbbounds;
+  unordered_map<CRef, SymbolicBound> symbbounds;
 
   IntMap<std::vector<Watch>> adj;
   // TODO: make position, level, contiguous memory for better cache efficiency.
@@ -164,6 +164,15 @@ class Solver {
   Var addVar(bool orig);
   bool isOrig(Var v) const;
 
+  const bigint& getSymbBoundUpper() const;
+  const bigint& getSymbBoundLower() const;
+  void setSymbBoundUpper(const bigint& ub);
+  void setSymbBoundLower(const bigint& lb);
+
+ private:
+  void improveSymbBounds();
+
+ public:
   Options& getOptions();
   Stats& getStats();
   Logger& getLogger();

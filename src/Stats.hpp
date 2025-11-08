@@ -246,6 +246,7 @@ struct Stats {
   Stat NMULTWEAKENEDDIRECT{0, "direct multiply-weakens"};
   Stat NMULTWEAKENEDINDIRECT{0, "indirect multiply-weakens"};
   Stat NSYMBBOUND{0, "symbolic bound improvements"};
+  Stat NSYMBBOUNDADDED{0, "added constraints with symbolic bounds"};
   Stat NORIGVARS{0, "original variables"};
   Stat NAUXVARS{0, "auxiliary variables"};
 
@@ -370,6 +371,7 @@ struct Stats {
       &ATMOSTONETIME,
       &ATMOSTONEDETTIME,
       &NSYMBBOUND,
+      &NSYMBBOUNDADDED,
 #if WITHSOPLEX
       &LPSOLVETIME,
       &LPTOTALTIME,

@@ -311,10 +311,8 @@ inline std::ostream& operator<<(std::ostream& o, enum Origin orig) {
 inline bool isNonImplied(Origin o) {
   return o == Origin::FORMULA || o == Origin::DOMBREAKER || o == Origin::INVALIDATOR;
 }
-inline bool isBound(Origin o) { return o == Origin::UPPERBOUND || o == Origin::LOWERBOUND; }
-inline bool isExternal(Origin o) {
-  return isBound(o) || o == Origin::COREGUIDED || o == Origin::REFORMBOUND || o == Origin::BOTTOMUP;
-}
+inline bool isBound(Origin o) { return o == Origin::UPPERBOUND || o == Origin::LOWERBOUND || o == Origin::REFORMBOUND; }
+inline bool isExternal(Origin o) { return isBound(o) || o == Origin::COREGUIDED || o == Origin::BOTTOMUP; }
 inline bool isInput(Origin o) { return o != Origin::UNKNOWN && o < Origin::LEARNED; }
 inline bool isLearned(Origin o) { return o >= Origin::LEARNED; }
 

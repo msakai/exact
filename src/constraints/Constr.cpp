@@ -109,7 +109,7 @@ void Constr::fixEncountered(Stats& stats) const {  // TODO: better as method of 
   stats.NENCFORMULA.z += o == Origin::FORMULA;
   stats.NENCDOMBREAKER.z += o == Origin::DOMBREAKER;
   stats.NENCLEARNED.z += o == Origin::LEARNED;
-  stats.NENCBOUND.z += isBound(o) || o == Origin::REFORMBOUND;
+  stats.NENCBOUND.z += isBound(o);
   stats.NENCCOREGUIDED.z += o == Origin::COREGUIDED || o == Origin::BOTTOMUP;
   stats.NLPENCGOMORY.z += o == Origin::GOMORY;
   stats.NLPENCDUAL.z += o == Origin::DUAL;
@@ -191,8 +191,9 @@ bool Binary::canBeSimplified(Solver& solver, IntSetPool&) const {
                        implications.getImplieds(data[1]).contains(-data[0])))) {
     return true;
   }
+  if (!isLearned(getOrigin())) return false;
   const SymbolicBound* sb = solver.getSymbBound(this);
-  return sb != nullptr && sb->getDegree(solver.lastSymbBoundUpper, solver.lastSymbBoundLower) > degree();
+  return sb != nullptr && sb->getDegree(solver.getSymbBoundUpper(), solver.getSymbBoundLower()) > degree();
 }
 
 size_t Clause::getMemSize(const uint32_t length) {
@@ -356,8 +357,9 @@ bool Clause::canBeSimplified(Solver& solver, IntSetPool& isp) const {
     }
     isp.release(saturateds);
   }
+  if (!isLearned(getOrigin())) return false;
   const SymbolicBound* sb = solver.getSymbBound(this);
-  return sb != nullptr && sb->getDegree(solver.lastSymbBoundUpper, solver.lastSymbBoundLower) > 1;
+  return sb != nullptr && sb->getDegree(solver.getSymbBoundUpper(), solver.getSymbBoundLower()) > 1;
 }
 
 size_t Cardinality::getMemSize(const uint32_t length) {
@@ -504,8 +506,9 @@ bool Cardinality::canBeSimplified(Solver& solver, IntSetPool&) const {
     }
   }
   // NOTE: no saturated literals in a cardinality, so no need to check for self-subsumption
+  if (!isLearned(getOrigin())) return false;
   const SymbolicBound* sb = solver.getSymbBound(this);
-  return sb != nullptr && sb->getDegree(solver.lastSymbBoundUpper, solver.lastSymbBoundLower) > degr;
+  return sb != nullptr && sb->getDegree(solver.getSymbBoundUpper(), solver.getSymbBoundLower()) > degr;
 }
 
 void Watched32::cleanup() {}
@@ -561,8 +564,8 @@ void Watched32::initializeWatches(CRef cr, Solver& solver) {
     for (uint32_t i = 0; i < size(); ++i) {
       if (isFalse(level, lit(i)) && position[toVar(lit(i))] < qhead) falsifiedIdcs.push_back(i);
     }
-    std::sort(falsifiedIdcs.begin(), falsifiedIdcs.end(),
-              [&](uint32_t i1, uint32_t i2) { return position[toVar(lit(i1))] > position[toVar(lit(i2))]; });
+    boost::sort::pdqsort(falsifiedIdcs.begin(), falsifiedIdcs.end(),
+                         [&](uint32_t i1, uint32_t i2) { return position[toVar(lit(i1))] > position[toVar(lit(i2))]; });
     int64_t diff = lrgstCf - watchslack;
     for (uint32_t i : falsifiedIdcs) {
       assert(!hasWatch(i));
@@ -757,8 +760,9 @@ bool Watched32::canBeSimplified(Solver& solver, IntSetPool& isp) const {
     }
     isp.release(saturateds);
   }
+  if (!isLearned(getOrigin())) return false;
   const SymbolicBound* sb = solver.getSymbBound(this);
-  return sb != nullptr && sb->getDegree(solver.lastSymbBoundUpper, solver.lastSymbBoundLower) > degr;
+  return sb != nullptr && sb->getDegree(solver.getSymbBoundUpper(), solver.getSymbBoundLower()) > degr;
 }
 
 template <typename CF, typename DG>
@@ -844,8 +848,8 @@ void Watched<CF, DG>::initializeWatches(CRef cr, Solver& solver) {
     for (uint32_t i = 0; i < size(); ++i) {
       if (isFalse(level, lit(i)) && position[toVar(lit(i))] < qhead) falsifiedIdcs.push_back(i);
     }
-    std::sort(falsifiedIdcs.begin(), falsifiedIdcs.end(),
-              [&](uint32_t i1, uint32_t i2) { return position[toVar(lit(i1))] > position[toVar(lit(i2))]; });
+    boost::sort::pdqsort(falsifiedIdcs.begin(), falsifiedIdcs.end(),
+                         [&](uint32_t i1, uint32_t i2) { return position[toVar(lit(i1))] > position[toVar(lit(i2))]; });
     DG diff = lrgstCf - watchslack;
     for (uint32_t i : falsifiedIdcs) {
       assert(!hasWatch(i));
@@ -1050,8 +1054,9 @@ bool Watched<CF, DG>::canBeSimplified(Solver& solver, IntSetPool& isp) const {
     }
     isp.release(saturateds);
   }
+  if (!isLearned(getOrigin())) return false;
   const SymbolicBound* sb = solver.getSymbBound(this);
-  return sb != nullptr && sb->getDegree(solver.lastSymbBoundUpper, solver.lastSymbBoundLower) > degr;
+  return sb != nullptr && sb->getDegree(solver.getSymbBoundUpper(), solver.getSymbBoundLower()) > degr;
 }
 
 // TODO: keep below test methods?

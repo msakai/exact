@@ -1,9 +1,11 @@
 # To upload a package to PyPI, follow the instructions on https://packaging.python.org/en/latest/tutorials/packaging-projects
 # For Windows, this is straightforward:
-# adjust pyproject.toml to use Windows compile options.
+# adjust last lines of below file to use Windows compile options.
 # In Exact's root:
-## py -m build
-## py -m twine upload --repository pypi dist/Exact-2.0.0-cp312-cp312-win_amd64.whl -p <API TOKEN>
+## py -3.13 -m build
+## py -3.13 -m twine upload --repository pypi dist/exact-2.2.1-cp313-cp313-win_amd64.whl -p pypi-<API TOKEN>
+
+## NOTE: also build a version for Python 3.10, 3.11, 3.12 using "-3.1#" and "cp31#" instead of "-3.13" and "cp313"
 
 # For Linux, follow the ManyLinux approach on https://github.com/pypa/manylinux.
 # Commands that worked previously:
@@ -14,8 +16,10 @@
 ## git clone https://gitlab.com/nonfiction-software/exact
 ## cd exact
 ## /opt/python/cp313-cp313/bin/python -m build
-## auditwheel repair dist/exact-2.1.2-cp313-cp313-linux_x86_64.whl
-## /opt/python/cp313-cp313/bin/python -m twine upload --repository pypi wheelhouse/Exact-2.1.2-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl -p <long API TOKEN starting with pypi-... >
+## auditwheel repair dist/exact-2.2.1-cp313-cp313-linux_x86_64.whl
+## /opt/python/cp313-cp313/bin/python -m twine upload --repository pypi wheelhouse/exact-2.2.1-cp313-cp313-manylinux_2_34_x86_64.whl -p pypi-<API TOKEN>
+
+## NOTE: also build a version for Python 3.10, 3.11, 3.12 using "cp31#" instead of "cp313"
 
 # For OSX, only compilation from source for now (<path to venv binaries>/pip install .)
 # Use https://github.com/kholia/OSX-KVM
@@ -65,7 +69,7 @@ ext_modules = [
             "src/used_licenses/COPYING.cpp"
         ],
         # FOR WINDOWS
-        # include_dirs=['C:\\Program Files\\boost\\boost_1_85_0'],
+        # include_dirs=['C:\\Program Files\\boost\\boost_1_85_0','.\\src'],
         # extra_compile_args=["/O2","/std:c++20"],
         # define_macros=[("UNIXLIKE",0),("ANKERLMAPS",1)]
         # FOR LINUX / OSX
@@ -74,7 +78,7 @@ ext_modules = [
         # REPLACE TWO LINES ABOVE WITH FOUR BELOW TO INCLUDE SOPLEX (pre-built in soplex_build)
         # include_dirs=["./src","./soplex/src","./soplex_build"],
         # library_dirs=["./soplex_build/lib"],
-        # libraries=["soplexshared"],  # or "soplex" if using static libsoplex.a instead of dynamic libsoplex.so
+        # libraries=["soplex"], # or soplexshared for the shared .so library instead of the static .a
         # define_macros=[("UNIXLIKE",1),("ANKERLMAPS",1),("WITHSOPLEX",1)],
         extra_compile_args=["-O3","-std=c++20"],
     ),

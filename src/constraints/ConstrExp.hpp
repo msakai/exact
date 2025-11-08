@@ -256,13 +256,15 @@ struct SymbolicBound {
   ratio offset = 0;
 
   void add(const SymbolicBound& sb, const bigint& mult);
-  void addOffset(const bigint& mult);
+  void addOffset(const bigint& os);
   void divide(const bigint& div);
   void multiply(const bigint& mult);
   void reset();
   bool isValid() const;
 
   bigint getDegree(const bigint& upbound, const bigint& lowbound) const;
+
+  bool operator==(const SymbolicBound&) const = default;
 };
 
 std::ostream& operator<<(std::ostream& os, const SymbolicBound& bound);
@@ -300,7 +302,8 @@ struct ConstrExpSuper {
   // NOTE: only equivalence preserving operations over the Bools!
   void postProcess(const IntMap<int>& level, const std::vector<int>& pos, const Heuristic& heur, bool sortFirst,
                    Stats& stats);
-  void strongPostProcess(Solver& solver, const bigint& lastUpperBound, const bigint& lastLowerBound);
+  void strongPostProcess(Solver& solver);
+  void symbBoundPostProcess(Solver& solver);
 
   explicit ConstrExpSuper(Global& g);
   virtual ~ConstrExpSuper() = default;
@@ -548,7 +551,7 @@ struct ConstrExp final : ConstrExpSuper {
       symbBound.add(c->symbBound, cmult);
     }
     if (symbBound.isValid() && !c->symbBound.isValid()) {
-      bigint big_int = c->getDegree();
+      const bigint big_int = c->getDegree();
       symbBound.addOffset(big_int * cmult);
     }
     if (!symbBound.isValid() && c->symbBound.isValid()) {
@@ -704,7 +707,7 @@ struct ConstrExp final : ConstrExpSuper {
         const CF& cf = cfs[i];
         if (!isFalse(level, l) && l != asserting) {
           addLhs(static_cast<SMALL>(cf / div), l);  // partial weakening
-          auto toWeaken = cf % div;
+          const DG toWeaken = cf % div;
           weakenedDegree -= toWeaken;
           symbBound.addOffset(-toWeaken);
         } else {

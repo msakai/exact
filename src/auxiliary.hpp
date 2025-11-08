@@ -88,6 +88,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <boost/unordered/unordered_flat_map.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
 #endif
+#include <boost/sort/pdqsort/pdqsort.hpp>
 
 #if UNIXLIKE
 namespace xct {

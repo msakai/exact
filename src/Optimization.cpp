@@ -320,18 +320,19 @@ void Optimization<SMALL, LARGE>::addLowerBound() {
     aux->addLhs(static_cast<SMALL>(aux->getDegree()), -l);  // bound only holds under assumptions
   }
 
-  solver.lastSymbBoundLower = lower_bound;
-  if (global.options.liftDegreeSymbolic) {
+  solver.dropExternal(lastLowerBound, true, true);
+
+  if (global.options.liftDegreeSymbolic.get() > 0) {
+    solver.setSymbBoundLower(lower_bound);
     aux->symbBound.mult_upper = 0;
     aux->symbBound.mult_lower = 1;
     aux->symbBound.offset = aux->getDegree() - lower_bound;
-    assert(aux->symbBound.getDegree(solver.lastSymbBoundUpper, solver.lastSymbBoundLower) == aux->getDegree());
+    assert(aux->symbBound.getDegree(solver.getSymbBoundUpper(), solver.getSymbBoundLower()) == aux->getDegree());
     assert(aux->symbBound.isValid());
   } else {
     assert(!aux->symbBound.isValid());
   }
 
-  solver.dropExternal(lastLowerBound, true, true);
   std::pair<ID, ID> res = solver.addConstraint(aux);
   lastLowerBound = res.second;
 }
@@ -512,22 +513,23 @@ void Optimization<SMALL, LARGE>::boundObjByLastSol() {
   aux->invert();
   aux->addRhs(upbound);
 
-  solver.lastSymbBoundUpper = upbound;
-  if (global.options.liftDegreeSymbolic) {
+  solver.dropExternal(lastUpperBound, true, true);
+
+  if (global.options.proofAssumps) addReformUpperBound(true);
+
+  if (global.options.liftDegreeSymbolic.get() > 0) {
+    solver.setSymbBoundUpper(upbound);
     aux->symbBound.mult_upper = 1;
     aux->symbBound.mult_lower = 0;
     aux->symbBound.offset = aux->getDegree() - upbound;
-    assert(aux->symbBound.getDegree(solver.lastSymbBoundUpper, solver.lastSymbBoundLower) == aux->getDegree());
+    assert(aux->symbBound.getDegree(solver.getSymbBoundUpper(), solver.getSymbBoundLower()) == aux->getDegree());
     assert(aux->symbBound.isValid());
   } else {
     assert(!aux->symbBound.isValid());
   }
 
-  solver.dropExternal(lastUpperBound, true, true);
   std::pair<ID, ID> res = solver.addConstraint(aux);
   lastUpperBound = res.second;
-
-  if (global.options.proofAssumps) addReformUpperBound(true);
 }
 
 template <typename SMALL, typename LARGE>

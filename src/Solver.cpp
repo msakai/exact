@@ -131,12 +131,45 @@ bool Solver::isOrig(Var v) const {
   return isorig[v];
 }
 
+const bigint& Solver::getSymbBoundUpper() const { return lastSymbBoundUpper; }
+const bigint& Solver::getSymbBoundLower() const { return lastSymbBoundLower; }
+
+void Solver::setSymbBoundUpper(const bigint& ub) {
+  assert(decisionLevel() == 0);
+  assert(lastSymbBoundUpper < ub);  // upper bound already inverted
+  lastSymbBoundUpper = ub;
+  if (global.options.liftDegreeSymbolic.get() == 2) {
+    improveSymbBounds();
+  }
+}
+void Solver::setSymbBoundLower(const bigint& lb) {
+  assert(lastSymbBoundLower < lb);
+  assert(decisionLevel() == 0);
+  lastSymbBoundLower = lb;
+  if (global.options.liftDegreeSymbolic.get() == 2) {
+    improveSymbBounds();
+  }
+}
+void Solver::improveSymbBounds() {
+  const unordered_map<CRef, SymbolicBound> symbbounds_clone = symbbounds;
+  // clone needed to not alter symbbounds in loop
+  for (const auto& [cr, sb] : symbbounds_clone) {
+    const Constr& c = ca[cr];
+    if (!isLearned(c.getOrigin()) || sb.getDegree(getSymbBoundUpper(), getSymbBoundLower()) <= c.degree()) continue;
+    ++global.stats.NSYMBBOUND;
+    CeSuper ce = c.toExpanded(global.cePools);
+    removeConstraint(cr);
+    ce->symbBoundPostProcess(*this);
+    learnConstraint(ce);
+  }
+}
+
 void Solver::setObjective(const CeArb& obj) {
   objectiveSet = true;
   objective = obj;
   auto [lb, ub] = obj->getLhsExtrema();
   lastSymbBoundLower = lb - 1;
-  lastSymbBoundUpper = ub + 1;
+  lastSymbBoundUpper = -ub - 1;  // inverted for ease of use
   symbbounds.clear();
   if (lpSolver) lpSolver->setObjective(objective);
 }
@@ -478,6 +511,7 @@ void Solver::minimize(CeSuper& conflict) {
   assert(conflict->isSaturated());
   assert(conflict->isAssertingBefore(getLevel(), decisionLevel()) == AssertionStatus::ASSERTING);
   assert(litsToSubsumeMem.empty());
+  if (conflict->symbBound.isValid()) return;
   IntSet& saturatedLits = global.isPool.take();
   conflict->removeZeroes();
   conflict->getSaturatedLits(saturatedLits);
@@ -492,8 +526,8 @@ void Solver::minimize(CeSuper& conflict) {
       litsToSubsumeMem.push_back({position[v], l});
     }
   }
-  std::sort(litsToSubsumeMem.begin(), litsToSubsumeMem.end(),
-            [&](const std::pair<int, Lit>& x, const std::pair<int, Lit>& y) { return x.first > y.first; });
+  boost::sort::pdqsort(litsToSubsumeMem.begin(), litsToSubsumeMem.end(),
+                       [&](const std::pair<int, Lit>& x, const std::pair<int, Lit>& y) { return x.first > y.first; });
 
   std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
   for (const std::pair<int, Lit>& pr : litsToSubsumeMem) {
@@ -614,10 +648,12 @@ CRef Solver::attachConstraint(const CeSuper& constraint, bool locked) {
   assert(constraint->orig != Origin::UNKNOWN);
 
   CRef cr = constraint->toConstr(ca, locked, global.logger.logProofLineWithInfo(constraint, "Attach"));
-  Constr& c = ca[cr];
   if (constraint->symbBound.isValid()) {
-    symbbounds[&c] = constraint->symbBound;
+    symbbounds[cr] = constraint->symbBound;
+    ++global.stats.NSYMBBOUNDADDED.z;
+    assert(symbbounds[ca(ca[cr])] == constraint->symbBound);
   }
+  Constr& c = ca[cr];
   c.initializeWatches(cr, *this);
   constraints.push_back(cr);
   const Origin& orig = constraint->orig;
@@ -662,7 +698,7 @@ CRef Solver::attachConstraint(const CeSuper& constraint, bool locked) {
   global.stats.NCONSFORMULA.z += orig == Origin::FORMULA;
   global.stats.NCONSDOMBREAKER.z += orig == Origin::DOMBREAKER;
   global.stats.NCONSLEARNED.z += orig == Origin::LEARNED;
-  global.stats.NCONSBOUND.z += isBound(orig) || orig == Origin::REFORMBOUND;
+  global.stats.NCONSBOUND.z += isBound(orig);
   global.stats.NCONSCOREGUIDED.z += orig == Origin::COREGUIDED || orig == Origin::BOTTOMUP;
   global.stats.NLPGOMORYCUTS.z += orig == Origin::GOMORY;
   global.stats.NLPDUAL.z += orig == Origin::DUAL;
@@ -690,18 +726,22 @@ void Solver::learnConstraint(const CeSuper& ce) {
   assert(ce);
   assert(isLearned(ce->orig));
   CeSuper learned = ce->clone(global.cePools);
-  // NOTE: below line can cause loops when the equalities are not yet propagated, as the conflict constraint becomes
-  // non-falsified
-  // if (orig != Origin::EQUALITY) {
-  // learned->removeEqualities(getEqualities());
+  // NOTE: below line can cause conflict analysis loops when the equalities are not yet propagated, as the conflict
+  // constraint becomes non-falsified
+  // if (learned->orig != Origin::EQUALITY) {
+  //   learned->removeEqualities(getEqualities());
   // }
-  learned->selfSubsumeImplications(implications);  // only strengthens the constraint
+  if (!learned->symbBound.isValid()) {
+    learned->selfSubsumeImplications(implications);  // only strengthens the constraint
+  }
   learned->removeUnitsAndZeroes(getLevel(), getPos());
   if (learned->isTautology()) return;
   learned->saturateAndFixOverflow(getLevel(), global.options.bitsLearned.get(), global.options.bitsLearned.get(), 0,
                                   false);
   const std::vector<ActNode>& actList = getHeuristic().getActList();
-  learned->sortInDecreasingCoefOrder([&](Var v1, Var v2) { return actList[v1].activity > actList[v2].activity; });
+  if (!learned->isClause()) {
+    learned->sortInDecreasingCoefOrder([&](Var v1, Var v2) { return actList[v1].activity > actList[v2].activity; });
+  }
   auto [assertionLevel, isAsserting] = learned->getAssertionStatus(level, position, assertionStateMem);
   if (assertionLevel < 0) {
     backjumpTo(0);
@@ -714,6 +754,9 @@ void Solver::learnConstraint(const CeSuper& ce) {
   learned->postProcess(getLevel(), getPos(), getHeuristic(), false, global.stats);
   assert(learned->isSaturated());
   if (learned->isTautology()) return;
+  if (learned->symbBound.isValid() && learned->symbBound.getDegree(getSymbBoundUpper(), getSymbBoundLower()) <= 0) {
+    learned->symbBound.reset();
+  }
   CRef cr = attachConstraint(learned, false);
   Constr& c = ca[cr];
   c.decreaseLBD(isAsserting ? learned->getLBD(level) : learned->nVars());
@@ -775,7 +818,7 @@ std::pair<ID, ID> Solver::addInputConstraint(const CeSuper& ce) {  // NOTE: shou
     default:
       input = global.logger.logAssumption(ce, global.options.proofAssumps.operator bool());
   }
-  ce->strongPostProcess(*this, lastSymbBoundUpper, lastSymbBoundLower);
+  ce->strongPostProcess(*this);
   if (ce->isTautology()) {
     return {input, ID_Undef};  // already satisfied.
   }
@@ -803,7 +846,7 @@ std::pair<ID, ID> Solver::addInputConstraint(const CeSuper& ce) {  // NOTE: shou
     if (isExternal(orig)) {
       external[id] = cr;
     }
-    if (lpSolver && (orig == Origin::FORMULA || isBound(orig))) {
+    if (lpSolver && (orig == Origin::FORMULA || orig == Origin::UPPERBOUND || orig == Origin::LOWERBOUND)) {
       lpSolver->addConstraint(cr, false, orig == Origin::UPPERBOUND, orig == Origin::LOWERBOUND);
     }
 
@@ -878,6 +921,7 @@ void Solver::removeConstraint(const CRef& cr, [[maybe_unused]] bool override) {
     }
     // global.logger.logDeletion(c.id); TODO: needed?
   }
+  symbbounds.erase(cr);
 }
 
 void Solver::dropExternal(ID id, bool erasable, bool forceDelete) {
@@ -900,7 +944,7 @@ const std::vector<CRef>& Solver::getRawConstraints() const { return constraints;
 const ConstraintAllocator& Solver::getCA() const { return ca; }
 
 const SymbolicBound* Solver::getSymbBound(const Constr* c) const {
-  auto it = symbbounds.find(c);
+  auto it = symbbounds.find(ca(*c));
   if (it != symbbounds.end()) {
     return &(it->second);
   }
@@ -909,7 +953,7 @@ const SymbolicBound* Solver::getSymbBound(const Constr* c) const {
 
 CeSuper Solver::expandWithSymbBound(const Constr& c) const {
   CeSuper result = c.toExpanded(global.cePools);
-  auto sb_it = symbbounds.find(&c);
+  auto sb_it = symbbounds.find(ca(c));
   if (sb_it != symbbounds.end()) {
     result->symbBound = sb_it->second;
   }
@@ -996,19 +1040,19 @@ void Solver::garbage_collect() {
   ca.wasted = 0;
   ca.at = 0;
   unordered_map<uint32_t, CRef> crefmap;
-  unordered_map<const Constr*, SymbolicBound> new_symbbounds;
+  unordered_map<CRef, SymbolicBound> new_symbbounds;
   for (int i = 1; i < (int)constraints.size(); ++i) assert(constraints[i - 1].ofs < constraints[i].ofs);
   for (CRef& cr : constraints) {
-    const Constr* oldptr = &ca[cr];
+    CRef old_cr = cr;
     uint32_t offset = cr.ofs;
     size_t memSize = ca[cr].getMemSize();
     std::memmove(ca.memory + maxAlign * ca.at, ca.memory + maxAlign * cr.ofs, maxAlign * memSize);
     cr.ofs = ca.at;
     ca.at += memSize;
     crefmap[offset] = cr;
-    auto node = symbbounds.find(oldptr);
+    auto node = symbbounds.find(old_cr);
     if (node != symbbounds.end()) {
-      new_symbbounds[&ca[cr]] = node->second;
+      new_symbbounds[cr] = node->second;
     }
   }
   std::swap(symbbounds, new_symbbounds);
@@ -1043,7 +1087,8 @@ void Solver::reduceDB() {
     }
   }
 
-  std::sort(db_learnts.begin(), db_learnts.end(), [&](CRef x, CRef y) { return ca[x].priority < ca[y].priority; });
+  boost::sort::pdqsort(db_learnts.begin(), db_learnts.end(),
+                       [&](CRef x, CRef y) { return ca[x].priority < ca[y].priority; });
   int64_t limit = global.options.dbScale.get() *
                   std::pow(std::log(static_cast<double>(global.stats.NCONFL.z)), global.options.dbExp.get());
   // NOTE: cast to double to avoid an issue with GCC13/14 giving NaN after std::log with -03 and single source on
@@ -1065,7 +1110,7 @@ void Solver::reduceDB() {
     CeSuper ce = expandWithSymbBound(c);
     bool isLocked = c.isLocked();
     unsigned int lbd = c.lbd();
-    ce->strongPostProcess(*this, lastSymbBoundUpper, lastSymbBoundLower);
+    ce->strongPostProcess(*this);
     if (ce->isUnsat()) reportUnsat(ce);
     if (ce->isTautology()) {
       removeConstraint(cr, true);
@@ -1192,12 +1237,12 @@ void Solver::removeSatisfiedNonImpliedsAtRoot() {
   for (int i = lastRemoveSatisfiedsTrail; i < (int)trail.size(); ++i) {
     Lit l = trail[i];
     if (!isOrig(toVar(l))) continue;  // no column view for auxiliary variables for now
-    for (std::pair<const CRef, int> pr : lit2cons[l]) {
-      Constr& c = ca[pr.first];
+    for (const auto& [cr, _] : lit2cons[l]) {
+      Constr& c = ca[cr];
       assert(!c.isMarkedForDelete());  // should be erased from lit2cons when marked for delete
       if (c.isSeen()) continue;
       c.setSeen(true);
-      toCheck.push_back(pr.first);
+      toCheck.push_back(cr);
     }
   }
   for (const CRef& cr : toCheck) {
@@ -1242,16 +1287,16 @@ void Solver::dominanceBreaking() {
       removeSatisfiedNonImpliedsAtRoot();
       continue;
     }
-    if ((global.options.domBreakLim.get() != -1 && (int)col.size() >= global.options.domBreakLim.get()) ||
-        (int)col.size() >= lit2consOldSize[-l] || inUnsaturatableConstraint.count(-l)) {
+    if ((global.options.domBreakLim.get() != -1 && std::ssize(col) >= global.options.domBreakLim.get()) ||
+        std::ssize(col) >= lit2consOldSize[-l] || inUnsaturatableConstraint.count(-l)) {
       continue;
     }
 
     lit2consOldSize[-l] = col.size();
     Constr* first = &ca[col.cbegin()->first];
     unsigned int firstUnsatIdx = first->getUnsaturatedIdx();
-    for (std::pair<const CRef, int> pr : col) {
-      Constr& c = ca[pr.first];
+    for (const auto& [cr, _] : col) {
+      Constr& c = ca[cr];
       unsigned int unsatIdx = c.getUnsaturatedIdx();
       if (unsatIdx < firstUnsatIdx) {  // smaller number of starting lits
         first = &c;
@@ -1277,9 +1322,9 @@ void Solver::dominanceBreaking() {
     for (auto it = range.first; it != range.second; ++it) {
       saturating.remove(-it->second);  // not interested in anything that already implies l TODO: is this needed?
     }
-    for (std::pair<const CRef, int> pr : col) {
+    for (const auto& [cr, _] : col) {
       if (saturating.isEmpty()) break;
-      Constr& c = ca[pr.first];
+      Constr& c = ca[cr];
       unsigned int unsatIdx = c.getUnsaturatedIdx();
       if (unsatIdx == 0) {
         for (unsigned int i = 0; i < c.size(); ++i) {
@@ -1543,8 +1588,9 @@ void Solver::detectAtMostOne(Lit seed, unordered_set<Lit>& considered, LitVec& p
 
   // check whether at least three of them form a clique
   LitVec cardLits = {seed};  // clique so far
-  std::sort(candidates.begin(), candidates.end(),
-            [&](Lit x, Lit y) { return getHeuristic().getActivity(toVar(x)) < getHeuristic().getActivity(toVar(y)); });
+  boost::sort::pdqsort(candidates.begin(), candidates.end(), [&](Lit x, Lit y) {
+    return getHeuristic().getActivity(toVar(x)) < getHeuristic().getActivity(toVar(y));
+  });
   assert(candidates.size() <= 1 ||
          getHeuristic().getActivity(toVar(candidates[0])) <= getHeuristic().getActivity(toVar(candidates[1])));
   IntSet& trailSet = global.isPool.take();

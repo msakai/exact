@@ -440,7 +440,7 @@ void IntProg::addMultiplication(const std::vector<IntVar*>& factors, IntVar* low
   lhs.reserve(terms.size());
   for (std::pair<bigint, VarVec>& t : terms) {
     assert(t.first != 0);
-    std::sort(t.second.begin(), t.second.end());
+    boost::sort::pdqsort(t.second.begin(), t.second.end());
     Var aux;
     if (multAuxs.contains(t.second)) {
       aux = multAuxs[t.second];
@@ -712,7 +712,7 @@ std::ostream& IntProg::printInput(std::ostream& out) const {
     ss << (pr.sign ? "!" : "") << *pr.head << (pr.left && pr.right ? " <-> " : pr.left ? " <- " : " -> ") << ic;
     strs.push_back(ss.str());
   }
-  std::sort(strs.begin(), strs.end());
+  boost::sort::pdqsort(strs.begin(), strs.end());
   for (const std::string& s : strs) out << s << std::endl;
 
   strs.clear();
@@ -720,7 +720,7 @@ std::ostream& IntProg::printInput(std::ostream& out) const {
     ic.decode(code, getVariables());
     strs.push_back(aux::str(ic));
   }
-  std::sort(strs.begin(), strs.end());
+  boost::sort::pdqsort(strs.begin(), strs.end());
   for (const std::string& s : strs) out << s << std::endl;
 
   strs.clear();
@@ -737,7 +737,7 @@ std::ostream& IntProg::printInput(std::ostream& out) const {
     if (upper_bound) ss << " =< " << upper_bound;
     strs.push_back(ss.str());
   }
-  std::sort(strs.begin(), strs.end());
+  boost::sort::pdqsort(strs.begin(), strs.end());
   for (const std::string& s : strs) out << s << std::endl;
 
   return out;
