@@ -50,7 +50,7 @@ void IntConstraint::lhs2str(std::ostream& o) const {
   for (const IntTerm& t : lhs) {
     terms.push_back(aux::str(t));
   }
-  std::sort(terms.begin(), terms.end());
+  boost::sort::pdqsort(terms.begin(), terms.end());
   bool first = true;
   for (const std::string& s : terms) {
     if (!first) o << " ";

@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "Exact"
-version = "2.1.2"
+version = "2.2.1"
 authors = [
     { name="Jo Devriendt", email="jo.devriendt@nonfictionsoftware.com" },
 ]

@@ -140,11 +140,12 @@ Options::Options() {
 }
 
 void Options::parseOption(const std::string& option, const std::string& value) {
-  if (name2opt.count(option) == 0) {
-    throw InvalidArgument("Unknown option: " + option + ".\nCheck usage with --help");
-  } else {
-    name2opt[option]->parse(value);
+  std::string opt = option;
+  std::ranges::replace(opt, '_', '-');
+  if (name2opt.count(opt) == 0) {
+    throw InvalidArgument("Unknown option: " + opt + ".\nCheck usage with --help");
   }
+  name2opt[opt]->parse(value);
 }
 
 void Options::parseCommandLine(int argc, char** argv) {

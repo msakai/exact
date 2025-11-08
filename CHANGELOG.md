@@ -46,7 +46,12 @@ Lots of changes, most small, some big. Biggest new features:
 commit: 2c6bee36dbeac27bc054d3d80264c73f3ac498cf
 - Add multiplication constraint to the Python interface
 
-### 2025-01-??
-* 2.2.0*
-commit: TODO
+### 2025-01-15
+*2.2.0*
+commit: e4a18b06824ec9e9189d979c290511b52ebcb357
 - Add redundant binary implications for reification constraints which should improve propagation speed and mimic integer hybrid order/log encoding.
+
+### 2025-07-10
+*2.2.1*
+commit: 24633e53c43d3abc14c9647374149fa645b3e153
+- Critical bugfix: memory issue in Exact::addConstraint Python interface

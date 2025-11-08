@@ -90,8 +90,8 @@ CandidateCut::CandidateCut(const Constr& in, CRef cref, const std::vector<double
 }
 
 void CandidateCut::initialize(const std::vector<double>& sol) {
-  std::sort(simpcons.terms.begin(), simpcons.terms.end(),
-            [](const Term64& t1, const Term64& t2) { return t1.l < t2.l; });
+  boost::sort::pdqsort(simpcons.terms.begin(), simpcons.terms.end(),
+                       [](const Term64& t1, const Term64& t2) { return t1.l < t2.l; });
   assert(norm == 1);
   norm = 0;
   for (const Term64& p : simpcons.terms) norm += aux::toDouble(p.c) * aux::toDouble(p.c);
@@ -251,7 +251,7 @@ void LpSolver::addFilteredCuts() {
   for ([[maybe_unused]] const CandidateCut& cc : candidateCuts) {
     assert(cc.norm != 0);
   }
-  std::sort(candidateCuts.begin(), candidateCuts.end(), [](const CandidateCut& x1, const CandidateCut& x2) {
+  boost::sort::pdqsort(candidateCuts.begin(), candidateCuts.end(), [](const CandidateCut& x1, const CandidateCut& x2) {
     return x1.ratSlack > x2.ratSlack || (x1.ratSlack == x2.ratSlack && x1.simpcons.size() < x2.simpcons.size());
   });
 
@@ -494,8 +494,10 @@ void LpSolver::addConstraint(const CeSuper& c, bool removable, bool upperbound, 
     boundsToAdd[lowerbound].id = id;
     c->copyTo(boundsToAdd[lowerbound].cs);
   } else {
-    toAdd[id] = {ConstrSimple64(), removable};
-    c->copyTo(toAdd[id].cs);
+    if (toAddSet.insert(id).second) {
+      toAdd.emplace_back(id, removable, ConstrSimple64());
+      c->copyTo(toAdd.back().cs);
+    }
   }
 }
 
@@ -525,12 +527,12 @@ void LpSolver::flushConstraints() {
   if (!toAdd.empty()) {  // then add rows
     soplex::LPRowSetReal rowsToAdd(toAdd.size());
     row2data.reserve(row2data.size() + toAdd.size());
-    for (auto& p : toAdd) {
+    for (const AdditionData& p : toAdd) {
       double rhs;
-      soplex::DSVectorReal row(p.second.cs.size());
-      convertConstraint(p.second.cs, row, rhs);
+      soplex::DSVectorReal row(p.cs.size());
+      convertConstraint(p.cs, row, rhs);
       rowsToAdd.add(soplex::LPRowReal(row, soplex::LPRowReal::Type::GREATER_EQUAL, rhs));
-      row2data.emplace_back(p.first, p.second.removable);
+      row2data.emplace_back(p.id, p.removable);
       ++global.stats.NLPADDEDROWS;
     }
     lp.addRowsReal(rowsToAdd);

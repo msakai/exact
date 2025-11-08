@@ -526,8 +526,8 @@ void Solver::minimize(CeSuper& conflict) {
       litsToSubsumeMem.push_back({position[v], l});
     }
   }
-  std::sort(litsToSubsumeMem.begin(), litsToSubsumeMem.end(),
-            [&](const std::pair<int, Lit>& x, const std::pair<int, Lit>& y) { return x.first > y.first; });
+  boost::sort::pdqsort(litsToSubsumeMem.begin(), litsToSubsumeMem.end(),
+                       [&](const std::pair<int, Lit>& x, const std::pair<int, Lit>& y) { return x.first > y.first; });
 
   std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
   for (const std::pair<int, Lit>& pr : litsToSubsumeMem) {
@@ -739,7 +739,9 @@ void Solver::learnConstraint(const CeSuper& ce) {
   learned->saturateAndFixOverflow(getLevel(), global.options.bitsLearned.get(), global.options.bitsLearned.get(), 0,
                                   false);
   const std::vector<ActNode>& actList = getHeuristic().getActList();
-  learned->sortInDecreasingCoefOrder([&](Var v1, Var v2) { return actList[v1].activity > actList[v2].activity; });
+  if (!learned->isClause()) {
+    learned->sortInDecreasingCoefOrder([&](Var v1, Var v2) { return actList[v1].activity > actList[v2].activity; });
+  }
   auto [assertionLevel, isAsserting] = learned->getAssertionStatus(level, position, assertionStateMem);
   if (assertionLevel < 0) {
     backjumpTo(0);
@@ -1085,7 +1087,8 @@ void Solver::reduceDB() {
     }
   }
 
-  std::sort(db_learnts.begin(), db_learnts.end(), [&](CRef x, CRef y) { return ca[x].priority < ca[y].priority; });
+  boost::sort::pdqsort(db_learnts.begin(), db_learnts.end(),
+                       [&](CRef x, CRef y) { return ca[x].priority < ca[y].priority; });
   int64_t limit = global.options.dbScale.get() *
                   std::pow(std::log(static_cast<double>(global.stats.NCONFL.z)), global.options.dbExp.get());
   // NOTE: cast to double to avoid an issue with GCC13/14 giving NaN after std::log with -03 and single source on
@@ -1585,8 +1588,9 @@ void Solver::detectAtMostOne(Lit seed, unordered_set<Lit>& considered, LitVec& p
 
   // check whether at least three of them form a clique
   LitVec cardLits = {seed};  // clique so far
-  std::sort(candidates.begin(), candidates.end(),
-            [&](Lit x, Lit y) { return getHeuristic().getActivity(toVar(x)) < getHeuristic().getActivity(toVar(y)); });
+  boost::sort::pdqsort(candidates.begin(), candidates.end(), [&](Lit x, Lit y) {
+    return getHeuristic().getActivity(toVar(x)) < getHeuristic().getActivity(toVar(y));
+  });
   assert(candidates.size() <= 1 ||
          getHeuristic().getActivity(toVar(candidates[0])) <= getHeuristic().getActivity(toVar(candidates[1])));
   IntSet& trailSet = global.isPool.take();
