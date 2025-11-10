@@ -332,7 +332,7 @@ void ConstrExpSuper::postProcess(const IntMap<int>& level, const std::vector<int
     ++stats.NCARDDETECT.z;
     return;
   }
-  liftDegree();
+  strengthen();
 }
 
 void ConstrExpSuper::strongPostProcess(Solver& solver) {
@@ -1803,14 +1803,15 @@ void ConstrExp<SMALL, LARGE>::simplifyToUnit(const IntMap<int>& level, const std
 }
 
 template <typename SMALL, typename LARGE>
-void ConstrExp<SMALL, LARGE>::liftDegree() {
-  if (!global.options.proofAssumps || symbBound.isValid()) return;
+void ConstrExp<SMALL, LARGE>::strengthen() {
+  if (!global.options.proofAssumps || symbBound.isValid() || isTautology()) return;
   assert(isSaturated());
   assert(isSortedInDecreasingCoefOrder());
   assert(hasNoZeroes());
-  assert(!isTautology());
-  assert(!isUnsat());
   assert(!vars.empty());
+
+  LARGE total = absCoeffSum();
+  if (total <= degree) return;  // either an inconsistency or all literals will be propagated to units
 
   // cardinalities and saturated constraints are not liftable
   const SMALL& largest = getCoef(vars[0]);
@@ -1818,10 +1819,9 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
 
   std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 
-  if (largest < std::numeric_limits<int32_t>::max() && degree < std::numeric_limits<int32_t>::max()) {
-    int64_t total = static_cast<int64_t>(absCoeffSum());  // all coefficients fit in 32 bits
-    if (total < std::numeric_limits<int32_t>::max() &&
-        std::ssize(vars) * (total - degree) <= global.options.subsetSum.get()) {
+  if (total < std::numeric_limits<int32_t>::max()) {
+    int32_t total32 = static_cast<int32_t>(total);  // we also know all coefficients and degree fit in 32 bits
+    if (std::ssize(vars) * static_cast<int64_t>(total32 - degree) <= global.options.subsetSum.get()) {
       std::vector<int32_t>& cfs = tmpintvec;
       cfs.clear();
       cfs.reserve(vars.size());
@@ -1831,7 +1831,7 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
 
       std::vector<std::pair<int32_t, int32_t>>& sums = tmpintpairvec;
       int32_t target = static_cast<int32_t>(degree);
-      auto [newdegree, hasLast] = subsetsum_dp(global, cfs, target, total, sums);
+      auto [newdegree, hasLast] = subsetsum_dp(global, cfs, target, total32, sums);
       if (newdegree > degree) {
         rhs += newdegree - degree;
         degree = newdegree;
@@ -1845,9 +1845,9 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
         assert(aux::abs(coefs[vars.back()]) == smallest);
         if (smallest == degree) break;  // target will be 0
         cfs.pop_back();
-        total -= smallest;
+        total32 -= smallest;
         target = static_cast<int32_t>(degree) - smallest;
-        auto [newdegree, hl] = subsetsum_dp(global, cfs, target, total, sums);
+        auto [newdegree, hl] = subsetsum_dp(global, cfs, target, total32, sums);
         hasLast = hl;
         if (newdegree >= target + smallest) {
           foundSuperfluous = true;
@@ -1904,7 +1904,6 @@ void ConstrExp<SMALL, LARGE>::liftDegree() {
 
   unordered_map<LARGE, SMALL>& sums = tmpmap;
   std::vector<std::pair<LARGE, SMALL>>& stack = tmppairvec;
-  LARGE total = absCoeffSum();
   auto [newdegree, hasLast] = subsetsum_set(global, cfs, degree, total, sums, stack);
 
   if (newdegree > degree) {

@@ -379,7 +379,7 @@ struct ConstrExpSuper {
   virtual void simplifyToClause() = 0;
   virtual bool isClause() const = 0;
   virtual void simplifyToUnit(const IntMap<int>& level, const std::vector<int>& pos, Var v_unit) = 0;
-  virtual void liftDegree() = 0;
+  virtual void strengthen() = 0;
   virtual void liftDegreeSymbolic(const bigint& lastUpperBound, const bigint& lastLowerBound) = 0;
 
   virtual bool isSortedInDecreasingCoefOrder() const = 0;
@@ -626,7 +626,7 @@ struct ConstrExp final : ConstrExpSuper {
   void simplifyToClause();
   bool isClause() const;
   void simplifyToUnit(const IntMap<int>& level, const std::vector<int>& pos, Var v_unit);
-  void liftDegree();
+  void strengthen();
   void liftDegreeSymbolic(const bigint& lastUpperBound, const bigint& lastLowerBound);
 
   bool isSortedInDecreasingCoefOrder() const;
