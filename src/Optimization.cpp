@@ -653,9 +653,9 @@ SolveState Optimization<SMALL, LARGE>::run(bool optimize, double timeout) {
       }
     } else {
       assert(reply == SolveState::INPROCESSED || reply == SolveState::UNSAT);
-      if (global.options.printCsvData) {
-        global.stats.printCsvLine(static_cast<StatNum>(lower_bound), static_cast<StatNum>(upper_bound));
-      }
+      // if (global.options.printCsvData) {
+      //   global.stats.printCsvLine(static_cast<StatNum>(lower_bound), static_cast<StatNum>(upper_bound));
+      // }
       if (reply == SolveState::UNSAT) {
         lower_bound = upper_bound;
       }

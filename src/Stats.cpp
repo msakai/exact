@@ -109,18 +109,22 @@ void Stats::print(const StatNum& lowerbound, const StatNum& upperbound) {
 
 void Stats::printCsvLine(const StatNum& lowerbound, const StatNum& upperbound) {
   setDerivedStats(lowerbound, upperbound);
-  std::cout << "c csvline";
+  std::cout << "c csvline ";
+  bool first = true;
   for (Stat* s : statsToDisplay) {
-    aux::prettyPrint(std::cout << ",", s->z);
+    aux::prettyPrint(std::cout << (first ? "" : ","), s->z);
+    first = false;
   }
   std::cout << std::endl;
 }
 
 void Stats::printCsvHeader() {
   setDerivedStats(std::numeric_limits<StatNum>::quiet_NaN(), std::numeric_limits<StatNum>::quiet_NaN());
-  std::cout << "c csvheader";
+  std::cout << "c csvheader ";
+  bool first = true;
   for (Stat* s : statsToDisplay) {
-    std::cout << "," << s->name;
+    std::cout << (first ? "" : ",") << s->name;
+    first = false;
   }
   std::cout << std::endl;
 }
