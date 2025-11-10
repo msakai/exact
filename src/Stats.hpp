@@ -173,7 +173,7 @@ struct Stats {
   Stat NWATCHCHECKS{0, "watch checks"};
   Stat NPROPCHECKS{0, "propagation checks"};
   Stat NBLOCKINGSUCCESS{0, "blocking literal success"};
-  Stat NBLOCKINGFAILS{0, "blocking literal fails  "};
+  Stat NBLOCKINGFAILS{0, "blocking literal fails"};
 
   Stat NADDEDLITERALS{0, "literal additions"};
   Stat NSATURATESTEPS{0, "saturation steps"};
