@@ -1852,6 +1852,7 @@ void ConstrExp<SMALL, LARGE>::strengthen() {
         if (newdegree >= target + smallest) {
           foundSuperfluous = true;
           global.stats.NSUPERFLUOUS.z += 1;
+          coefs[vars.back()] = 0;
           popLast();
         } else {
           if (newdegree > target) {
