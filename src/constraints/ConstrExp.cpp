@@ -1804,7 +1804,8 @@ void ConstrExp<SMALL, LARGE>::simplifyToUnit(const IntMap<int>& level, const std
 
 template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::strengthen() {
-  if (!global.options.proofAssumps || symbBound.isValid() || isTautology()) return;
+  if (!global.options.proofAssumps || global.options.subsetSum.get() <= 0 || symbBound.isValid() || isTautology())
+    return;
   assert(isSaturated());
   assert(isSortedInDecreasingCoefOrder());
   assert(hasNoZeroes());
@@ -1849,20 +1850,24 @@ void ConstrExp<SMALL, LARGE>::strengthen() {
         target = static_cast<int32_t>(degree) - smallest;
         auto [newdegree, hl] = subsetsum_dp(global, cfs, target, total32, sums);
         hasLast = hl;
+        SMALL& last = coefs.at(vars.back());
         if (newdegree >= target + smallest) {
           foundSuperfluous = true;
           global.stats.NSUPERFLUOUS.z += 1;
-          coefs[vars.back()] = 0;
+          if (last < 0) rhs -= last;
+          last = 0;
           popLast();
         } else {
           if (newdegree > target) {
             foundSuperfluous = true;
             global.stats.NSUPERFLUOUSPART.z += 1;
-            if (coefs[vars.back()] > 0) {
-              coefs[vars.back()] += target - newdegree;
+            const int32_t diff = newdegree - target;
+            if (last > 0) {
+              last -= diff;
             } else {
-              assert(coefs[vars.back()] < 0);
-              coefs[vars.back()] += newdegree - target;
+              assert(last < 0);
+              rhs += diff;
+              last += diff;
             }
           }
           break;
@@ -1871,6 +1876,7 @@ void ConstrExp<SMALL, LARGE>::strengthen() {
       if (foundSuperfluous) {
         global.logger.logAssumption(*this, global.options.proofAssumps.operator bool());
       }
+      assert(hasRhsDegreeInvariant());
 
       global.stats.SUBSETSUMTIME.z +=
           std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - start).count();
@@ -1878,7 +1884,7 @@ void ConstrExp<SMALL, LARGE>::strengthen() {
     }
   }
 
-  int64_t steps = 10;  // initial weight, changing this changes how often alternative lift degree is executed
+  int64_t steps = 100;  // initial weight, changing this changes how often alternative lift degree is executed
   uint32_t i = 0;
   while (i < vars.size()) {
     const SMALL v = aux::abs(coefs[vars[i]]);
@@ -1925,19 +1931,24 @@ void ConstrExp<SMALL, LARGE>::strengthen() {
     total -= smallest;
     auto [newdegree, hl] = subsetsum_set(global, cfs, target, total, sums, stack);
     hasLast = hl;
+    SMALL& last = coefs.at(vars.back());
     if (newdegree >= target + smallest) {
       foundSuperfluous = true;
       global.stats.NSUPERFLUOUS.z += 1;
+      if (last < 0) rhs -= last;
+      last = 0;
       popLast();
     } else {
       if (newdegree > target) {
         foundSuperfluous = true;
         global.stats.NSUPERFLUOUSPART.z += 1;
+        const SMALL diff = static_cast<SMALL>(newdegree - target);
         if (coefs[vars.back()] > 0) {
-          coefs[vars.back()] += static_cast<SMALL>(target - newdegree);
+          coefs[vars.back()] -= diff;
         } else {
           assert(coefs[vars.back()] < 0);
-          coefs[vars.back()] += static_cast<SMALL>(newdegree - target);
+          rhs += diff;
+          coefs[vars.back()] += diff;
         }
       }
       break;
@@ -1946,6 +1957,7 @@ void ConstrExp<SMALL, LARGE>::strengthen() {
   if (foundSuperfluous) {
     global.logger.logAssumption(*this, global.options.proofAssumps.operator bool());
   }
+  assert(hasRhsDegreeInvariant());
 
   global.stats.SUBSETSUMTIME.z +=
       std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now() - start).count();
