@@ -1884,7 +1884,7 @@ void ConstrExp<SMALL, LARGE>::strengthen() {
     }
   }
 
-  int64_t steps = 100;  // initial weight, changing this changes how often alternative lift degree is executed
+  int64_t steps = 150;  // estimated overhead of alternative lift degree routine
   uint32_t i = 0;
   while (i < vars.size()) {
     const SMALL v = aux::abs(coefs[vars[i]]);
