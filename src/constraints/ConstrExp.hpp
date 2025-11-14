@@ -877,6 +877,30 @@ struct ConstrExp final : ConstrExpSuper {
     }
     assert(getCoef(-asserting) == reason->getCoef(asserting));
 
+    if (global.options.weakenCanceling) {
+      // TODO: think longer about this idea. It basically boils down to weakening non-falsifieds that don't have
+      // a (sufficient) opposite. That's a lot of weakening, probably. Why do all the division trouble up front?
+      if (reason->getSlack(level) <= 0) {
+        bool weakened = false;
+        for (Var v : reason->vars) {
+          Lit l = reason->getLit(v);
+          if (isFalse(level, l)) continue;  // cannot safely weaken falsifieds
+          SMALL tmp = getCoef(-l);
+          if (tmp < 0) continue;  // variable is present anyway
+          tmp = reason->absCoef(v) - tmp;
+          if (tmp > 0) {
+            weakened = true;
+            reason->weaken(l > 0 ? -tmp : tmp, v);
+          }
+        }
+        if (weakened) {
+          reason->sortInDecreasingCoefOrder([](Var v1, Var v2) { return v1 < v2; });
+          reason->saturate(true, true);
+          assert(reason->getSlack(level) <= 0);
+        }
+      }
+    }
+
     // In most cases, at this point, the reason coefficient is equal to the conflict coefficient
     // and the reason slack is at most zero, so we can safely add the reason to the conflict.
     if (global.options.varReasonAct) {
