@@ -496,11 +496,34 @@ resolve:
     if (confl->isAssertingBefore(level, decisionLevel()) != AssertionStatus::ASSERTING) goto resolve;
   }
 
+  if (global.options.varLearnedAct) {
+    for (Var v : confl->getVars()) {
+      if (isFalse(level, confl->getLit(v))) {
+        actSet.add(v);
+      }
+    }
+  }
+
   aux::timeCallVoid(
       [&] {
         heur.vBumpActivity(actSet.getKeysMutable(), getPos(), global.options.varWeight.get(), global.stats.NCONFL.z);
       },
       global.stats.HEURTIME.z);
+
+  if (global.options.varSaturatedAct) {
+    actSet.clear();
+    for (Var v : confl->getVars()) {
+      if (confl->isSaturatedVar(v)) {
+        assert(isFalse(level, confl->getLit(v)));
+        actSet.add(v);
+      }
+    }
+    aux::timeCallVoid(
+        [&] {
+          heur.vBumpActivity(actSet.getKeysMutable(), getPos(), global.options.varWeight.get(), global.stats.NCONFL.z);
+        },
+        global.stats.HEURTIME.z);
+  }
   global.isPool.release(actSet);
 
   assert(confl->hasNegativeSlack(level));
@@ -613,12 +636,33 @@ CeSuper Solver::extractCore(const CeSuper& conflict, Lit l_assump) {
     undoOne();
   }
 
+  if (global.options.varLearnedAct) {
+    for (Var v : core->getVars()) {
+      if (isFalse(level, core->getLit(v))) {
+        actSet.add(v);
+      }
+    }
+  }
+
   aux::timeCallVoid(
       [&] {
         heur.vBumpActivity(actSet.getKeysMutable(), getPos(), global.options.varWeight.get(), global.stats.NCONFL.z);
       },
       global.stats.HEURTIME.z);
   global.isPool.release(actSet);
+
+  if (global.options.varSaturatedAct) {
+    props.clear();
+    for (Var v : core->getVars()) {
+      if (core->isSaturatedVar(v)) {
+        assert(isFalse(level, core->getLit(v)));
+        props.push_back(v);
+      }
+    }
+    aux::timeCallVoid(
+        [&] { heur.vBumpActivity(props, getPos(), global.options.varWeight.get(), global.stats.NCONFL.z); },
+        global.stats.HEURTIME.z);
+  }
 
   // weaken non-falsifieds
   assert(core->hasNegativeSlack(assumptions.getIndex()));

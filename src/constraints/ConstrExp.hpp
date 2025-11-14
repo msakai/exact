@@ -353,6 +353,7 @@ struct ConstrExpSuper {
   virtual void saturate(bool check, bool sorted) = 0;
   virtual bool isSaturated() const = 0;
   virtual bool isSaturated(Lit l) const = 0;
+  virtual bool isSaturatedVar(Var v) const = 0;
   virtual bool isSaturated(const aux::predicate<Lit>& toWeaken) const = 0;
   virtual void getSaturatedLits(IntSet& out) const = 0;
   virtual void saturateAndFixOverflow(const IntMap<int>& level, int bitOverflow, int bitReduce, Lit asserting,
@@ -518,6 +519,7 @@ struct ConstrExp final : ConstrExpSuper {
   void saturate(bool check, bool sorted);
   bool isSaturated() const;
   bool isSaturated(Lit l) const;
+  bool isSaturatedVar(Var v) const;
   bool isSaturated(const aux::predicate<Lit>& toWeaken) const;
   void getSaturatedLits(IntSet& out) const;
   /*

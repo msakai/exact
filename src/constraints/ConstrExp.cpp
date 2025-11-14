@@ -1043,12 +1043,24 @@ void ConstrExp<SMALL, LARGE>::saturate(bool check, bool sorted) {
 
 template <typename SMALL, typename LARGE>
 bool ConstrExp<SMALL, LARGE>::isSaturated() const {
-  return getLargestCoef() <= degree;
+  if (degree > static_cast<LARGE>(limitAbs<SMALL, LARGE>())) return true;
+  const SMALL deg = static_cast<SMALL>(degree);
+  for (Var v : vars) {
+    if (aux::abs(coefs[v]) > deg) {
+      return false;
+    }
+  }
+  return true;
 }
 
 template <typename SMALL, typename LARGE>
 bool ConstrExp<SMALL, LARGE>::isSaturated(Lit l) const {
   return getCoef(l) >= degree;
+}
+
+template <typename SMALL, typename LARGE>
+bool ConstrExp<SMALL, LARGE>::isSaturatedVar(Var v) const {
+  return aux::abs(coefs[v]) >= degree;
 }
 
 template <typename SMALL, typename LARGE>
