@@ -269,8 +269,6 @@ struct SymbolicBound {
 
 std::ostream& operator<<(std::ostream& os, const SymbolicBound& bound);
 
-// TODO: remove symb bounds when objective changes. Via hash map: Constr->SymbBound ?
-
 struct ConstrExpSuper {
   // protected:
   // for some reason (templates?) copyTo_ cannot acces external vars and indexes if protected
