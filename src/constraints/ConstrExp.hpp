@@ -335,6 +335,9 @@ struct ConstrExpSuper {
   virtual void weaken(Var v) = 0;
   virtual void weaken(const aux::predicate<Lit>& toWeaken) = 0;
 
+  virtual void setTmpSlack(const IntMap<int>& level) = 0;
+  virtual bool hasCorrectTmpSlack(const IntMap<int>& level) const = 0;
+  virtual void undoOneTmpSlack(Lit l) = 0;
   virtual bool hasNegativeSlack(const IntMap<int>& level) const = 0;
   virtual bool isTautology() const = 0;
   virtual bool isUnsat() const = 0;
@@ -435,19 +438,23 @@ struct ConstrExp final : ConstrExpSuper {
   LARGE rhs = 0;
   std::vector<SMALL> coefs;  // maps variables to coefficients
 
+  // temporary data structures used during conflict analysis
+  LARGE tmpSlack;
+
  private:
+  // temporary data structures used during conflict analysis
+  std::vector<SMALL> tmpvec;
+  unordered_map<LARGE, SMALL> tmpmap;
+  std::vector<std::pair<LARGE, SMALL>> tmppairvec;
+  std::vector<int32_t> tmpintvec;
+  std::vector<std::pair<int32_t, int32_t>> tmpintpairvec;
+
   void add(Var v, SMALL c, bool removeZeroes = false, bool fixSymbolic = false);
   void remove(Var v);  // NOTE: modifies order of variables, and can invalidate rhs / degree invariant
   LARGE calcDegree() const;
   LARGE calcRhs() const;
   bool testConstraint() const;
   bool falsified(const IntMap<int>& level, Var v) const;
-
-  std::vector<SMALL> tmpvec;
-  unordered_map<LARGE, SMALL> tmpmap;
-  std::vector<std::pair<LARGE, SMALL>> tmppairvec;
-  std::vector<int32_t> tmpintvec;
-  std::vector<std::pair<int32_t, int32_t>> tmpintpairvec;
 
  public:
   explicit ConstrExp(Global& g);
@@ -495,6 +502,9 @@ struct ConstrExp final : ConstrExpSuper {
   void weakenCheckSaturated(SMALL& toWeaken, Lit l, const IntMap<int>& level);
 
   LARGE getSlack(const IntMap<int>& level) const;
+  void setTmpSlack(const IntMap<int>& level);
+  bool hasCorrectTmpSlack(const IntMap<int>& level) const;
+  void undoOneTmpSlack(Lit l);
   bool hasNegativeSlack(const IntMap<int>& level) const;
   bool isTautology() const;
   bool isUnsat() const;
@@ -766,7 +776,8 @@ struct ConstrExp final : ConstrExpSuper {
       fixed = true;
       multipliedConflict = true;
       multiply(reason->getCoef(asserting));
-      assert(reason->getSlack(level) + getSlack(level) < 0);
+      tmpSlack *= reason->getCoef(asserting);
+      assert(reason->getSlack(level) + tmpSlack < 0);
     }
     if (!fixed && global.options.multWeaken) {
       // based on the work of Orestis Lomis in his 2024 master thesis
@@ -774,7 +785,7 @@ struct ConstrExp final : ConstrExpSuper {
 
       if (conflCoef >= reasonCoef) {
         const SMALL mult = aux::ceildiv(conflCoef, reasonCoef);
-        if (reason->getSlack(level) * mult + getSlack(level) < 0) {
+        if (reason->getSlack(level) * mult + tmpSlack < 0) {
           fixed = true;
           global.stats.NMULTWEAKENEDREASON.z += 1;
           reason->multiply(mult);
@@ -784,11 +795,12 @@ struct ConstrExp final : ConstrExpSuper {
         }
       } else {
         const SMALL mult = aux::floordiv(reasonCoef, conflCoef);
-        if (reason->getSlack(level) + mult * getSlack(level) < 0) {
+        if (reason->getSlack(level) + mult * tmpSlack < 0) {
           fixed = true;
           multipliedConflict = true;
           global.stats.NMULTWEAKENEDCONFLICT.z += 1;
           multiply(mult);
+          tmpSlack *= mult;
           SMALL toWeaken = reasonCoef - conflCoef * mult;
           reason->weakenCheckSaturated(toWeaken, asserting, level);
           assert(reason->getCoef(asserting) == getCoef(-asserting));
@@ -868,7 +880,7 @@ struct ConstrExp final : ConstrExpSuper {
             SMALL diff = aux::mod_safe(bestDiv - reasonSlack - 1, bestDiv);
             reason->weakenDivideRoundOrdered(bestDiv, level, diff);
             reason->multiply(mult);
-            assert(reason->getSlack(level) + getSlack(level) < 0);
+            assert(reason->getSlack(level) + tmpSlack < 0);
           }
         }
       }
@@ -911,6 +923,14 @@ struct ConstrExp final : ConstrExpSuper {
 
     LARGE oldDegree = getDegree();
     // add reason to conflict
+    // slack is subadditive
+    tmpSlack += reason->getSlack(level);
+    for (Var v : reason->vars) {
+      if (!isUnknown(pos, v)) continue;
+      Lit l = reason->getLit(v);
+      const SMALL cf = getCoef(-l);
+      if (cf > 0) tmpSlack -= aux::min(cf, reason->absCoef(v));
+    }
     addUp(reason);
 
     VarVec& varsToCheck = !multipliedConflict && oldDegree <= getDegree() ? reason->vars : vars;
@@ -922,6 +942,7 @@ struct ConstrExp final : ConstrExpSuper {
     fixOverflow(level, global.options.bitsOverflow.get(), global.options.bitsReduced.get(), largestCF, 0);
     assert(getCoef(-asserting) <= 0);
     assert(hasNegativeSlack(level));
+    assert(hasCorrectTmpSlack(level));
 
     return reason->getLBD(level);
   }

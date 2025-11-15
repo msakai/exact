@@ -458,6 +458,7 @@ CeSuper Solver::analyze(const CeSuper& conflict) {
 
   CeSuper confl = getAnalysisCE(conflict);
   confl->orig = Origin::LEARNED;
+  confl->setTmpSlack(level);
 
   IntSet& actSet = global.isPool.take();  // will hold the literals that need their activity bumped
   if (global.options.varConflAct) {
@@ -478,8 +479,13 @@ resolve:
       if (status == AssertionStatus::ASSERTING) {
         break;
       } else if (status == AssertionStatus::FALSIFIED) {
-        backjumpTo(decisionLevel() - 1);
+        int backjumpTo = decisionLevel() - 1;
+        while (decisionLevel() > backjumpTo) {
+          confl->undoOneTmpSlack(trail.back());
+          undoOne();
+        }
         assert(confl->hasNegativeSlack(level));
+        assert(confl->hasCorrectTmpSlack(level));
         continue;
       }
       assert(isPropagated(reason, l));
@@ -489,6 +495,7 @@ resolve:
       reasonC.decreaseLBD(lbd);
       reasonC.fixEncountered(global.stats);
     }
+    confl->undoOneTmpSlack(trail.back());
     undoOne();
   }
   if (global.options.learnedMin && decisionLevel() > 0) {
@@ -527,6 +534,7 @@ resolve:
   global.isPool.release(actSet);
 
   assert(confl->hasNegativeSlack(level));
+  assert(confl->hasCorrectTmpSlack(level));
   return confl;
 }
 

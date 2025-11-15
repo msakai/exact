@@ -700,6 +700,28 @@ LARGE ConstrExp<SMALL, LARGE>::getSlack(const IntMap<int>& level) const {
 }
 
 template <typename SMALL, typename LARGE>
+void ConstrExp<SMALL, LARGE>::setTmpSlack(const IntMap<int>& level) {
+  assert(hasRhsDegreeInvariant());
+  tmpSlack = -rhs;
+  for (Var v : vars) {
+    if (isTrue(level, v) || (!isFalse(level, v) && coefs[v] > 0)) tmpSlack += coefs[v];
+  }
+}
+
+template <typename SMALL, typename LARGE>
+bool ConstrExp<SMALL, LARGE>::hasCorrectTmpSlack(const IntMap<int>& level) const {
+  return tmpSlack == getSlack(level);
+}
+
+template <typename SMALL, typename LARGE>
+void ConstrExp<SMALL, LARGE>::undoOneTmpSlack(Lit l) {
+  const SMALL cf = getCoef(-l);
+  if (cf > 0) {
+    tmpSlack += cf;
+  }
+}
+
+template <typename SMALL, typename LARGE>
 bool ConstrExp<SMALL, LARGE>::hasNegativeSlack(const IntMap<int>& level) const {
   return getSlack(level) < 0;
 }
@@ -1126,6 +1148,7 @@ void ConstrExp<SMALL, LARGE>::fixOverflow(const IntMap<int>& level, int bitOverf
     LARGE div = aux::ceildiv<LARGE>(maxVal, aux::powtwo<LARGE>(bitReduce) - 1);
     assert(aux::ceildiv<LARGE>(maxVal, div) <= aux::powtwo<LARGE>(bitReduce) - 1);
     weakenDivideRound(div, [&](Lit l) { return !isFalse(level, l) && l != -asserting && l != asserting; });
+    setTmpSlack(level);
   } else {
     // check that largestCoef indeed is big enough
     assert(getCutoffVal() <= 0 || aux::msb(getCutoffVal()) < bitOverflow);
@@ -2091,6 +2114,7 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
 
   if (getDegree() == 1 && deg == 1) {
     symbBound.reset();
+    tmpSlack = -1;
     // resolving clauses with clauses can be done efficiently
     for (Lit l : data) {
       assert(coefs[toVar(l)] == 0 || coefs[toVar(l)] == aux::sgn(l) || l == toProp);
@@ -2146,7 +2170,15 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
     }
 
     addRhs(cmult * deg);
+    tmpSlack -= cmult * deg;
     for (Lit l : data) {
+      if (!isFalse(level, l)) {
+        tmpSlack += cmult;
+        if (!isTrue(level, l)) {  // it is unknown
+          const SMALL cf = getCoef(-l);
+          if (cf > 0) tmpSlack -= aux::min(cf, cmult);
+        }
+      }
       if (isUnit(level, -l)) {
         continue;
       }
@@ -2194,6 +2226,7 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
 
   assert(getCoef(-toProp) == 0);
   assert(hasNegativeSlack(level));
+  assert(hasCorrectTmpSlack(level));
 
   IntSet& lbdSet = global.isPool.take();
   for (Lit l : data) {
