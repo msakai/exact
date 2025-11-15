@@ -779,6 +779,7 @@ struct ConstrExp final : ConstrExpSuper {
       tmpSlack *= reason->getCoef(asserting);
       assert(reason->getSlack(level) + tmpSlack < 0);
     }
+
     if (!fixed && global.options.multWeaken) {
       // based on the work of Orestis Lomis in his 2024 master thesis
       const SMALL reasonCoef = reason->getCoef(asserting);
@@ -818,20 +819,20 @@ struct ConstrExp final : ConstrExpSuper {
       if (global.options.multBeforeDiv) reason->multiply(conflCoef);
       const SMALL reasonCoef = reason->getCoef(asserting);
       assert(reasonCoef > 0);
-      const SMALL reasonSlack =
+      const SMALL cappedSlack =
           static_cast<SMALL>(aux::max<LARGE>(-reason->absCoef(reason->vars[0]), reason->getSlack(level)));
       // SMALL cast possible because slack < reasonCoef
       SMALL gcd = global.options.multBeforeDiv ? conflCoef : aux::gcd(conflCoef, reasonCoef);
       const SMALL minDiv = reasonCoef / gcd;
-      if (minDiv > reasonSlack) {
-        SMALL diff = aux::mod_safe(minDiv - reasonSlack - 1, minDiv);
+      if (minDiv > cappedSlack) {
+        SMALL diff = aux::mod_safe(minDiv - cappedSlack - 1, minDiv);
         reason->weakenDivideRoundOrdered(minDiv, level, diff);
         assert(conflCoef % reason->getCoef(asserting) == 0);
         reason->multiply(conflCoef / reason->getCoef(asserting));
       } else {
-        assert(reasonSlack > 0);  // otherwise if clause would have triggered
+        assert(cappedSlack > 0);  // otherwise if clause would have triggered
         if (global.options.division.is("slack+1")) {
-          reason->weakenDivideRoundOrdered(reasonSlack + 1, level);
+          reason->weakenDivideRoundOrdered(cappedSlack + 1, level);
           const SMALL reasonCoef = reason->getCoef(asserting);
           const SMALL mult = aux::ceildiv(conflCoef, reasonCoef);
           reason->multiply(mult);
@@ -841,7 +842,7 @@ struct ConstrExp final : ConstrExpSuper {
           assert(reason->getCoef(asserting) == conflCoef);
         } else {
           assert(global.options.division.is("mindiv"));
-          assert(minDiv <= reasonSlack);
+          assert(minDiv <= cappedSlack);
           SMALL bestDiv = minDiv;
           // quick heuristic search for small divisor larger than slack
           bestDiv = reasonCoef;
@@ -852,18 +853,18 @@ struct ConstrExp final : ConstrExpSuper {
             while (gcd % p == 0) {
               gcd /= p;
               tmp = reasonCoef / gcd;
-              if (tmp < bestDiv && tmp > reasonSlack) bestDiv = tmp;
+              if (tmp < bestDiv && tmp > cappedSlack) bestDiv = tmp;
               tmp = minDiv * gcd;
-              if (tmp < bestDiv && tmp > reasonSlack) bestDiv = tmp;
+              if (tmp < bestDiv && tmp > cappedSlack) bestDiv = tmp;
               pp *= p;
               tmp = reasonCoef / pp;
-              if (tmp < bestDiv && tmp > reasonSlack) bestDiv = tmp;
+              if (tmp < bestDiv && tmp > cappedSlack) bestDiv = tmp;
               tmp = minDiv * pp;
-              if (tmp < bestDiv && tmp > reasonSlack) bestDiv = tmp;
+              if (tmp < bestDiv && tmp > cappedSlack) bestDiv = tmp;
             }
           }
 
-          assert(bestDiv > reasonSlack);
+          assert(bestDiv > cappedSlack);
           assert(reasonCoef % bestDiv == 0);
           assert(conflCoef % (reasonCoef / bestDiv) == 0);
           const SMALL mult = conflCoef / (reasonCoef / bestDiv);
@@ -877,7 +878,7 @@ struct ConstrExp final : ConstrExpSuper {
             // NOTE: since canceling unknowns are rounded up, the reason may have positive slack
           } else {
             assert(bestDiv <= reasonCoef);
-            SMALL diff = aux::mod_safe(bestDiv - reasonSlack - 1, bestDiv);
+            SMALL diff = aux::mod_safe(bestDiv - cappedSlack - 1, bestDiv);
             reason->weakenDivideRoundOrdered(bestDiv, level, diff);
             reason->multiply(mult);
             assert(reason->getSlack(level) + tmpSlack < 0);
@@ -924,12 +925,17 @@ struct ConstrExp final : ConstrExpSuper {
     LARGE oldDegree = getDegree();
     // add reason to conflict
     // slack is subadditive
-    tmpSlack += reason->getSlack(level);
+    tmpSlack += reason->getDegree();
     for (Var v : reason->vars) {
-      if (!isUnknown(pos, v)) continue;
       Lit l = reason->getLit(v);
-      const SMALL cf = getCoef(-l);
-      if (cf > 0) tmpSlack -= aux::min(cf, reason->absCoef(v));
+      if (!isFalse(level, l)) {
+        const SMALL rcf = reason->absCoef(v);
+        tmpSlack += rcf;
+        if (!isTrue(level, l)) {  // l is unknown
+          const SMALL cf = getCoef(-l);
+          if (cf > 0) tmpSlack -= aux::min(cf, rcf);
+        }
+      }
     }
     addUp(reason);
 
