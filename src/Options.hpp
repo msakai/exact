@@ -210,7 +210,7 @@ struct Options {
   BoolOption varObjective{"var-objective", "Initialize heuristic to optimize the objective variables first", false};
   BoolOption varConflAct{"var-conflict", "Bump falsified conflict variables upon learning a constraint", true};
   BoolOption varReasonAct{"var-reason", "Bump falsified reason variables upon learning a constraint", false};
-  BoolOption varLearnedAct{"var-learned", "Bump falsified learned constraint variables", true};
+  BoolOption varLearnedAct{"var-learned", "Bump falsified learned constraint variables", false};
   BoolOption varSaturatedAct{"var-saturated", "Bump saturated learned constraint variables twice", false};
   ValOption<int32_t> dbDecayLBD{"db-decay", "Decay term for the LBD of constraints", 1, "0 (no decay) =< int",
                                 [](const int32_t& x) -> bool { return 0 <= x; }};
