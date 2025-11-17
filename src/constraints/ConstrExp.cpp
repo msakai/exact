@@ -722,6 +722,16 @@ void ConstrExp<SMALL, LARGE>::undoOneTmpSlack(Lit l) {
 }
 
 template <typename SMALL, typename LARGE>
+bool ConstrExp<SMALL, LARGE>::fixCoefSmallerThanTmpSlack(Lit l) {
+  assert(hasLit(l));
+  assert(tmpSlack < 0);
+  const SMALL invcf = -aux::abs(coefs[toVar(l)]);
+  if (invcf <= tmpSlack) return false;
+  tmpSlack -= invcf;
+  return true;
+}
+
+template <typename SMALL, typename LARGE>
 bool ConstrExp<SMALL, LARGE>::hasNegativeSlack(const IntMap<int>& level) const {
   return getSlack(level) < 0;
 }

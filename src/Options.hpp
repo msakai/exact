@@ -265,6 +265,8 @@ struct Options {
                                static_cast<int32_t>(0), "0 =< 1e9",
                                [](const int64_t& x) -> bool { return x >= 0 && x <= 1e9; }};
   BoolOption weakenCanceling{"ca-weakencanceling", "Weaken overly canceling reason variables", false};
+  BoolOption skipResolution{"ca-skipresolution", "Skip resolving a literal when the conflict slack is sufficiently low",
+                            false};
   ValOption<int32_t> bitsOverflow{
       "bits-overflow",
       "Bit width of maximum coefficient during conflict analysis calculations (0 is unlimited, "
@@ -372,6 +374,7 @@ struct Options {
       &caCancelingUnkns,
       &subsetSum,
       &weakenCanceling,
+      &skipResolution,
       &bitsOverflow,
       &bitsReduced,
       &bitsLearned,

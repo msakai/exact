@@ -478,7 +478,8 @@ resolve:
       AssertionStatus status = confl->isAssertingBefore(level, decisionLevel());
       if (status == AssertionStatus::ASSERTING) {
         break;
-      } else if (status == AssertionStatus::FALSIFIED) {
+      }
+      if (status == AssertionStatus::FALSIFIED) {
         int backjumpTo = decisionLevel() - 1;
         while (decisionLevel() > backjumpTo) {
           confl->undoOneTmpSlack(trail.back());
@@ -488,6 +489,10 @@ resolve:
         assert(confl->hasCorrectTmpSlack(level));
         continue;
       }
+      if (global.options.skipResolution && confl->fixCoefSmallerThanTmpSlack(-l)) {
+        undoOne();
+        continue;
+      }
       assert(isPropagated(reason, l));
       Constr& reasonC = ca[reason[toVar(l)]];
 
@@ -495,7 +500,7 @@ resolve:
       reasonC.decreaseLBD(lbd);
       reasonC.fixEncountered(global.stats);
     }
-    confl->undoOneTmpSlack(trail.back());
+    confl->undoOneTmpSlack(l);
     undoOne();
   }
   if (global.options.learnedMin && decisionLevel() > 0) {

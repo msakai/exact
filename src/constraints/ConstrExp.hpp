@@ -338,6 +338,7 @@ struct ConstrExpSuper {
   virtual void setTmpSlack(const IntMap<int>& level) = 0;
   virtual bool hasCorrectTmpSlack(const IntMap<int>& level) const = 0;
   virtual void undoOneTmpSlack(Lit l) = 0;
+  virtual bool fixCoefSmallerThanTmpSlack(Lit l) = 0;
   virtual bool hasNegativeSlack(const IntMap<int>& level) const = 0;
   virtual bool isTautology() const = 0;
   virtual bool isUnsat() const = 0;
@@ -505,6 +506,7 @@ struct ConstrExp final : ConstrExpSuper {
   void setTmpSlack(const IntMap<int>& level);
   bool hasCorrectTmpSlack(const IntMap<int>& level) const;
   void undoOneTmpSlack(Lit l);
+  bool fixCoefSmallerThanTmpSlack(Lit l);
   bool hasNegativeSlack(const IntMap<int>& level) const;
   bool isTautology() const;
   bool isUnsat() const;
@@ -921,11 +923,10 @@ struct ConstrExp final : ConstrExpSuper {
         }
       }
     }
-
     LARGE oldDegree = getDegree();
     // add reason to conflict
     // slack is subadditive
-    tmpSlack += reason->getDegree();
+    tmpSlack -= reason->getDegree();
     for (Var v : reason->vars) {
       Lit l = reason->getLit(v);
       if (!isFalse(level, l)) {
