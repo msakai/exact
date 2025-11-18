@@ -714,6 +714,53 @@ bool ConstrExp<SMALL, LARGE>::hasCorrectTmpSlack(const IntMap<int>& level) const
 }
 
 template <typename SMALL, typename LARGE>
+bool ConstrExp<SMALL, LARGE>::setTmpPrevious(const IntMap<int>& level, int currentLvl) {
+  assert(currentLvl > 0);
+  tmpPrevSlack = -degree;
+  tmpPrevLargestCf = 0;
+  for (Var v : vars) {
+    Lit l = getLit(v);
+    if (level[-l] >= currentLvl) {
+      // if level[-getLit(v)] < currentLvl, then it was falsified on the previous level
+      // so inverting this means it was not falsified on the previous level
+      const SMALL cf = absCoef(v);
+      tmpPrevSlack += cf;
+      if (level[l] >= currentLvl) {
+        // it was also not true on the previous level, so it must be unknown
+        tmpPrevLargestCf = aux::max(tmpPrevLargestCf, cf);
+      }
+    }
+  }
+  return tmpPrevSlack < tmpPrevLargestCf;
+}
+
+template <typename SMALL, typename LARGE>
+bool ConstrExp<SMALL, LARGE>::hasCorrectTmpPrevious(const IntMap<int>& level, int currentLvl) {
+  const LARGE tps = tmpPrevSlack;
+  const SMALL tplcf = tmpPrevLargestCf;
+  setTmpPrevious(level, currentLvl);
+  bool result = true;
+  result = result && tps == tmpPrevSlack;
+  result = result && tplcf >= tmpPrevLargestCf;
+  tmpPrevSlack = tps;
+  tmpPrevLargestCf = tplcf;
+  return result;
+}
+
+template <typename SMALL, typename LARGE>
+bool ConstrExp<SMALL, LARGE>::canPropagateOnPrevious(const std::vector<int>& pos, int trailpos) {
+  assert(trailpos > 0);  // otherwise we are already at root level
+  if (tmpPrevSlack >= tmpPrevLargestCf) return false;
+  tmpPrevLargestCf = 0;
+  for (Var v : vars) {
+    if (pos[v] >= trailpos) {  // unknown at previous level
+      tmpPrevLargestCf = aux::max(tmpPrevLargestCf, absCoef(v));
+    }
+  }
+  return tmpPrevSlack < tmpPrevLargestCf;
+}
+
+template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::undoOneTmpSlack(Lit l) {
   const SMALL cf = getCoef(-l);
   if (cf > 0) {

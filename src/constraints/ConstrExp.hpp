@@ -337,6 +337,9 @@ struct ConstrExpSuper {
 
   virtual void setTmpSlack(const IntMap<int>& level) = 0;
   virtual bool hasCorrectTmpSlack(const IntMap<int>& level) const = 0;
+  virtual bool setTmpPrevious(const IntMap<int>& level, int currentLvl) = 0;
+  virtual bool hasCorrectTmpPrevious(const IntMap<int>& level, int currentLvl) = 0;
+  virtual bool canPropagateOnPrevious(const std::vector<int>& pos, int trailpos) = 0;
   virtual void undoOneTmpSlack(Lit l) = 0;
   virtual bool fixCoefSmallerThanTmpSlack(Lit l) = 0;
   virtual bool hasNegativeSlack(const IntMap<int>& level) const = 0;
@@ -439,16 +442,16 @@ struct ConstrExp final : ConstrExpSuper {
   LARGE rhs = 0;
   std::vector<SMALL> coefs;  // maps variables to coefficients
 
-  // temporary data structures used during conflict analysis
-  LARGE tmpSlack;
-
  private:
-  // temporary data structures used during conflict analysis
   std::vector<SMALL> tmpvec;
   unordered_map<LARGE, SMALL> tmpmap;
   std::vector<std::pair<LARGE, SMALL>> tmppairvec;
   std::vector<int32_t> tmpintvec;
   std::vector<std::pair<int32_t, int32_t>> tmpintpairvec;
+  // temporary data structures used during conflict analysis
+  LARGE tmpSlack;          // during conflict analysis, slack at current level
+  LARGE tmpPrevSlack;      // during conflict analysis, slack at previous level
+  SMALL tmpPrevLargestCf;  // during conflict analysis, estimate of largest coefficient unknown at previous level
 
   void add(Var v, SMALL c, bool removeZeroes = false, bool fixSymbolic = false);
   void remove(Var v);  // NOTE: modifies order of variables, and can invalidate rhs / degree invariant
@@ -505,6 +508,9 @@ struct ConstrExp final : ConstrExpSuper {
   LARGE getSlack(const IntMap<int>& level) const;
   void setTmpSlack(const IntMap<int>& level);
   bool hasCorrectTmpSlack(const IntMap<int>& level) const;
+  bool setTmpPrevious(const IntMap<int>& level, int currentLvl);
+  bool hasCorrectTmpPrevious(const IntMap<int>& level, int currentLvl);
+  bool canPropagateOnPrevious(const std::vector<int>& pos, int trailpos);
   void undoOneTmpSlack(Lit l);
   bool fixCoefSmallerThanTmpSlack(Lit l);
   bool hasNegativeSlack(const IntMap<int>& level) const;

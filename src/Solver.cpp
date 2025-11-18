@@ -635,6 +635,7 @@ CeSuper Solver::extractCore(const CeSuper& conflict, Lit l_assump) {
 
   // analyze conflict to the point where we have a decision core
   IntSet& actSet = global.isPool.take();
+  core->setTmpSlack(level);
   while (decisionLevel() > 0 && isPropagated(reason, trail.back())) {
     quit::checkInterrupt(global);
     Lit l = trail.back();
@@ -646,6 +647,7 @@ CeSuper Solver::extractCore(const CeSuper& conflict, Lit l_assump) {
       reasonC.decreaseLBD(lbd);
       reasonC.fixEncountered(global.stats);
     }
+    core->undoOneTmpSlack(l);
     undoOne();
   }
 
@@ -679,6 +681,7 @@ CeSuper Solver::extractCore(const CeSuper& conflict, Lit l_assump) {
 
   // weaken non-falsifieds
   assert(core->hasNegativeSlack(assumptions.getIndex()));
+  assert(core->hasCorrectTmpSlack(level));
   assert(!core->isTautology());
   assert(core->isSaturated());
   aux::timeCallVoid([&] { learnConstraint(core); }, global.stats.LEARNTIME.z);
