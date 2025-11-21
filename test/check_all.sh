@@ -2,7 +2,7 @@
 
 # usage: ../test/run_all.sh 3 "testruns" /home/jod/workspace/exact-dev/build_testruns/Exact
 
-logfolder="/tmp/Exact/$1"
+logfolder="~/Tmp/Exact/$1"
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 
 declare -a arr_configs=(

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-logfolder="/tmp/Exact/$2"
+logfolder="~/Tmp/Exact/$2"
 binary=$3
 options="--timeout=$1 $4"
 

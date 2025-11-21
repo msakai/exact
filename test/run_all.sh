@@ -4,7 +4,7 @@
 
 # to stop: ../test/kill_all.sh
 
-logfolder="/tmp/Exact/$2"
+logfolder="~/Tmp/Exact/$2"
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 
 declare -a arr_configs=(
