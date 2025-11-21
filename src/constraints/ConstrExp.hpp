@@ -362,8 +362,8 @@ struct ConstrExpSuper {
   virtual bool isSaturatedVar(Var v) const = 0;
   virtual bool isSaturated(const aux::predicate<Lit>& toWeaken) const = 0;
   virtual void getSaturatedLits(IntSet& out) const = 0;
-  virtual void saturateAndFixOverflow(const IntMap<int>& level, int bitOverflow, int bitReduce, Lit asserting,
-                                      bool sorted) = 0;
+  virtual void saturateAndFixOverflow(const IntMap<int>& level, int decisionLvl, int bitOverflow, int bitReduce,
+                                      Lit asserting, bool sorted) = 0;
   virtual void saturateAndFixOverflowRational() = 0;
   virtual bool fitsInDouble() const = 0;
   virtual bool largestCoefFitsIn(int bits) const = 0;
@@ -539,8 +539,10 @@ struct ConstrExp final : ConstrExpSuper {
    * @post: if overflow happened, all division until 2^bitReduce happened
    * @post: the constraint remains conflicting or propagating on asserting
    */
-  void fixOverflow(const IntMap<int>& level, int bitOverflow, int bitReduce, const SMALL& largestCoef, Lit asserting);
-  void saturateAndFixOverflow(const IntMap<int>& level, int bitOverflow, int bitReduce, Lit asserting, bool sorted);
+  void fixOverflow(const IntMap<int>& level, int decisionLvl, int bitOverflow, int bitReduce, const SMALL& largestCoef,
+                   Lit asserting);
+  void saturateAndFixOverflow(const IntMap<int>& level, int decisionLvl, int bitOverflow, int bitReduce, Lit asserting,
+                              bool sorted);
   /*
    * Fixes overflow for rationals
    * @post: saturated
@@ -921,6 +923,7 @@ struct ConstrExp final : ConstrExpSuper {
     tmpPrevSlack -= reason->getDegree();
     for (Var v : reason->vars) {
       Lit l = reason->getLit(v);
+      // TODO: merge below two ifs
       if (!isFalse(level, l)) {
         const SMALL rcf = reason->absCoef(v);
         tmpSlack += rcf;
@@ -946,7 +949,7 @@ struct ConstrExp final : ConstrExpSuper {
       saturate(varsToCheck, false, false);
       largestCF = static_cast<SMALL>(getDegree());
     }
-    fixOverflow(level, global.options.bitsOverflow.get(), global.options.bitsReduced.get(), largestCF, 0);
+    fixOverflow(level, decisionLvl, global.options.bitsOverflow.get(), global.options.bitsReduced.get(), largestCF, 0);
     assert(getCoef(-asserting) <= 0);
     assert(hasNegativeSlack(level));
     assert(hasCorrectTmpSlack(level));

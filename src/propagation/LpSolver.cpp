@@ -226,8 +226,8 @@ CeSuper LpSolver::createLinearCombinationFarkas(soplex::DVectorReal& mults) {
     out->weakenSmalls(aux::toDouble(out->absCoeffSum()) / out->nVars() * global.options.lpIntolerance.get());
     out->removeZeroes();
   }
-  out->saturateAndFixOverflow(solver.getLevel(), global.options.bitsOverflow.get(), global.options.bitsReduced.get(), 0,
-                              false);
+  out->saturateAndFixOverflow(solver.getLevel(), 0, global.options.bitsOverflow.get(), global.options.bitsReduced.get(),
+                              0, false);
   return out;
 }
 

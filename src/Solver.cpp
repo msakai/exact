@@ -453,8 +453,8 @@ CeSuper Solver::analyze(const CeSuper& conflict) {
   global.logger.logComment("Analyze");
   assert(conflict->hasNegativeSlack(level));
   conflict->removeUnitsAndZeroes(level, position);
-  conflict->saturateAndFixOverflow(getLevel(), global.options.bitsOverflow.get(), global.options.bitsReduced.get(), 0,
-                                   true);
+  conflict->saturateAndFixOverflow(getLevel(), 0, global.options.bitsOverflow.get(), global.options.bitsReduced.get(),
+                                   0, true);
 
   CeSuper confl = getAnalysisCE(conflict);
   confl->orig = Origin::LEARNED;
@@ -627,8 +627,8 @@ CeSuper Solver::extractCore(const CeSuper& conflict, Lit l_assump) {
 
   assert(conflict->hasNegativeSlack(level));
   conflict->removeUnitsAndZeroes(level, position);
-  conflict->saturateAndFixOverflow(getLevel(), global.options.bitsOverflow.get(), global.options.bitsReduced.get(), 0,
-                                   true);
+  conflict->saturateAndFixOverflow(getLevel(), 0, global.options.bitsOverflow.get(), global.options.bitsReduced.get(),
+                                   0, true);
   assert(conflict->hasNegativeSlack(level));
   CeSuper core = getAnalysisCE(conflict);
   core->orig = Origin::LEARNED;
@@ -796,7 +796,7 @@ void Solver::learnConstraint(const CeSuper& ce) {
   }
   learned->removeUnitsAndZeroes(getLevel(), getPos());
   if (learned->isTautology()) return;
-  learned->saturateAndFixOverflow(getLevel(), global.options.bitsLearned.get(), global.options.bitsLearned.get(), 0,
+  learned->saturateAndFixOverflow(getLevel(), 0, global.options.bitsLearned.get(), global.options.bitsLearned.get(), 0,
                                   false);
   const std::vector<ActNode>& actList = getHeuristic().getActList();
   if (!learned->isClause()) {
