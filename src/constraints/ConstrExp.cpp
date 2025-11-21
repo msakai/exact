@@ -2306,8 +2306,9 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
 //@post: variable vector vars is not changed, but coefs[toVar(toSubsume)] may become 0
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const std::span<const Lit>& data, unsigned int deg, ID id,
-                                                  Lit toSubsume, const IntMap<int>& level, const std::vector<int>& pos,
-                                                  IntSet& saturatedLits) {
+                                                  Lit toSubsume, const Solver& solver, IntSet& saturatedLits) {
+  const IntMap<int>& level = solver.getLevel();
+  const std::vector<int>& pos = solver.getPos();
   assert(isSaturated());
   assert(getCoef(-toSubsume) > 0);
   global.stats.NADDEDLITERALS += data.size();
@@ -2402,33 +2403,33 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* lits, const bigint*
 
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const Lit* lits, const int* cfs, unsigned int size,
-                                                  const int64_t& degr, ID id, Lit l, const IntMap<int>& level,
-                                                  const std::vector<int>& pos, IntSet& saturatedLits) {
-  return genericSubsume(lits, cfs, size, degr, id, l, level, pos, saturatedLits);
+                                                  const int64_t& degr, ID id, Lit l, const Solver& solver,
+                                                  IntSet& saturatedLits) {
+  return genericSubsume(lits, cfs, size, degr, id, l, solver.getLevel(), solver.getPos(), saturatedLits);
 }
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const Lit* lits, const int64_t* cfs, unsigned int size,
-                                                  const int128& degr, ID id, Lit l, const IntMap<int>& level,
-                                                  const std::vector<int>& pos, IntSet& saturatedLits) {
-  return genericSubsume(lits, cfs, size, degr, id, l, level, pos, saturatedLits);
+                                                  const int128& degr, ID id, Lit l, const Solver& solver,
+                                                  IntSet& saturatedLits) {
+  return genericSubsume(lits, cfs, size, degr, id, l, solver.getLevel(), solver.getPos(), saturatedLits);
 }
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const Lit* lits, const int128* cfs, unsigned int size,
-                                                  const int128& degr, ID id, Lit l, const IntMap<int>& level,
-                                                  const std::vector<int>& pos, IntSet& saturatedLits) {
-  return genericSubsume(lits, cfs, size, degr, id, l, level, pos, saturatedLits);
+                                                  const int128& degr, ID id, Lit l, const Solver& solver,
+                                                  IntSet& saturatedLits) {
+  return genericSubsume(lits, cfs, size, degr, id, l, solver.getLevel(), solver.getPos(), saturatedLits);
 }
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const Lit* lits, const int128* cfs, unsigned int size,
-                                                  const int256& degr, ID id, Lit l, const IntMap<int>& level,
-                                                  const std::vector<int>& pos, IntSet& saturatedLits) {
-  return genericSubsume(lits, cfs, size, degr, id, l, level, pos, saturatedLits);
+                                                  const int256& degr, ID id, Lit l, const Solver& solver,
+                                                  IntSet& saturatedLits) {
+  return genericSubsume(lits, cfs, size, degr, id, l, solver.getLevel(), solver.getPos(), saturatedLits);
 }
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const Lit* lits, const bigint* cfs, unsigned int size,
-                                                  const bigint& degr, ID id, Lit l, const IntMap<int>& level,
-                                                  const std::vector<int>& pos, IntSet& saturatedLits) {
-  return genericSubsume(lits, cfs, size, degr, id, l, level, pos, saturatedLits);
+                                                  const bigint& degr, ID id, Lit l, const Solver& solver,
+                                                  IntSet& saturatedLits) {
+  return genericSubsume(lits, cfs, size, degr, id, l, solver.getLevel(), solver.getPos(), saturatedLits);
 }
 
 template struct ConstrExp<int, int64_t>;

@@ -411,22 +411,17 @@ struct ConstrExpSuper {
   virtual unsigned int resolveWith(const Lit* lits, const bigint* coefs, unsigned int size, const bigint& degr, ID id,
                                    Origin o, Lit l, const Solver& solver, const SymbolicBound* sb) = 0;
   virtual unsigned int subsumeWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit l,
-                                   const IntMap<int>& level, const std::vector<int>& pos, IntSet& saturatedLits) = 0;
+                                   const Solver& solver, IntSet& saturatedLits) = 0;
   virtual unsigned int subsumeWith(const Lit* lits, const int* coefs, unsigned int size, const int64_t& degr, ID id,
-                                   Lit l, const IntMap<int>& level, const std::vector<int>& pos,
-                                   IntSet& saturatedLits) = 0;
+                                   Lit l, const Solver& solver, IntSet& saturatedLits) = 0;
   virtual unsigned int subsumeWith(const Lit* lits, const int64_t* coefs, unsigned int size, const int128& degr, ID id,
-                                   Lit l, const IntMap<int>& level, const std::vector<int>& pos,
-                                   IntSet& saturatedLits) = 0;
+                                   Lit l, const Solver& solver, IntSet& saturatedLits) = 0;
   virtual unsigned int subsumeWith(const Lit* lits, const int128* coefs, unsigned int size, const int128& degr, ID id,
-                                   Lit l, const IntMap<int>& level, const std::vector<int>& pos,
-                                   IntSet& saturatedLits) = 0;
+                                   Lit l, const Solver& solver, IntSet& saturatedLits) = 0;
   virtual unsigned int subsumeWith(const Lit* lits, const int128* coefs, unsigned int size, const int256& degr, ID id,
-                                   Lit l, const IntMap<int>& level, const std::vector<int>& pos,
-                                   IntSet& saturatedLits) = 0;
+                                   Lit l, const Solver& solver, IntSet& saturatedLits) = 0;
   virtual unsigned int subsumeWith(const Lit* lits, const bigint* coefs, unsigned int size, const bigint& degr, ID id,
-                                   Lit l, const IntMap<int>& level, const std::vector<int>& pos,
-                                   IntSet& saturatedLits) = 0;
+                                   Lit l, const Solver& solver, IntSet& saturatedLits) = 0;
 };
 std::ostream& operator<<(std::ostream& o, const ConstrExpSuper& ce);
 std::ostream& operator<<(std::ostream& o, const CeSuper& ce);
@@ -664,18 +659,18 @@ struct ConstrExp final : ConstrExpSuper {
                            Lit l, const Solver& solver, const SymbolicBound* sb);
   unsigned int resolveWith(const Lit* lits, const bigint* coefs, unsigned int size, const bigint& degr, ID id, Origin o,
                            Lit l, const Solver& solver, const SymbolicBound* sb);
-  unsigned int subsumeWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit l, const IntMap<int>& level,
-                           const std::vector<int>& pos, IntSet& saturatedLits);
+  unsigned int subsumeWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit l, const Solver& solver,
+                           IntSet& saturatedLits);
   unsigned int subsumeWith(const Lit* lits, const int* coefs, unsigned int size, const int64_t& degr, ID id, Lit l,
-                           const IntMap<int>& level, const std::vector<int>& pos, IntSet& saturatedLits);
+                           const Solver& solver, IntSet& saturatedLits);
   unsigned int subsumeWith(const Lit* lits, const int64_t* coefs, unsigned int size, const int128& degr, ID id, Lit l,
-                           const IntMap<int>& level, const std::vector<int>& pos, IntSet& saturatedLits);
+                           const Solver& solver, IntSet& saturatedLits);
   unsigned int subsumeWith(const Lit* lits, const int128* coefs, unsigned int size, const int128& degr, ID id, Lit l,
-                           const IntMap<int>& level, const std::vector<int>& pos, IntSet& saturatedLits);
+                           const Solver& solver, IntSet& saturatedLits);
   unsigned int subsumeWith(const Lit* lits, const int128* coefs, unsigned int size, const int256& degr, ID id, Lit l,
-                           const IntMap<int>& level, const std::vector<int>& pos, IntSet& saturatedLits);
+                           const Solver& solver, IntSet& saturatedLits);
   unsigned int subsumeWith(const Lit* lits, const bigint* coefs, unsigned int size, const bigint& degr, ID id, Lit l,
-                           const IntMap<int>& level, const std::vector<int>& pos, IntSet& saturatedLits);
+                           const Solver& solver, IntSet& saturatedLits);
 
  private:
   template <typename CF, typename DG>

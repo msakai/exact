@@ -159,9 +159,9 @@ uint32_t Binary::resolveWith(CeSuper& confl, const Lit l, const Solver& solver) 
   // TODO: simplify resolving with Binary
   return confl->resolveWith(data, 1, id(), l, solver, solver.getSymbBound(this));
 }
-uint32_t Binary::subsumeWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& saturatedLits) const {
+uint32_t Binary::subsumeWith(CeSuper& confl, const Lit l, const Solver& solver, IntSet& saturatedLits) const {
   // TODO: simplify resolving with Binary
-  return confl->subsumeWith(data, 1, id(), l, solver.getLevel(), solver.getPos(), saturatedLits);
+  return confl->subsumeWith(data, 1, id(), l, solver, saturatedLits);
 }
 
 CeSuper Binary::toExpanded(ConstrExpPools& cePools) const {
@@ -309,8 +309,8 @@ WatchStatus Clause::checkForPropagation(Watch& w, const Lit p, Solver& solver, S
 uint32_t Clause::resolveWith(CeSuper& confl, const Lit l, const Solver& solver) const {
   return confl->resolveWith({data, size()}, 1, id(), l, solver, solver.getSymbBound(this));
 }
-uint32_t Clause::subsumeWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& saturatedLits) const {
-  return confl->subsumeWith({data, size()}, 1, id(), l, solver.getLevel(), solver.getPos(), saturatedLits);
+uint32_t Clause::subsumeWith(CeSuper& confl, const Lit l, const Solver& solver, IntSet& saturatedLits) const {
+  return confl->subsumeWith({data, size()}, 1, id(), l, solver, saturatedLits);
 }
 
 CeSuper Clause::toExpanded(ConstrExpPools& cePools) const {
@@ -471,8 +471,8 @@ WatchStatus Cardinality::checkForPropagation(Watch& w, [[maybe_unused]] const Li
 uint32_t Cardinality::resolveWith(CeSuper& confl, const Lit l, const Solver& solver) const {
   return confl->resolveWith({data, size()}, degr, id(), l, solver, solver.getSymbBound(this));
 }
-uint32_t Cardinality::subsumeWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& saturatedLits) const {
-  return confl->subsumeWith({data, size()}, degr, id(), l, solver.getLevel(), solver.getPos(), saturatedLits);
+uint32_t Cardinality::subsumeWith(CeSuper& confl, const Lit l, const Solver& solver, IntSet& saturatedLits) const {
+  return confl->subsumeWith({data, size()}, degr, id(), l, solver, saturatedLits);
 }
 
 CeSuper Cardinality::toExpanded(ConstrExpPools& cePools) const {
@@ -706,9 +706,8 @@ void Watched32::undoFalsified(uint32_t i) {
 uint32_t Watched32::resolveWith(CeSuper& confl, const Lit l, const Solver& solver) const {
   return confl->resolveWith(data, data + size(), size(), degr, id(), getOrigin(), l, solver, solver.getSymbBound(this));
 }
-uint32_t Watched32::subsumeWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& saturatedLits) const {
-  return confl->subsumeWith(data, data + size(), size(), degr, id(), l, solver.getLevel(), solver.getPos(),
-                            saturatedLits);
+uint32_t Watched32::subsumeWith(CeSuper& confl, const Lit l, const Solver& solver, IntSet& saturatedLits) const {
+  return confl->subsumeWith(data, data + size(), size(), degr, id(), l, solver, saturatedLits);
 }
 
 Ce32 Watched32::expandTo(ConstrExpPools& cePools) const {
@@ -994,8 +993,8 @@ uint32_t Watched<CF, DG>::resolveWith(CeSuper& confl, const Lit l, const Solver&
   return confl->resolveWith(lits, cfs, size(), degr, id(), getOrigin(), l, solver, solver.getSymbBound(this));
 }
 template <typename CF, typename DG>
-uint32_t Watched<CF, DG>::subsumeWith(CeSuper& confl, const Lit l, Solver& solver, IntSet& saturatedLits) const {
-  return confl->subsumeWith(lits, cfs, size(), degr, id(), l, solver.getLevel(), solver.getPos(), saturatedLits);
+uint32_t Watched<CF, DG>::subsumeWith(CeSuper& confl, const Lit l, const Solver& solver, IntSet& saturatedLits) const {
+  return confl->subsumeWith(lits, cfs, size(), degr, id(), l, solver, saturatedLits);
 }
 
 template <typename CF, typename DG>
