@@ -714,18 +714,36 @@ bool ConstrExp<SMALL, LARGE>::hasCorrectTmpSlack(const IntMap<int>& level) const
 }
 
 template <typename SMALL, typename LARGE>
-bool ConstrExp<SMALL, LARGE>::setTmpPrevious(const IntMap<int>& level, int currentLvl) {
-  assert(currentLvl > 0);
+void ConstrExp<SMALL, LARGE>::undoOneTmpSlack(Lit l) {
+  const SMALL cf = getCoef(-l);
+  if (cf > 0) {
+    tmpSlack += cf;
+  }
+}
+
+template <typename SMALL, typename LARGE>
+bool ConstrExp<SMALL, LARGE>::fixCoefSmallerThanTmpSlack(Lit l) {
+  assert(hasLit(l));
+  assert(tmpSlack < 0);
+  const SMALL invcf = -aux::abs(coefs[toVar(l)]);
+  if (invcf <= tmpSlack) return false;
+  tmpSlack -= invcf;
+  return true;
+}
+
+template <typename SMALL, typename LARGE>
+bool ConstrExp<SMALL, LARGE>::setTmpPrevious(const IntMap<int>& level, int decisionLvl) {
+  assert(decisionLvl > 0);
   tmpPrevSlack = -degree;
   tmpPrevLargestCf = 0;
   for (Var v : vars) {
     Lit l = getLit(v);
-    if (level[-l] >= currentLvl) {
-      // if level[-getLit(v)] < currentLvl, then it was falsified on the previous level
+    if (level[-l] >= decisionLvl) {
+      // if level[-getLit(v)] < decisionLvl, then it was falsified on the previous level
       // so inverting this means it was not falsified on the previous level
       const SMALL cf = absCoef(v);
       tmpPrevSlack += cf;
-      if (level[l] >= currentLvl) {
+      if (level[l] >= decisionLvl) {
         // it was also not true on the previous level, so it must be unknown
         tmpPrevLargestCf = aux::max(tmpPrevLargestCf, cf);
       }
@@ -735,10 +753,10 @@ bool ConstrExp<SMALL, LARGE>::setTmpPrevious(const IntMap<int>& level, int curre
 }
 
 template <typename SMALL, typename LARGE>
-bool ConstrExp<SMALL, LARGE>::hasCorrectTmpPrevious(const IntMap<int>& level, int currentLvl) {
+bool ConstrExp<SMALL, LARGE>::hasCorrectTmpPrevious(const IntMap<int>& level, int decisionLvl) {
   const LARGE tps = tmpPrevSlack;
   const SMALL tplcf = tmpPrevLargestCf;
-  setTmpPrevious(level, currentLvl);
+  setTmpPrevious(level, decisionLvl);
   bool result = true;
   result = result && tps == tmpPrevSlack;
   result = result && tplcf >= tmpPrevLargestCf;
@@ -761,21 +779,16 @@ bool ConstrExp<SMALL, LARGE>::canPropagateOnPrevious(const std::vector<int>& pos
 }
 
 template <typename SMALL, typename LARGE>
-void ConstrExp<SMALL, LARGE>::undoOneTmpSlack(Lit l) {
-  const SMALL cf = getCoef(-l);
-  if (cf > 0) {
-    tmpSlack += cf;
+void ConstrExp<SMALL, LARGE>::undoOneTmpPrevious(const LitVec& trail, const std::vector<int>& trail_lim) {
+  assert(trail_lim.size()>=2);
+  if (trail_lim.back()!=std::ssize(trail)) return; // not backjumping over decision
+  for (uint32_t i=trail_lim[trail_lim.size()-2]; i<trail.size(); ++i) {
+    const SMALL& cf = getCoef(-trail[i]);
+    if (cf > 0) {
+      tmpPrevSlack += cf;
+    }
+    tmpPrevLargestCf = aux::max(tmpPrevLargestCf, aux::abs(cf));
   }
-}
-
-template <typename SMALL, typename LARGE>
-bool ConstrExp<SMALL, LARGE>::fixCoefSmallerThanTmpSlack(Lit l) {
-  assert(hasLit(l));
-  assert(tmpSlack < 0);
-  const SMALL invcf = -aux::abs(coefs[toVar(l)]);
-  if (invcf <= tmpSlack) return false;
-  tmpSlack -= invcf;
-  return true;
 }
 
 template <typename SMALL, typename LARGE>

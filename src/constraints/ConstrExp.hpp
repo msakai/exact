@@ -337,11 +337,12 @@ struct ConstrExpSuper {
 
   virtual void setTmpSlack(const IntMap<int>& level) = 0;
   virtual bool hasCorrectTmpSlack(const IntMap<int>& level) const = 0;
-  virtual bool setTmpPrevious(const IntMap<int>& level, int currentLvl) = 0;
-  virtual bool hasCorrectTmpPrevious(const IntMap<int>& level, int currentLvl) = 0;
-  virtual bool canPropagateOnPrevious(const std::vector<int>& pos, int trailpos) = 0;
   virtual void undoOneTmpSlack(Lit l) = 0;
   virtual bool fixCoefSmallerThanTmpSlack(Lit l) = 0;
+  virtual bool setTmpPrevious(const IntMap<int>& level, int decisionLvl) = 0;
+  virtual bool hasCorrectTmpPrevious(const IntMap<int>& level, int decisionLvl) = 0;
+  virtual bool canPropagateOnPrevious(const std::vector<int>& pos, int trailpos) = 0;
+  virtual void undoOneTmpPrevious(const LitVec& trail, const std::vector<int>& trail_lim) = 0;
   virtual bool hasNegativeSlack(const IntMap<int>& level) const = 0;
   virtual bool isTautology() const = 0;
   virtual bool isUnsat() const = 0;
@@ -508,11 +509,12 @@ struct ConstrExp final : ConstrExpSuper {
   LARGE getSlack(const IntMap<int>& level) const;
   void setTmpSlack(const IntMap<int>& level);
   bool hasCorrectTmpSlack(const IntMap<int>& level) const;
-  bool setTmpPrevious(const IntMap<int>& level, int currentLvl);
-  bool hasCorrectTmpPrevious(const IntMap<int>& level, int currentLvl);
-  bool canPropagateOnPrevious(const std::vector<int>& pos, int trailpos);
+  bool setTmpPrevious(const IntMap<int>& level, int decisionLvl);
   void undoOneTmpSlack(Lit l);
   bool fixCoefSmallerThanTmpSlack(Lit l);
+  bool hasCorrectTmpPrevious(const IntMap<int>& level, int decisionLvl);
+  bool canPropagateOnPrevious(const std::vector<int>& pos, int trailpos);
+  void undoOneTmpPrevious(const LitVec& trail, const std::vector<int>& trail_lim);
   bool hasNegativeSlack(const IntMap<int>& level) const;
   bool isTautology() const;
   bool isUnsat() const;
@@ -783,8 +785,11 @@ struct ConstrExp final : ConstrExpSuper {
     } else if (conflCoef == 1) {
       fixed = true;
       multipliedConflict = true;
-      multiply(reason->getCoef(asserting));
-      tmpSlack *= reason->getCoef(asserting);
+      const SMALL& mult = reason->getCoef(asserting);
+      multiply(mult);
+      tmpSlack *= mult;
+      tmpPrevSlack *= mult;
+      tmpPrevLargestCf *= mult;
       assert(reason->getSlack(level) + tmpSlack < 0);
     }
 
@@ -810,6 +815,8 @@ struct ConstrExp final : ConstrExpSuper {
           global.stats.NMULTWEAKENEDCONFLICT.z += 1;
           multiply(mult);
           tmpSlack *= mult;
+          tmpPrevSlack *= mult;
+          tmpPrevLargestCf *= mult;
           SMALL toWeaken = reasonCoef - conflCoef * mult;
           reason->weakenCheckSaturated(toWeaken, asserting, level);
           assert(reason->getCoef(asserting) == getCoef(-asserting));
@@ -929,10 +936,13 @@ struct ConstrExp final : ConstrExpSuper {
         }
       }
     }
-    LARGE oldDegree = getDegree();
+
+    const LARGE oldDegree = getDegree();
     // add reason to conflict
+    addUp(reason);
     // slack is subadditive
     tmpSlack -= reason->getDegree();
+    tmpPrevSlack -= reason->getDegree();
     for (Var v : reason->vars) {
       Lit l = reason->getLit(v);
       if (!isFalse(level, l)) {
@@ -943,8 +953,16 @@ struct ConstrExp final : ConstrExpSuper {
           if (cf > 0) tmpSlack -= aux::min(cf, rcf);
         }
       }
+      if (level[-l] >= decisionLvl) {
+        const SMALL rcf = reason->absCoef(v);
+        tmpPrevSlack += rcf;
+        if (level[l] >= decisionLvl) {
+          const SMALL cf = getCoef(-l);
+          if (cf > 0) tmpPrevSlack -= aux::min(cf, rcf);
+          tmpPrevLargestCf = aux::max(tmpPrevLargestCf, rcf);
+        }
+      }
     }
-    addUp(reason);
 
     VarVec& varsToCheck = !multipliedConflict && oldDegree <= getDegree() ? reason->vars : vars;
     SMALL largestCF = getLargestCoef(varsToCheck);
@@ -956,6 +974,7 @@ struct ConstrExp final : ConstrExpSuper {
     assert(getCoef(-asserting) <= 0);
     assert(hasNegativeSlack(level));
     assert(hasCorrectTmpSlack(level));
+    assert(hasCorrectTmpPrevious(level,decisionLvl));
 
     return reason->getLBD(level);
   }
