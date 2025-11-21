@@ -399,23 +399,17 @@ struct ConstrExpSuper {
   virtual void toStreamPure(std::ostream& o) const = 0;
 
   virtual unsigned int resolveWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit l,
-                                   const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet,
-                                   const SymbolicBound* sb) = 0;
+                                   const Solver& solver, const SymbolicBound* sb) = 0;
   virtual unsigned int resolveWith(const Lit* lits, const int* coefs, unsigned int size, const int64_t& degr, ID id,
-                                   Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos,
-                                   IntSet& actSet, const SymbolicBound* sb) = 0;
+                                   Origin o, Lit l, const Solver& solver, const SymbolicBound* sb) = 0;
   virtual unsigned int resolveWith(const Lit* lits, const int64_t* coefs, unsigned int size, const int128& degr, ID id,
-                                   Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos,
-                                   IntSet& actSet, const SymbolicBound* sb) = 0;
+                                   Origin o, Lit l, const Solver& solver, const SymbolicBound* sb) = 0;
   virtual unsigned int resolveWith(const Lit* lits, const int128* coefs, unsigned int size, const int128& degr, ID id,
-                                   Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos,
-                                   IntSet& actSet, const SymbolicBound* sb) = 0;
+                                   Origin o, Lit l, const Solver& solver, const SymbolicBound* sb) = 0;
   virtual unsigned int resolveWith(const Lit* lits, const int128* coefs, unsigned int size, const int256& degr, ID id,
-                                   Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos,
-                                   IntSet& actSet, const SymbolicBound* sb) = 0;
+                                   Origin o, Lit l, const Solver& solver, const SymbolicBound* sb) = 0;
   virtual unsigned int resolveWith(const Lit* lits, const bigint* coefs, unsigned int size, const bigint& degr, ID id,
-                                   Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos,
-                                   IntSet& actSet, const SymbolicBound* sb) = 0;
+                                   Origin o, Lit l, const Solver& solver, const SymbolicBound* sb) = 0;
   virtual unsigned int subsumeWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit l,
                                    const IntMap<int>& level, const std::vector<int>& pos, IntSet& saturatedLits) = 0;
   virtual unsigned int subsumeWith(const Lit* lits, const int* coefs, unsigned int size, const int64_t& degr, ID id,
@@ -658,23 +652,18 @@ struct ConstrExp final : ConstrExpSuper {
   void toStreamWithAssignment(std::ostream& o, const IntMap<int>& level, const std::vector<int>& pos) const;
   void toStreamPure(std::ostream& o) const;
 
-  unsigned int resolveWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit l, const IntMap<int>& level,
-                           const std::vector<int>& pos, IntSet& actSet, const SymbolicBound* sb);
+  unsigned int resolveWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit l, const Solver& solver,
+                           const SymbolicBound* sb);
   unsigned int resolveWith(const Lit* lits, const int* coefs, unsigned int size, const int64_t& degr, ID id, Origin o,
-                           Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet,
-                           const SymbolicBound* sb);
+                           Lit l, const Solver& solver, const SymbolicBound* sb);
   unsigned int resolveWith(const Lit* lits, const int64_t* coefs, unsigned int size, const int128& degr, ID id,
-                           Origin o, Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet,
-                           const SymbolicBound* sb);
+                           Origin o, Lit l, const Solver& solver, const SymbolicBound* sb);
   unsigned int resolveWith(const Lit* lits, const int128* coefs, unsigned int size, const int128& degr, ID id, Origin o,
-                           Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet,
-                           const SymbolicBound* sb);
+                           Lit l, const Solver& solver, const SymbolicBound* sb);
   unsigned int resolveWith(const Lit* lits, const int128* coefs, unsigned int size, const int256& degr, ID id, Origin o,
-                           Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet,
-                           const SymbolicBound* sb);
+                           Lit l, const Solver& solver, const SymbolicBound* sb);
   unsigned int resolveWith(const Lit* lits, const bigint* coefs, unsigned int size, const bigint& degr, ID id, Origin o,
-                           Lit l, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet,
-                           const SymbolicBound* sb);
+                           Lit l, const Solver& solver, const SymbolicBound* sb);
   unsigned int subsumeWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit l, const IntMap<int>& level,
                            const std::vector<int>& pos, IntSet& saturatedLits);
   unsigned int subsumeWith(const Lit* lits, const int* coefs, unsigned int size, const int64_t& degr, ID id, Lit l,
@@ -757,8 +746,8 @@ struct ConstrExp final : ConstrExpSuper {
 
   template <typename CF, typename DG>
   unsigned int genericResolve(const Lit* lits, const CF* cfs, unsigned int size, const DG& degr, ID id, Origin o,
-                              Lit asserting, const IntMap<int>& level, const std::vector<int>& pos, IntSet& actSet,
-                              const SymbolicBound* sb) {
+                              Lit asserting, const IntMap<int>& level, const std::vector<int>& pos,
+                              const int decisionLvl, const SymbolicBound* sb) {
     // "this" is the conflict constraint.
     // The terms, degree, and other information from the reason constraint are in the arguments.
     assert(getCoef(-asserting) > 0);
@@ -929,14 +918,6 @@ struct ConstrExp final : ConstrExpSuper {
 
     // In most cases, at this point, the reason coefficient is equal to the conflict coefficient
     // and the reason slack is at most zero, so we can safely add the reason to the conflict.
-    if (global.options.varReasonAct) {
-      for (Var v : reason->vars) {
-        if (isFalse(level, reason->getLit(v))) {
-          actSet.add(v);
-        }
-      }
-    }
-
     const LARGE oldDegree = getDegree();
     // add reason to conflict
     addUp(reason);
@@ -974,7 +955,7 @@ struct ConstrExp final : ConstrExpSuper {
     assert(getCoef(-asserting) <= 0);
     assert(hasNegativeSlack(level));
     assert(hasCorrectTmpSlack(level));
-    assert(hasCorrectTmpPrevious(level,decisionLvl));
+    assert(hasCorrectTmpPrevious(level, decisionLvl));
 
     return reason->getLBD(level);
   }

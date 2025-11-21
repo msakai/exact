@@ -496,7 +496,7 @@ resolve:
       assert(isPropagated(reason, l));
       Constr& reasonC = ca[reason[toVar(l)]];
 
-      unsigned int lbd = reasonC.resolveWith(confl, l, *this, actSet);
+      unsigned int lbd = reasonC.resolveWith(confl, l, *this);
       reasonC.decreaseLBD(lbd);
       reasonC.fixEncountered(global.stats);
     }
@@ -643,7 +643,7 @@ CeSuper Solver::extractCore(const CeSuper& conflict, Lit l_assump) {
       assert(isPropagated(reason, l));
       Constr& reasonC = ca[reason[toVar(l)]];
 
-      unsigned int lbd = reasonC.resolveWith(core, l, *this, actSet);
+      unsigned int lbd = reasonC.resolveWith(core, l, *this);
       reasonC.decreaseLBD(lbd);
       reasonC.fixEncountered(global.stats);
     }

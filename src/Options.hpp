@@ -209,7 +209,6 @@ struct Options {
   BoolOption varSol{"var-sol", "Use last solution as phase", true};
   BoolOption varObjective{"var-objective", "Initialize heuristic to optimize the objective variables first", false};
   BoolOption varConflAct{"var-conflict", "Bump falsified conflict variables upon learning a constraint", true};
-  BoolOption varReasonAct{"var-reason", "Bump falsified reason variables upon learning a constraint", false};
   BoolOption varLearnedAct{"var-learned", "Bump falsified learned constraint variables", false};
   BoolOption varSaturatedAct{"var-saturated", "Bump saturated learned constraint variables twice", false};
   ValOption<int32_t> dbDecayLBD{"db-decay", "Decay term for the LBD of constraints", 1, "0 (no decay) =< int",
@@ -262,11 +261,11 @@ struct Options {
   ValOption<int64_t> subsetSum{"ca-subsetsum",
                                "Use subset sum calculations to lift the degree and remove superfluous literals when "
                                "the estimated cost is at most this value (0 disables)",
-                               static_cast<int32_t>(0), "0 =< 1e9",
+                               static_cast<int32_t>(1000000), "0 =< 1e9",
                                [](const int64_t& x) -> bool { return x >= 0 && x <= 1e9; }};
   BoolOption weakenCanceling{"ca-weakencanceling", "Weaken overly canceling reason variables", false};
   BoolOption skipResolution{"ca-skipresolution", "Skip resolving a literal when the conflict slack is sufficiently low",
-                            false};
+                            true};
   ValOption<int32_t> bitsOverflow{
       "bits-overflow",
       "Bit width of maximum coefficient during conflict analysis calculations (0 is unlimited, "
@@ -316,7 +315,7 @@ struct Options {
                            "0 =< float <= 1", [](const double& x) -> bool { return 1 >= x && x >= 0; }};
   ValOption<DetTime> basetime{"inp-basetime", "Initial deterministic time allotted to presolve techniques", 1,
                               "0 =< float", [](const DetTime& x) -> bool { return x >= 0; }};
-  ValOption<int> liftDegreeSymbolic{"inp-liftsymb", "Use symbolic bounds to lift the degree of a constraint", 0,
+  ValOption<int> liftDegreeSymbolic{"inp-liftsymb", "Use symbolic bounds to lift the degree of a constraint", 2,
                                     "0 =< int =< 2", [](const int& x) -> bool { return x >= 0 && x <= 2; }};
   BoolOption symbDegNoSat{"inp-liftsymbsat",
                           "If true, saturation weakens symbolic bounds, else saturation invalidates symbolic bounds",
@@ -347,7 +346,6 @@ struct Options {
       &varSol,
       &varObjective,
       &varConflAct,
-      &varReasonAct,
       &varLearnedAct,
       &varSaturatedAct,
       &dbDecayLBD,

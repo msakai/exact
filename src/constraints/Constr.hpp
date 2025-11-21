@@ -116,7 +116,7 @@ struct Constr {  // internal solver constraint optimized for fast propagation
   virtual void initializeWatches(CRef cr, Solver& solver) = 0;
   virtual WatchStatus checkForPropagation(Watch& w, Lit p, Solver& slvr, Stats& stats) = 0;
   virtual void undoFalsified(uint32_t i) = 0;
-  virtual uint32_t resolveWith(CeSuper& confl, Lit l, Solver& solver, IntSet& actSet) const = 0;
+  virtual uint32_t resolveWith(CeSuper& confl, Lit l, const Solver& solver) const = 0;
   virtual uint32_t subsumeWith(CeSuper& confl, Lit l, Solver& solver, IntSet& saturatedLits) const = 0;
 
   virtual CeSuper toExpanded(ConstrExpPools& cePools) const = 0;
@@ -162,7 +162,7 @@ struct Binary final : Constr {
   void initializeWatches(CRef cr, Solver& solver);
   WatchStatus checkForPropagation(Watch& w, Lit p, Solver& solver, Stats& stats);
   void undoFalsified([[maybe_unused]] uint32_t i) { assert(false); }
-  uint32_t resolveWith(CeSuper& confl, Lit l, Solver& solver, IntSet& actSet) const;
+  uint32_t resolveWith(CeSuper& confl, Lit l, const Solver& solver) const;
   uint32_t subsumeWith(CeSuper& confl, Lit l, Solver& solver, IntSet& saturatedLits) const;
 
   CeSuper toExpanded(ConstrExpPools& cePools) const;
@@ -206,7 +206,7 @@ struct Clause final : Constr {
   void initializeWatches(CRef cr, Solver& solver);
   WatchStatus checkForPropagation(Watch& w, Lit p, Solver& solver, Stats& stats);
   void undoFalsified([[maybe_unused]] uint32_t i) { assert(false); }
-  uint32_t resolveWith(CeSuper& confl, Lit l, Solver& solver, IntSet& actSet) const;
+  uint32_t resolveWith(CeSuper& confl, Lit l, const Solver& solver) const;
   uint32_t subsumeWith(CeSuper& confl, Lit l, Solver& solver, IntSet& saturatedLits) const;
 
   CeSuper toExpanded(ConstrExpPools& cePools) const;
@@ -254,7 +254,7 @@ struct Cardinality final : Constr {
   void initializeWatches(CRef cr, Solver& solver);
   WatchStatus checkForPropagation(Watch& w, Lit p, Solver& solver, Stats& stats);
   void undoFalsified([[maybe_unused]] uint32_t i) { assert(false); }
-  uint32_t resolveWith(CeSuper& confl, Lit l, Solver& solver, IntSet& actSet) const;
+  uint32_t resolveWith(CeSuper& confl, Lit l, const Solver& solver) const;
   uint32_t subsumeWith(CeSuper& confl, Lit l, Solver& solver, IntSet& saturatedLits) const;
 
   CeSuper toExpanded(ConstrExpPools& cePools) const;
@@ -314,7 +314,7 @@ struct Watched32 final : Constr {
   void initializeWatches(CRef cr, Solver& solver);
   WatchStatus checkForPropagation(Watch& w, [[maybe_unused]] Lit p, Solver& solver, Stats& stats);
   void undoFalsified(uint32_t i);
-  uint32_t resolveWith(CeSuper& confl, Lit l, Solver& solver, IntSet& actSet) const;
+  uint32_t resolveWith(CeSuper& confl, Lit l, const Solver& solver) const;
   uint32_t subsumeWith(CeSuper& confl, Lit l, Solver& solver, IntSet& saturatedLits) const;
 
   Ce32 expandTo(ConstrExpPools& cePools) const;
@@ -379,7 +379,7 @@ struct Watched final : Constr {
   void initializeWatches(CRef cr, Solver& solver);
   WatchStatus checkForPropagation(Watch& w, [[maybe_unused]] Lit p, Solver& solver, Stats& stats);
   void undoFalsified(uint32_t i);
-  uint32_t resolveWith(CeSuper& confl, Lit l, Solver& solver, IntSet& actSet) const;
+  uint32_t resolveWith(CeSuper& confl, Lit l, const Solver& solver) const;
   uint32_t subsumeWith(CeSuper& confl, Lit l, Solver& solver, IntSet& saturatedLits) const;
 
   CePtr<CF, DG> expandTo(ConstrExpPools& cePools) const;
