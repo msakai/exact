@@ -760,18 +760,22 @@ bool ConstrExp<SMALL, LARGE>::hasCorrectTmpPrevious(const IntMap<int>& level, in
   bool result = true;
   result = result && tps == tmpPrevSlack;
   result = result && tplcf >= tmpPrevLargestCf;
+  if (!result) {
+    aux::cout << tmpPrevSlack << " " << tmpPrevLargestCf << std::endl;  // new
+    aux::cout << tps << " " << tplcf << std::endl;                      // original
+  }
   tmpPrevSlack = tps;
   tmpPrevLargestCf = tplcf;
   return result;
 }
 
 template <typename SMALL, typename LARGE>
-bool ConstrExp<SMALL, LARGE>::canPropagateOnPrevious(const std::vector<int>& pos, int trailpos) {
-  assert(trailpos > 0);  // otherwise we are already at root level
+bool ConstrExp<SMALL, LARGE>::canPropagateOnPrevious(const std::vector<int>& pos, int decisionPos) {
+  assert(decisionPos > 0);  // otherwise we are already at root level
   if (tmpPrevSlack >= tmpPrevLargestCf) return false;
   tmpPrevLargestCf = 0;
   for (Var v : vars) {
-    if (pos[v] >= trailpos) {  // unknown at previous level
+    if (pos[v] >= decisionPos) {  // unknown at previous level
       tmpPrevLargestCf = aux::max(tmpPrevLargestCf, absCoef(v));
     }
   }
@@ -2178,6 +2182,7 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
   assert(hasNoZeroes());
   assert(sb == nullptr || sb->isValid());
   assert(isTrue(level, toProp));
+  assert(hasCorrectTmpPrevious(level, decisionLvl));
   global.stats.NADDEDLITERALS += data.size();
 
   if (getDegree() == 1 && deg == 1) {
@@ -2203,6 +2208,8 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
     }
     rhs += (toProp > 0);
     remove(toVar(toProp));
+    assert(isClause());  // clausal resolution yields new clauses
+    assert(hasCorrectTmpPrevious(level, decisionLvl));
 
     if (global.logger.isActive()) {
       proofBuffer << id << " + s ";
@@ -2304,6 +2311,7 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
       saturateAndFixOverflow(level, decisionLvl, global.options.bitsOverflow.get(), global.options.bitsReduced.get(), 0,
                              false);
     }
+    assert(hasCorrectTmpPrevious(level, decisionLvl));
   }
 
   assert(getCoef(-toProp) == 0);
@@ -2388,35 +2396,35 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* lits, const int* cf
                                                   const int64_t& degr, ID id, Origin o, Lit l, const Solver& solver,
                                                   const SymbolicBound* sb) {
   return genericResolve(lits, cfs, size, degr, id, o, l, solver.getLevel(), solver.getPos(), solver.decisionLevel(),
-                        sb);
+                        solver.decisionPos(), sb);
 }
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* lits, const int64_t* cfs, unsigned int size,
                                                   const int128& degr, ID id, Origin o, Lit l, const Solver& solver,
                                                   const SymbolicBound* sb) {
   return genericResolve(lits, cfs, size, degr, id, o, l, solver.getLevel(), solver.getPos(), solver.decisionLevel(),
-                        sb);
+                        solver.decisionPos(), sb);
 }
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* lits, const int128* cfs, unsigned int size,
                                                   const int128& degr, ID id, Origin o, Lit l, const Solver& solver,
                                                   const SymbolicBound* sb) {
   return genericResolve(lits, cfs, size, degr, id, o, l, solver.getLevel(), solver.getPos(), solver.decisionLevel(),
-                        sb);
+                        solver.decisionPos(), sb);
 }
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* lits, const int128* cfs, unsigned int size,
                                                   const int256& degr, ID id, Origin o, Lit l, const Solver& solver,
                                                   const SymbolicBound* sb) {
   return genericResolve(lits, cfs, size, degr, id, o, l, solver.getLevel(), solver.getPos(), solver.decisionLevel(),
-                        sb);
+                        solver.decisionPos(), sb);
 }
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* lits, const bigint* cfs, unsigned int size,
                                                   const bigint& degr, ID id, Origin o, Lit l, const Solver& solver,
                                                   const SymbolicBound* sb) {
   return genericResolve(lits, cfs, size, degr, id, o, l, solver.getLevel(), solver.getPos(), solver.decisionLevel(),
-                        sb);
+                        solver.decisionPos(), sb);
 }
 
 template <typename SMALL, typename LARGE>

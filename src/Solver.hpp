@@ -185,6 +185,7 @@ class Solver {
 
   int decisionLevel() const { return static_cast<int32_t>(trail_lim.size()); }
   int assumptionLevel() const { return static_cast<int32_t>(assumptions_lim.size()) - 1; }
+  int decisionPos() const { return trail_lim.back(); }
 
   // @return: formula line id, processed id, needed for optimization proof logging
   std::pair<ID, ID> addConstraint(const CeSuper& c);

@@ -209,8 +209,6 @@ struct Options {
   BoolOption varSol{"var-sol", "Use last solution as phase", true};
   BoolOption varObjective{"var-objective", "Initialize heuristic to optimize the objective variables first", false};
   BoolOption varConflAct{"var-conflict", "Bump falsified conflict variables upon learning a constraint", true};
-  BoolOption varLearnedAct{"var-learned", "Bump falsified learned constraint variables", false};
-  BoolOption varSaturatedAct{"var-saturated", "Bump saturated learned constraint variables twice", false};
   ValOption<int32_t> dbDecayLBD{"db-decay", "Decay term for the LBD of constraints", 1, "0 (no decay) =< int",
                                 [](const int32_t& x) -> bool { return 0 <= x; }};
   ValOption<int64_t> dbBase{"db-base", "Initial number of conflicts at which database cleaning is performed.", 2000,
@@ -263,7 +261,6 @@ struct Options {
                                "the estimated cost is at most this value (0 disables)",
                                static_cast<int32_t>(1000000), "0 =< 1e9",
                                [](const int64_t& x) -> bool { return x >= 0 && x <= 1e9; }};
-  BoolOption weakenCanceling{"ca-weakencanceling", "Weaken overly canceling reason variables", false};
   BoolOption skipResolution{"ca-skipresolution", "Skip resolving a literal when the conflict slack is sufficiently low",
                             true};
   ValOption<int32_t> bitsOverflow{
@@ -346,8 +343,6 @@ struct Options {
       &varSol,
       &varObjective,
       &varConflAct,
-      &varLearnedAct,
-      &varSaturatedAct,
       &dbDecayLBD,
       &dbBase,
       &dbExp,
@@ -371,7 +366,6 @@ struct Options {
       &learnedMin,
       &caCancelingUnkns,
       &subsetSum,
-      &weakenCanceling,
       &skipResolution,
       &bitsOverflow,
       &bitsReduced,

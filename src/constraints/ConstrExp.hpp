@@ -341,7 +341,7 @@ struct ConstrExpSuper {
   virtual bool fixCoefSmallerThanTmpSlack(Lit l) = 0;
   virtual bool setTmpPrevious(const IntMap<int>& level, int decisionLvl) = 0;
   virtual bool hasCorrectTmpPrevious(const IntMap<int>& level, int decisionLvl) = 0;
-  virtual bool canPropagateOnPrevious(const std::vector<int>& pos, int trailpos) = 0;
+  virtual bool canPropagateOnPrevious(const std::vector<int>& pos, int decisionPos) = 0;
   virtual void undoOneTmpPrevious(const LitVec& trail, const std::vector<int>& trail_lim) = 0;
   virtual bool hasNegativeSlack(const IntMap<int>& level) const = 0;
   virtual bool isTautology() const = 0;
@@ -502,7 +502,7 @@ struct ConstrExp final : ConstrExpSuper {
   void undoOneTmpSlack(Lit l);
   bool fixCoefSmallerThanTmpSlack(Lit l);
   bool hasCorrectTmpPrevious(const IntMap<int>& level, int decisionLvl);
-  bool canPropagateOnPrevious(const std::vector<int>& pos, int trailpos);
+  bool canPropagateOnPrevious(const std::vector<int>& pos, int decisionPos);
   void undoOneTmpPrevious(const LitVec& trail, const std::vector<int>& trail_lim);
   bool hasNegativeSlack(const IntMap<int>& level) const;
   bool isTautology() const;
@@ -744,11 +744,13 @@ struct ConstrExp final : ConstrExpSuper {
   template <typename CF, typename DG>
   unsigned int genericResolve(const Lit* lits, const CF* cfs, unsigned int size, const DG& degr, ID id, Origin o,
                               Lit asserting, const IntMap<int>& level, const std::vector<int>& pos,
-                              const int decisionLvl, const SymbolicBound* sb) {
+                              const int decisionLvl, const int decisionPos, const SymbolicBound* sb) {
+    // TODO: simplify in case degree == 1
     // "this" is the conflict constraint.
     // The terms, degree, and other information from the reason constraint are in the arguments.
     assert(getCoef(-asserting) > 0);
     assert(hasNoZeroes());
+    assert(hasCorrectTmpPrevious(level, decisionLvl));
 
     // take an empty reason CE
     CePtr<SMALL, LARGE> reason = global.cePools.take<SMALL, LARGE>();
@@ -778,6 +780,8 @@ struct ConstrExp final : ConstrExpSuper {
       tmpPrevLargestCf *= mult;
       assert(reason->getSlack(level) + tmpSlack < 0);
     }
+
+    assert(hasCorrectTmpPrevious(level, decisionLvl));
 
     if (!fixed && global.options.multWeaken) {
       // based on the work of Orestis Lomis in his 2024 master thesis
@@ -809,6 +813,8 @@ struct ConstrExp final : ConstrExpSuper {
         }
       }
     }
+
+    assert(hasCorrectTmpPrevious(level, decisionLvl));
 
     if (!fixed && global.options.division.is("rto")) {
       fixed = true;
@@ -889,35 +895,8 @@ struct ConstrExp final : ConstrExpSuper {
     }
     assert(getCoef(-asserting) == reason->getCoef(asserting));
 
-    if (global.options.weakenCanceling) {
-      // TODO: think longer about this idea. It basically boils down to weakening non-falsifieds that don't have
-      // a (sufficient) opposite. That's a lot of weakening, probably. Why do all the division trouble up front?
-      if (reason->getSlack(level) <= 0) {
-        bool weakened = false;
-        for (Var v : reason->vars) {
-          Lit l = reason->getLit(v);
-          if (isFalse(level, l)) continue;  // cannot safely weaken falsifieds
-          SMALL tmp = getCoef(-l);
-          if (tmp < 0) continue;  // variable is present anyway
-          tmp = reason->absCoef(v) - tmp;
-          if (tmp > 0) {
-            weakened = true;
-            reason->weaken(l > 0 ? -tmp : tmp, v);
-          }
-        }
-        if (weakened) {
-          reason->sortInDecreasingCoefOrder([](Var v1, Var v2) { return v1 < v2; });
-          reason->saturate(true, true);
-          assert(reason->getSlack(level) <= 0);
-        }
-      }
-    }
+    assert(hasCorrectTmpPrevious(level, decisionLvl));
 
-    // In most cases, at this point, the reason coefficient is equal to the conflict coefficient
-    // and the reason slack is at most zero, so we can safely add the reason to the conflict.
-    const LARGE oldDegree = getDegree();
-    // add reason to conflict
-    addUp(reason);
     // slack is subadditive
     tmpSlack -= reason->getDegree();
     tmpPrevSlack -= reason->getDegree();
@@ -932,23 +911,48 @@ struct ConstrExp final : ConstrExpSuper {
           if (cf > 0) tmpSlack -= aux::min(cf, rcf);
         }
       }
-      if (level[-l] >= decisionLvl) {
+      if (level[-l] >= decisionLvl) {  // l is not false at previous level
         const SMALL rcf = reason->absCoef(v);
         tmpPrevSlack += rcf;
-        if (level[l] >= decisionLvl) {
+        if (level[l] >= decisionLvl) {  // l is not true (hence, unknown) at previous level
           const SMALL cf = getCoef(-l);
-          if (cf > 0) tmpPrevSlack -= aux::min(cf, rcf);
-          tmpPrevLargestCf = aux::max(tmpPrevLargestCf, rcf);
+          if (cf > 0) {
+            tmpPrevSlack -= aux::min(cf, rcf);
+            tmpPrevLargestCf = aux::max(tmpPrevLargestCf, aux::abs(rcf - cf));
+          } else {
+            tmpPrevLargestCf = aux::max(tmpPrevLargestCf, aux::abs(rcf + getCoef(l)));
+          }
         }
       }
     }
 
-    VarVec& varsToCheck = !multipliedConflict && oldDegree <= getDegree() ? reason->vars : vars;
+    // In most cases, at this point, the reason coefficient is equal to the conflict coefficient
+    // and the reason slack is at most zero, so we can safely add the reason to the conflict.
+    const LARGE oldDegree = getDegree();
+    // add reason to conflict
+    addUp(reason);
+
+    assert(hasCorrectTmpPrevious(level, decisionLvl));
+
+    const VarVec& varsToCheck = !multipliedConflict && oldDegree <= getDegree() ? reason->vars : vars;
     SMALL largestCF = getLargestCoef(varsToCheck);
     if (largestCF > getDegree()) {
-      saturate(varsToCheck, false, false);
       largestCF = static_cast<SMALL>(getDegree());
+      const SMALL& smallDeg = largestCF;
+      if (tmpPrevLargestCf > smallDeg) {
+        // unknowns at the current level can impact tmpPrevSlack and tmpPrefLargestCf
+        tmpPrevLargestCf = smallDeg;
+        for (Var v : varsToCheck) {
+          if (pos[v] < decisionPos) continue;  // not unknown
+          if (coefs[v] < -smallDeg || coefs[v] > smallDeg) {
+            tmpPrevSlack -= aux::abs(coefs[v]) - smallDeg;
+          }
+        }
+      }
+      saturate(varsToCheck, false, false);
     }
+    assert(hasCorrectTmpPrevious(level, decisionLvl));
+
     fixOverflow(level, decisionLvl, global.options.bitsOverflow.get(), global.options.bitsReduced.get(), largestCF, 0);
     assert(getCoef(-asserting) <= 0);
     assert(hasNegativeSlack(level));

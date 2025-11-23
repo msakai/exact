@@ -459,15 +459,17 @@ CeSuper Solver::analyze(const CeSuper& conflict) {
   CeSuper confl = getAnalysisCE(conflict);
   confl->orig = Origin::LEARNED;
   confl->setTmpSlack(level);
+  confl->setTmpPrevious(level, decisionLevel());
 
   IntSet& actSet = global.isPool.take();  // will hold the literals that need their activity bumped
-  if (global.options.varConflAct) {
-    for (Var v : confl->getVars()) {
-      if (isFalse(level, confl->getLit(v))) {
-        actSet.add(v);
-      }
-    }
-  }
+  // TODO: test with change below
+  // if (global.options.varConflAct) {
+  //   for (Var v : confl->getVars()) {
+  //     if (isFalse(level, confl->getLit(v))) {
+  //       actSet.add(v);
+  //     }
+  //   }
+  // }
 
 resolve:
   while (decisionLevel() > 0) {
@@ -483,13 +485,16 @@ resolve:
         int backjumpTo = decisionLevel() - 1;
         while (decisionLevel() > backjumpTo) {
           confl->undoOneTmpSlack(trail.back());
+          confl->undoOneTmpPrevious(trail, trail_lim);
           undoOne();
         }
         assert(confl->hasNegativeSlack(level));
         assert(confl->hasCorrectTmpSlack(level));
+        assert(confl->hasCorrectTmpPrevious(level, decisionLevel()));
         continue;
       }
       if (global.options.skipResolution && confl->fixCoefSmallerThanTmpSlack(-l)) {
+        confl->undoOneTmpPrevious(trail, trail_lim);
         undoOne();
         continue;
       }
@@ -501,19 +506,12 @@ resolve:
       reasonC.fixEncountered(global.stats);
     }
     confl->undoOneTmpSlack(l);
+    confl->undoOneTmpPrevious(trail, trail_lim);
     undoOne();
   }
   if (global.options.learnedMin && decisionLevel() > 0) {
     minimize(confl);
     if (confl->isAssertingBefore(level, decisionLevel()) != AssertionStatus::ASSERTING) goto resolve;
-  }
-
-  if (global.options.varLearnedAct) {
-    for (Var v : confl->getVars()) {
-      if (isFalse(level, confl->getLit(v))) {
-        actSet.add(v);
-      }
-    }
   }
 
   aux::timeCallVoid(
@@ -522,20 +520,6 @@ resolve:
       },
       global.stats.HEURTIME.z);
 
-  if (global.options.varSaturatedAct) {
-    actSet.clear();
-    for (Var v : confl->getVars()) {
-      if (confl->isSaturatedVar(v)) {
-        assert(isFalse(level, confl->getLit(v)));
-        actSet.add(v);
-      }
-    }
-    aux::timeCallVoid(
-        [&] {
-          heur.vBumpActivity(actSet.getKeysMutable(), getPos(), global.options.varWeight.get(), global.stats.NCONFL.z);
-        },
-        global.stats.HEURTIME.z);
-  }
   global.isPool.release(actSet);
 
   assert(confl->hasNegativeSlack(level));
@@ -635,7 +619,16 @@ CeSuper Solver::extractCore(const CeSuper& conflict, Lit l_assump) {
 
   // analyze conflict to the point where we have a decision core
   IntSet& actSet = global.isPool.take();
+  if (global.options.varConflAct) {
+    for (Var v : core->getVars()) {
+      if (isFalse(level, core->getLit(v))) {
+        actSet.add(v);
+      }
+    }
+  }
+
   core->setTmpSlack(level);
+  core->setTmpPrevious(level, decisionLevel());  // TODO: unnecessary overhead for extracting core
   while (decisionLevel() > 0 && isPropagated(reason, trail.back())) {
     quit::checkInterrupt(global);
     Lit l = trail.back();
@@ -648,15 +641,8 @@ CeSuper Solver::extractCore(const CeSuper& conflict, Lit l_assump) {
       reasonC.fixEncountered(global.stats);
     }
     core->undoOneTmpSlack(l);
+    core->undoOneTmpPrevious(trail, trail_lim);
     undoOne();
-  }
-
-  if (global.options.varLearnedAct) {
-    for (Var v : core->getVars()) {
-      if (isFalse(level, core->getLit(v))) {
-        actSet.add(v);
-      }
-    }
   }
 
   aux::timeCallVoid(
@@ -665,19 +651,6 @@ CeSuper Solver::extractCore(const CeSuper& conflict, Lit l_assump) {
       },
       global.stats.HEURTIME.z);
   global.isPool.release(actSet);
-
-  if (global.options.varSaturatedAct) {
-    props.clear();
-    for (Var v : core->getVars()) {
-      if (core->isSaturatedVar(v)) {
-        assert(isFalse(level, core->getLit(v)));
-        props.push_back(v);
-      }
-    }
-    aux::timeCallVoid(
-        [&] { heur.vBumpActivity(props, getPos(), global.options.varWeight.get(), global.stats.NCONFL.z); },
-        global.stats.HEURTIME.z);
-  }
 
   // weaken non-falsifieds
   assert(core->hasNegativeSlack(assumptions.getIndex()));
