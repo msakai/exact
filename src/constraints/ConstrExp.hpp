@@ -339,7 +339,7 @@ struct ConstrExpSuper {
   virtual bool setTmpPrevious(const IntMap<int>& level, int decisionLvl) = 0;
   virtual bool hasCorrectTmpPrevious(const IntMap<int>& level, int decisionLvl) = 0;
   virtual bool canPropagateOnPrevious(const std::vector<int>& pos, int decisionPos) = 0;
-  virtual void undoOneTmpPrevious(const LitVec& trail, const std::vector<int>& trail_lim, bool isDecision) = 0;
+  virtual void undoOneTmpPrevious(const LitVec& trail, const std::vector<int>& trail_lim) = 0;
   virtual bool hasNegativeSlack(const IntMap<int>& level) const = 0;
   virtual bool isTautology() const = 0;
   virtual bool isUnsat() const = 0;
@@ -500,7 +500,7 @@ struct ConstrExp final : ConstrExpSuper {
   bool fixCoefSmallerThanTmpSlack(Lit l);
   bool hasCorrectTmpPrevious(const IntMap<int>& level, int decisionLvl);
   bool canPropagateOnPrevious(const std::vector<int>& pos, int decisionPos);
-  void undoOneTmpPrevious(const LitVec& trail, const std::vector<int>& trail_lim, bool isDecision);
+  void undoOneTmpPrevious(const LitVec& trail, const std::vector<int>& trail_lim);
   bool hasNegativeSlack(const IntMap<int>& level) const;
   bool isTautology() const;
   bool isUnsat() const;
@@ -749,7 +749,6 @@ struct ConstrExp final : ConstrExpSuper {
     // The terms, degree, and other information from the reason constraint are in the arguments.
     assert(getCoef(-asserting) > 0);
     assert(hasNoZeroes());
-    assert(hasCorrectTmpPrevious(level, decisionLvl));
 
     // take an empty reason CE
     CePtr<SMALL, LARGE> reason = global.cePools.take<SMALL, LARGE>();
@@ -779,8 +778,6 @@ struct ConstrExp final : ConstrExpSuper {
       tmpPrevLargestCf *= mult;
       assert(reason->getSlack(level) + tmpSlack < 0);
     }
-
-    assert(hasCorrectTmpPrevious(level, decisionLvl));
 
     if (!fixed && global.options.multWeaken) {
       // based on the work of Orestis Lomis in his 2024 master thesis
@@ -812,8 +809,6 @@ struct ConstrExp final : ConstrExpSuper {
         }
       }
     }
-
-    assert(hasCorrectTmpPrevious(level, decisionLvl));
 
     if (!fixed && global.options.division.is("rto")) {
       fixed = true;
@@ -894,8 +889,6 @@ struct ConstrExp final : ConstrExpSuper {
     }
     assert(getCoef(-asserting) == reason->getCoef(asserting));
 
-    assert(hasCorrectTmpPrevious(level, decisionLvl));
-
     // slack is subadditive
     tmpSlack -= reason->getDegree();
     tmpPrevSlack -= reason->getDegree();
@@ -930,8 +923,6 @@ struct ConstrExp final : ConstrExpSuper {
     const LARGE oldDegree = getDegree();
     // add reason to conflict
     addUp(reason);
-
-    assert(hasCorrectTmpPrevious(level, decisionLvl));
 
     const VarVec& varsToCheck = !multipliedConflict && oldDegree <= getDegree() ? reason->vars : vars;
     SMALL largestCF = getLargestCoef(varsToCheck);

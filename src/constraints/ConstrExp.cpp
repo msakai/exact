@@ -783,14 +783,11 @@ bool ConstrExp<SMALL, LARGE>::canPropagateOnPrevious(const std::vector<int>& pos
 }
 
 template <typename SMALL, typename LARGE>
-void ConstrExp<SMALL, LARGE>::undoOneTmpPrevious(const LitVec& trail, const std::vector<int>& trail_lim,
-                                                 bool isDecision) {
+void ConstrExp<SMALL, LARGE>::undoOneTmpPrevious(const LitVec& trail, const std::vector<int>& trail_lim) {
   assert(trail_lim.size() >= 1);
   if (trail_lim.back() + 1 != std::ssize(trail)) {  // we are not backjumping over decision, so nothing to do
-    assert(!isDecision);
     return;
   }
-  assert(isDecision);
   // backjumping over decision: take all previous level literals into account
   for (uint32_t i = trail_lim.size() >= 2 ? trail_lim[trail_lim.size() - 2] : 0; i + 1 < trail.size(); ++i) {
     const SMALL& cf = getCoef(-trail[i]);
@@ -2190,7 +2187,6 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
   assert(hasNoZeroes());
   assert(sb == nullptr || sb->isValid());
   assert(isTrue(level, toProp));
-  assert(hasCorrectTmpPrevious(level, decisionLvl));
   global.stats.NADDEDLITERALS += data.size();
 
   if (getDegree() == 1 && deg == 1) {
@@ -2219,7 +2215,6 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
     rhs += (toProp > 0);
     remove(toVar(toProp));
     assert(isClause());  // clausal resolution yields new clauses
-    assert(hasCorrectTmpPrevious(level, decisionLvl));
 
     if (global.logger.isActive()) {
       proofBuffer << id << " + s ";
@@ -2255,8 +2250,6 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
     } else if (symbBound.isValid() && sb == nullptr) {
       symbBound.addOffset(cmult * deg);
     }
-
-    assert(hasCorrectTmpPrevious(level, decisionLvl));
 
     addRhs(cmult * deg);
     tmpSlack -= cmult * deg;
@@ -2299,7 +2292,6 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
       add(v, cf, true, true);
       largestCF = std::max(largestCF, aux::abs(coefs[v]));
     }
-    assert(hasCorrectTmpPrevious(level, decisionLvl));
     assert(hasRhsDegreeInvariant());
     assert(getDegree() > 0);
     if (oldDegree <= getDegree()) {
@@ -2336,7 +2328,6 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
         setTmpPrevious(level, decisionLvl);
       }
     }
-    assert(hasCorrectTmpPrevious(level, decisionLvl));
   }
 
   assert(getCoef(-toProp) == 0);

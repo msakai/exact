@@ -485,7 +485,7 @@ resolve:
         int backjumpTo = decisionLevel() - 1;
         while (decisionLevel() > backjumpTo) {
           confl->undoOneTmpSlack(trail.back());
-          confl->undoOneTmpPrevious(trail, trail_lim, reason[toVar(trail.back())] == CRef_Undef);
+          confl->undoOneTmpPrevious(trail, trail_lim);
           undoOne();
         }
         assert(confl->hasNegativeSlack(level));
@@ -494,9 +494,8 @@ resolve:
         continue;
       }
       if (global.options.skipResolution && confl->fixCoefSmallerThanTmpSlack(-l)) {
-        confl->undoOneTmpPrevious(trail, trail_lim, reason[toVar(trail.back())] == CRef_Undef);
+        confl->undoOneTmpPrevious(trail, trail_lim);
         undoOne();
-        assert(confl->hasCorrectTmpPrevious(level, decisionLevel()));
         continue;
       }
       assert(isPropagated(reason, l));
@@ -507,9 +506,8 @@ resolve:
       reasonC.fixEncountered(global.stats);
     }
     confl->undoOneTmpSlack(l);  // TODO: not strictly needed?
-    confl->undoOneTmpPrevious(trail, trail_lim, reason[toVar(trail.back())] == CRef_Undef);
+    confl->undoOneTmpPrevious(trail, trail_lim);
     undoOne();
-    assert(confl->hasCorrectTmpPrevious(level, decisionLevel()));
   }
   assert(confl->hasCorrectTmpSlack(level));
   assert(confl->hasCorrectTmpPrevious(level, decisionLevel()));
@@ -645,7 +643,7 @@ CeSuper Solver::extractCore(const CeSuper& conflict, Lit l_assump) {
       reasonC.fixEncountered(global.stats);
     }
     core->undoOneTmpSlack(l);
-    core->undoOneTmpPrevious(trail, trail_lim, reason[toVar(l)] == CRef_Undef);
+    core->undoOneTmpPrevious(trail, trail_lim);
     undoOne();
   }
 
