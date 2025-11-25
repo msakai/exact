@@ -61,7 +61,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #pragma once
 
-#include <fstream>
 #include "Stats.hpp"
 #include "datastructures/IntMap.hpp"
 #include "typedefs.hpp"

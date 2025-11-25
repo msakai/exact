@@ -59,14 +59,10 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ***********************************************************************/
 
 #include "licenses.hpp"
-#include <cassert>
-#include <iomanip>
-#include <iostream>
-#include <unordered_map>
-#include <vector>
 #include "COPYING.hpp"
 #include "EPL.hpp"
 #include "MIT.hpp"
+#include "auxiliary.hpp"
 #include "boost.hpp"
 #include "roundingsat.hpp"
 #include "zib_apache.hpp"

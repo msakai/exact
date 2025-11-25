@@ -31,8 +31,6 @@ See the file LICENSE or run with the flag --license=MIT.
 #pragma once
 
 #include <pybind11/pybind11.h>
-#include <string>
-#include <vector>
 #include "auxiliary.hpp"
 #include "interface/IntProg.hpp"
 

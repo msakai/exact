@@ -32,9 +32,6 @@ See the file LICENSE or run with the flag --license=MIT.
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
 #include <csignal>
-#include <fstream>
-#include <iomanip>
-#include <sstream>
 #include "parsing.hpp"
 
 namespace py = pybind11;

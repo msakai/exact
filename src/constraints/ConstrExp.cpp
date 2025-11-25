@@ -60,7 +60,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 **********************************************************************/
 
 #include "ConstrExp.hpp"
-#include <algorithm>
 #include <functional>
 #include "../Solver.hpp"
 #include "../auxiliary.hpp"
@@ -715,6 +714,7 @@ bool ConstrExp<SMALL, LARGE>::hasCorrectTmpSlack(const IntMap<int>& level) const
 
 template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::undoOneTmpSlack(Lit l) {
+  // TODO: probably not needed in most places, as most false literals are resolved before doing undoOne
   const SMALL cf = getCoef(-l);
   if (cf > 0) {
     tmpSlack += cf;
@@ -783,14 +783,18 @@ bool ConstrExp<SMALL, LARGE>::canPropagateOnPrevious(const std::vector<int>& pos
 }
 
 template <typename SMALL, typename LARGE>
-void ConstrExp<SMALL, LARGE>::undoOneTmpPrevious(const LitVec& trail, const std::vector<int>& trail_lim) {
-  assert(trail_lim.size() >= 2);
-  if (trail_lim.back() != std::ssize(trail)) return;  // not backjumping over decision
-  for (uint32_t i = trail_lim[trail_lim.size() - 2]; i < trail.size(); ++i) {
+void ConstrExp<SMALL, LARGE>::undoOneTmpPrevious(const LitVec& trail, const std::vector<int>& trail_lim,
+                                                 bool isDecision) {
+  assert(trail_lim.size() >= 1);
+  if (trail_lim.back() + 1 != std::ssize(trail)) {  // we are not backjumping over decision, so nothing to do
+    assert(!isDecision);
+    return;
+  }
+  assert(isDecision);
+  // backjumping over decision: take all previous level literals into account
+  for (uint32_t i = trail_lim.size() >= 2 ? trail_lim[trail_lim.size() - 2] : 0; i + 1 < trail.size(); ++i) {
     const SMALL& cf = getCoef(-trail[i]);
-    if (cf > 0) {
-      tmpPrevSlack += cf;
-    }
+    tmpPrevSlack += aux::max<SMALL>(0, cf);
     tmpPrevLargestCf = aux::max(tmpPrevLargestCf, aux::abs(cf));
   }
 }
@@ -1206,12 +1210,12 @@ void ConstrExp<SMALL, LARGE>::invert() {
  * If larger coefs exist, no overflow should be possible.
  */
 template <typename SMALL, typename LARGE>
-void ConstrExp<SMALL, LARGE>::fixOverflow(const IntMap<int>& level, int decisionLvl, int bitOverflow, int bitReduce,
+bool ConstrExp<SMALL, LARGE>::fixOverflow(const IntMap<int>& level, int decisionLvl, int bitOverflow, int bitReduce,
                                           const SMALL& largestCoef, Lit asserting) {
   assert(hasNoZeroes());
   assert(isSaturated());
   if (bitOverflow == 0) {
-    return;
+    return false;
   }
   assert(bitOverflow > 0);
   assert(bitReduce > 0);
@@ -1224,28 +1228,32 @@ void ConstrExp<SMALL, LARGE>::fixOverflow(const IntMap<int>& level, int decision
     weakenDivideRound(div, [&](Lit l) { return !isFalse(level, l) && l != -asserting && l != asserting; });
     if (decisionLvl > 0) {
       setTmpSlack(level);
-      setTmpPrevious(level, decisionLvl);
     }
-  } else {
-    // check that largestCoef indeed is big enough
-    assert(getCutoffVal() <= 0 || aux::msb(getCutoffVal()) < bitOverflow);
+    assert(isSaturated());
+    assert(hasNoZeroes());
+    return true;
   }
   assert(isSaturated());
   assert(hasNoZeroes());
+  // check that largestCoef indeed is big enough
+  assert(getCutoffVal() <= 0 || aux::msb(getCutoffVal()) < bitOverflow);
+  return false;
 }
 
 template <typename SMALL, typename LARGE>
-void ConstrExp<SMALL, LARGE>::saturateAndFixOverflow(const IntMap<int>& level, int decisionLvl, int bitOverflow,
+bool ConstrExp<SMALL, LARGE>::saturateAndFixOverflow(const IntMap<int>& level, int decisionLvl, int bitOverflow,
                                                      int bitReduce, Lit asserting, bool sorted) {
   assert(hasNoZeroes());
   assert(!sorted || isSortedInDecreasingCoefOrder());
-  if (vars.empty()) return;
+  if (vars.empty()) return false;
   SMALL largest = sorted ? aux::abs(coefs[vars[0]]) : getLargestCoef();
+  bool result = false;
   if (largest > degree) {
     saturate(sorted, sorted);
     largest = static_cast<SMALL>(degree);
+    result = true;
   }
-  fixOverflow(level, decisionLvl, bitOverflow, bitReduce, largest, asserting);
+  return fixOverflow(level, decisionLvl, bitOverflow, bitReduce, largest, asserting) | result;
 }
 
 /*
@@ -2186,15 +2194,17 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
   global.stats.NADDEDLITERALS += data.size();
 
   if (getDegree() == 1 && deg == 1) {
+    // NOTE: no canceling literals for clausal resolution
+    assert(std::ranges::count_if(data, [&](Lit l) { return hasLit(-l); }) == 1);
     symbBound.reset();
     tmpSlack = -1;
-    tmpPrevSlack -= 1;
+    tmpPrevSlack -= 2;  // takes resolving literal into account
     // resolving clauses with clauses can be done efficiently
     for (Lit l : data) {
       assert(coefs[toVar(l)] == 0 || coefs[toVar(l)] == aux::sgn(l) || l == toProp);
       assert(!isUnit(level, l));
+      tmpPrevSlack += (level[-l] >= decisionLvl && !hasLit(l));
       if (!isUnit(level, -l)) {
-        if (level[-l] >= decisionLvl) tmpPrevSlack += 1;
         Var v = toVar(l);
         SMALL& c = coefs[v];
         if (c == 0) {
@@ -2246,6 +2256,8 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
       symbBound.addOffset(cmult * deg);
     }
 
+    assert(hasCorrectTmpPrevious(level, decisionLvl));
+
     addRhs(cmult * deg);
     tmpSlack -= cmult * deg;
     tmpPrevSlack -= cmult * deg;
@@ -2262,8 +2274,12 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
         tmpPrevSlack += cmult;
         if (level[l] >= decisionLvl) {
           const SMALL cf = getCoef(-l);
-          if (cf > 0) tmpPrevSlack -= aux::min(cf, cmult);
-          tmpPrevLargestCf = aux::max(tmpPrevLargestCf, cmult);
+          if (cf > 0) {
+            tmpPrevSlack -= aux::min(cf, cmult);
+            tmpPrevLargestCf = aux::max(tmpPrevLargestCf, aux::abs(cmult - cf));
+          } else {
+            tmpPrevLargestCf = aux::max(tmpPrevLargestCf, aux::abs(cmult + getCoef(l)));
+          }
         }
       }
       if (isUnit(level, -l)) {
@@ -2283,33 +2299,42 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
       add(v, cf, true, true);
       largestCF = std::max(largestCF, aux::abs(coefs[v]));
     }
+    assert(hasCorrectTmpPrevious(level, decisionLvl));
     assert(hasRhsDegreeInvariant());
     assert(getDegree() > 0);
     if (oldDegree <= getDegree()) {
+      bool resetTmpPrevious = false;
       if (largestCF > getDegree()) {
+        resetTmpPrevious = true;
+        largestCF = static_cast<SMALL>(degree);
+        const SMALL& smallDeg = largestCF;
         global.stats.NSATURATESTEPS += data.size();
         if (global.logger.isActive()) proofBuffer << "s ";
         if (!global.options.symbDegNoSat) symbBound.reset();
-        largestCF = static_cast<SMALL>(degree);
         for (Lit l : data) {
           Var v = toVar(l);
-          if (coefs[v] < -largestCF) {
-            rhs -= coefs[v] + largestCF;
-            symbBound.addOffset(largestCF + coefs[v]);
-            coefs[v] = -largestCF;
+          if (coefs[v] < -smallDeg) {
+            rhs -= coefs[v] + smallDeg;
+            symbBound.addOffset(smallDeg + coefs[v]);
+            coefs[v] = -smallDeg;
           } else {
-            if (coefs[v] > largestCF) {
-              symbBound.addOffset(largestCF - coefs[v]);
+            if (coefs[v] > smallDeg) {
+              symbBound.addOffset(smallDeg - coefs[v]);
             }
-            coefs[v] = std::min(coefs[v], largestCF);
+            coefs[v] = std::min(coefs[v], smallDeg);
           }
         }
       }
-      fixOverflow(level, decisionLvl, global.options.bitsOverflow.get(), global.options.bitsReduced.get(), largestCF,
-                  0);
+      if (fixOverflow(level, decisionLvl, global.options.bitsOverflow.get(), global.options.bitsReduced.get(),
+                      largestCF, 0) |
+          resetTmpPrevious) {
+        setTmpPrevious(level, decisionLvl);  // TODO: optimize in case largestCF is sufficiently large
+      }
     } else {
-      saturateAndFixOverflow(level, decisionLvl, global.options.bitsOverflow.get(), global.options.bitsReduced.get(), 0,
-                             false);
+      if (saturateAndFixOverflow(level, decisionLvl, global.options.bitsOverflow.get(),
+                                 global.options.bitsReduced.get(), 0, false)) {
+        setTmpPrevious(level, decisionLvl);
+      }
     }
     assert(hasCorrectTmpPrevious(level, decisionLvl));
   }

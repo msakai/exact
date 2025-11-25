@@ -61,9 +61,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #pragma once
 
-#include <iostream>
-#include <sstream>
-#include <vector>
 #include "../auxiliary.hpp"
 #include "../typedefs.hpp"
 

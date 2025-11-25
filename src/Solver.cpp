@@ -485,7 +485,7 @@ resolve:
         int backjumpTo = decisionLevel() - 1;
         while (decisionLevel() > backjumpTo) {
           confl->undoOneTmpSlack(trail.back());
-          confl->undoOneTmpPrevious(trail, trail_lim);
+          confl->undoOneTmpPrevious(trail, trail_lim, reason[toVar(trail.back())] == CRef_Undef);
           undoOne();
         }
         assert(confl->hasNegativeSlack(level));
@@ -494,8 +494,9 @@ resolve:
         continue;
       }
       if (global.options.skipResolution && confl->fixCoefSmallerThanTmpSlack(-l)) {
-        confl->undoOneTmpPrevious(trail, trail_lim);
+        confl->undoOneTmpPrevious(trail, trail_lim, reason[toVar(trail.back())] == CRef_Undef);
         undoOne();
+        assert(confl->hasCorrectTmpPrevious(level, decisionLevel()));
         continue;
       }
       assert(isPropagated(reason, l));
@@ -505,10 +506,14 @@ resolve:
       reasonC.decreaseLBD(lbd);
       reasonC.fixEncountered(global.stats);
     }
-    confl->undoOneTmpSlack(l);
-    confl->undoOneTmpPrevious(trail, trail_lim);
+    confl->undoOneTmpSlack(l);  // TODO: not strictly needed?
+    confl->undoOneTmpPrevious(trail, trail_lim, reason[toVar(trail.back())] == CRef_Undef);
     undoOne();
+    assert(confl->hasCorrectTmpPrevious(level, decisionLevel()));
   }
+  assert(confl->hasCorrectTmpSlack(level));
+  assert(confl->hasCorrectTmpPrevious(level, decisionLevel()));
+
   if (global.options.learnedMin && decisionLevel() > 0) {
     minimize(confl);
     if (confl->isAssertingBefore(level, decisionLevel()) != AssertionStatus::ASSERTING) goto resolve;
@@ -523,7 +528,6 @@ resolve:
   global.isPool.release(actSet);
 
   assert(confl->hasNegativeSlack(level));
-  assert(confl->hasCorrectTmpSlack(level));
   return confl;
 }
 
@@ -641,7 +645,7 @@ CeSuper Solver::extractCore(const CeSuper& conflict, Lit l_assump) {
       reasonC.fixEncountered(global.stats);
     }
     core->undoOneTmpSlack(l);
-    core->undoOneTmpPrevious(trail, trail_lim);
+    core->undoOneTmpPrevious(trail, trail_lim, reason[toVar(l)] == CRef_Undef);
     undoOne();
   }
 

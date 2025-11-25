@@ -61,9 +61,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #pragma once
 
-#include <memory>
-#include <span>
-#include <sstream>
 #include "../Global.hpp"
 #include "../datastructures/SolverStructs.hpp"
 #include "../typedefs.hpp"
@@ -342,7 +339,7 @@ struct ConstrExpSuper {
   virtual bool setTmpPrevious(const IntMap<int>& level, int decisionLvl) = 0;
   virtual bool hasCorrectTmpPrevious(const IntMap<int>& level, int decisionLvl) = 0;
   virtual bool canPropagateOnPrevious(const std::vector<int>& pos, int decisionPos) = 0;
-  virtual void undoOneTmpPrevious(const LitVec& trail, const std::vector<int>& trail_lim) = 0;
+  virtual void undoOneTmpPrevious(const LitVec& trail, const std::vector<int>& trail_lim, bool isDecision) = 0;
   virtual bool hasNegativeSlack(const IntMap<int>& level) const = 0;
   virtual bool isTautology() const = 0;
   virtual bool isUnsat() const = 0;
@@ -362,7 +359,7 @@ struct ConstrExpSuper {
   virtual bool isSaturatedVar(Var v) const = 0;
   virtual bool isSaturated(const aux::predicate<Lit>& toWeaken) const = 0;
   virtual void getSaturatedLits(IntSet& out) const = 0;
-  virtual void saturateAndFixOverflow(const IntMap<int>& level, int decisionLvl, int bitOverflow, int bitReduce,
+  virtual bool saturateAndFixOverflow(const IntMap<int>& level, int decisionLvl, int bitOverflow, int bitReduce,
                                       Lit asserting, bool sorted) = 0;
   virtual void saturateAndFixOverflowRational() = 0;
   virtual bool fitsInDouble() const = 0;
@@ -503,7 +500,7 @@ struct ConstrExp final : ConstrExpSuper {
   bool fixCoefSmallerThanTmpSlack(Lit l);
   bool hasCorrectTmpPrevious(const IntMap<int>& level, int decisionLvl);
   bool canPropagateOnPrevious(const std::vector<int>& pos, int decisionPos);
-  void undoOneTmpPrevious(const LitVec& trail, const std::vector<int>& trail_lim);
+  void undoOneTmpPrevious(const LitVec& trail, const std::vector<int>& trail_lim, bool isDecision);
   bool hasNegativeSlack(const IntMap<int>& level) const;
   bool isTautology() const;
   bool isUnsat() const;
@@ -538,10 +535,11 @@ struct ConstrExp final : ConstrExpSuper {
    * @post: the degree and rhs are less than 2^bitOverflow * INF
    * @post: if overflow happened, all division until 2^bitReduce happened
    * @post: the constraint remains conflicting or propagating on asserting
+   * @return: whether overflow was reached and constraint was simplified
    */
-  void fixOverflow(const IntMap<int>& level, int decisionLvl, int bitOverflow, int bitReduce, const SMALL& largestCoef,
+  bool fixOverflow(const IntMap<int>& level, int decisionLvl, int bitOverflow, int bitReduce, const SMALL& largestCoef,
                    Lit asserting);
-  void saturateAndFixOverflow(const IntMap<int>& level, int decisionLvl, int bitOverflow, int bitReduce, Lit asserting,
+  bool saturateAndFixOverflow(const IntMap<int>& level, int decisionLvl, int bitOverflow, int bitReduce, Lit asserting,
                               bool sorted);
   /*
    * Fixes overflow for rationals
@@ -744,7 +742,8 @@ struct ConstrExp final : ConstrExpSuper {
   template <typename CF, typename DG>
   unsigned int genericResolve(const Lit* lits, const CF* cfs, unsigned int size, const DG& degr, ID id, Origin o,
                               Lit asserting, const IntMap<int>& level, const std::vector<int>& pos,
-                              const int decisionLvl, const int decisionPos, const SymbolicBound* sb) {
+                              const int decisionLvl, [[maybe_unused]] const int decisionPos, const SymbolicBound* sb) {
+    // TODO: remove decisionPos argument
     // TODO: simplify in case degree == 1
     // "this" is the conflict constraint.
     // The terms, degree, and other information from the reason constraint are in the arguments.
@@ -936,24 +935,29 @@ struct ConstrExp final : ConstrExpSuper {
 
     const VarVec& varsToCheck = !multipliedConflict && oldDegree <= getDegree() ? reason->vars : vars;
     SMALL largestCF = getLargestCoef(varsToCheck);
+    bool resetTmpPrevious = false;
     if (largestCF > getDegree()) {
-      largestCF = static_cast<SMALL>(getDegree());
-      const SMALL& smallDeg = largestCF;
-      if (tmpPrevLargestCf > smallDeg) {
-        // unknowns at the current level can impact tmpPrevSlack and tmpPrefLargestCf
-        tmpPrevLargestCf = smallDeg;
-        for (Var v : varsToCheck) {
-          if (pos[v] < decisionPos) continue;  // not unknown
-          if (coefs[v] < -smallDeg || coefs[v] > smallDeg) {
-            tmpPrevSlack -= aux::abs(coefs[v]) - smallDeg;
-          }
-        }
-      }
+      resetTmpPrevious = true;
+      // largestCF = static_cast<SMALL>(getDegree());
+      // const SMALL& smallDeg = largestCF;
+      // if (tmpPrevLargestCf > smallDeg) {
+      //   // unknowns at the current level can impact tmpPrevSlack and tmpPrefLargestCf
+      //   tmpPrevLargestCf = smallDeg;
+      //   for (Var v : varsToCheck) {
+      //     if (pos[v] < decisionPos) continue;  // not unknown
+      //     if (coefs[v] < -smallDeg || coefs[v] > smallDeg) {
+      //       tmpPrevSlack -= aux::abs(coefs[v]) - smallDeg;
+      //     }
+      //   }
+      // }
       saturate(varsToCheck, false, false);
     }
-    assert(hasCorrectTmpPrevious(level, decisionLvl));
 
-    fixOverflow(level, decisionLvl, global.options.bitsOverflow.get(), global.options.bitsReduced.get(), largestCF, 0);
+    if (fixOverflow(level, decisionLvl, global.options.bitsOverflow.get(), global.options.bitsReduced.get(), largestCF,
+                    0) |
+        resetTmpPrevious) {
+      setTmpPrevious(level, decisionLvl);
+    }
     assert(getCoef(-asserting) <= 0);
     assert(hasNegativeSlack(level));
     assert(hasCorrectTmpSlack(level));
