@@ -462,14 +462,13 @@ CeSuper Solver::analyze(const CeSuper& conflict) {
   confl->setTmpPrevious(level, decisionLevel());
 
   IntSet& actSet = global.isPool.take();  // will hold the literals that need their activity bumped
-  // TODO: test with change below
-  // if (global.options.varConflAct) {
-  //   for (Var v : confl->getVars()) {
-  //     if (isFalse(level, confl->getLit(v))) {
-  //       actSet.add(v);
-  //     }
-  //   }
-  // }
+  if (global.options.varConflAct) {
+    for (Var v : confl->getVars()) {
+      if (isFalse(level, confl->getLit(v))) {
+        actSet.add(v);
+      }
+    }
+  }
 
 resolve:
   while (decisionLevel() > 0) {
@@ -621,13 +620,14 @@ CeSuper Solver::extractCore(const CeSuper& conflict, Lit l_assump) {
 
   // analyze conflict to the point where we have a decision core
   IntSet& actSet = global.isPool.take();
-  if (global.options.varConflAct) {
-    for (Var v : core->getVars()) {
-      if (isFalse(level, core->getLit(v))) {
-        actSet.add(v);
-      }
-    }
-  }
+  // TODO: test with change below
+  // if (global.options.varConflAct) {
+  //   for (Var v : core->getVars()) {
+  //     if (isFalse(level, core->getLit(v))) {
+  //       actSet.add(v);
+  //     }
+  //   }
+  // }
 
   core->setTmpSlack(level);
   core->setTmpPrevious(level, decisionLevel());  // TODO: unnecessary overhead for extracting core
