@@ -476,21 +476,8 @@ resolve:
     Lit l = trail.back();
     if (confl->hasLit(-l)) {
       assert(confl->hasNegativeSlack(level));
-      AssertionStatus status = confl->isAssertingBefore(level, decisionLevel());
-      if (status == AssertionStatus::ASSERTING) {
+      if (confl->canPropagateOnPrevious(getPos(), decisionPos())) {
         break;
-      }
-      if (status == AssertionStatus::FALSIFIED) {
-        int backjumpTo = decisionLevel() - 1;
-        while (decisionLevel() > backjumpTo) {
-          confl->undoOneTmpSlack(trail.back());
-          confl->undoOneTmpPrevious(trail, trail_lim);
-          undoOne();
-        }
-        assert(confl->hasNegativeSlack(level));
-        assert(confl->hasCorrectTmpSlack(level));
-        assert(confl->hasCorrectTmpPrevious(level, decisionLevel()));
-        continue;
       }
       if (global.options.skipResolution && confl->fixCoefSmallerThanTmpSlack(-l)) {
         confl->undoOneTmpPrevious(trail, trail_lim);
@@ -513,7 +500,9 @@ resolve:
 
   if (global.options.learnedMin && decisionLevel() > 0) {
     minimize(confl);
-    if (confl->isAssertingBefore(level, decisionLevel()) != AssertionStatus::ASSERTING) goto resolve;
+    if (!confl->setTmpPrevious(level, decisionLevel())) {
+      goto resolve;
+    }
   }
 
   aux::timeCallVoid(
@@ -530,7 +519,6 @@ resolve:
 
 void Solver::minimize(CeSuper& conflict) {
   assert(conflict->isSaturated());
-  assert(conflict->isAssertingBefore(getLevel(), decisionLevel()) == AssertionStatus::ASSERTING);
   assert(litsToSubsumeMem.empty());
   if (conflict->symbBound.isValid()) return;
   IntSet& saturatedLits = global.isPool.take();

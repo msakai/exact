@@ -238,8 +238,6 @@ std::pair<LARGE, bool> subsetsum_set(const Global& global, const std::vector<SMA
   return {result, vals.back() == vals.at(std::ssize(vals) - smallestNotUsed - 1)};
 }
 
-enum class AssertionStatus { NONASSERTING, ASSERTING, FALSIFIED };
-
 struct ConstraintAllocator;
 class Solver;
 class Heuristic;
@@ -368,7 +366,6 @@ struct ConstrExpSuper {
 
   virtual bool divideByGCD() = 0;
   virtual bool divideTo(double limit, const aux::predicate<Lit>& toWeaken) = 0;
-  virtual AssertionStatus isAssertingBefore(const IntMap<int>& level, int lvl) const = 0;
   virtual std::pair<int, bool> getAssertionStatus(const IntMap<int>& level, const std::vector<int>& pos,
                                                   LitVec& litsByPos) const = 0;
   virtual bool falsifiedBy(const IntSet& assumptions) const = 0;
@@ -598,7 +595,6 @@ struct ConstrExp final : ConstrExpSuper {
 
   bool divideByGCD();
   bool divideTo(double limit, const aux::predicate<Lit>& toWeaken);
-  AssertionStatus isAssertingBefore(const IntMap<int>& level, int lvl) const;
   // @return: latest decision level that does not make the constraint inconsistent
   // @return: whether or not the constraint is asserting at that level
   std::pair<int, bool> getAssertionStatus(const IntMap<int>& level, const std::vector<int>& pos,

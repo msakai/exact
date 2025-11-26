@@ -771,7 +771,7 @@ bool ConstrExp<SMALL, LARGE>::hasCorrectTmpPrevious(const IntMap<int>& level, in
 
 template <typename SMALL, typename LARGE>
 bool ConstrExp<SMALL, LARGE>::canPropagateOnPrevious(const std::vector<int>& pos, int decisionPos) {
-  assert(decisionPos > 0);  // otherwise we are already at root level
+  assert(decisionPos >= 0);  // otherwise we are already at root level
   if (tmpPrevSlack >= tmpPrevLargestCf) return false;
   tmpPrevLargestCf = 0;
   for (Var v : vars) {
@@ -1579,29 +1579,6 @@ bool ConstrExp<SMALL, LARGE>::divideTo(double limit, const aux::predicate<Lit>& 
   assert(div > 1);
   weakenDivideRound(div, toWeaken);  // TODO: weakenDivideRoundOrdered?
   return true;
-}
-
-template <typename SMALL, typename LARGE>
-AssertionStatus ConstrExp<SMALL, LARGE>::isAssertingBefore(const IntMap<int>& level, int lvl) const {
-  assert(lvl >= 0);
-  assert(isSaturated());
-  SMALL largestCoef = 0;
-  LARGE slack = -degree;
-  for (int i = vars.size() - 1; i >= 0 && slack < degree; --i) {  // maybe higher-level coefficients reside in the back
-    Var v = vars[i];
-    Lit l = coefs[v] < 0 ? -v : v;
-    if (level[-l] < lvl) continue;  // falsified lit
-    SMALL c = aux::abs(coefs[v]);
-    if (level[l] >= lvl) largestCoef = std::max(largestCoef, c);  // unknown lit
-    slack += c;
-  }
-  if (slack >= largestCoef) {
-    return AssertionStatus::NONASSERTING;
-  } else if (slack >= 0) {
-    return AssertionStatus::ASSERTING;
-  } else {
-    return AssertionStatus::FALSIFIED;
-  }
 }
 
 // @return: highest decision level that does not make the constraint inconsistent
