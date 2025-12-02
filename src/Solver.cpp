@@ -461,14 +461,10 @@ CeSuper Solver::analyze(const CeSuper& conflict) {
   confl->setTmpSlack(level);
   confl->setTmpPrevious(level, decisionLevel());
 
-  IntSet& actSet = global.isPool.take();  // will hold the literals that need their activity bumped
-  if (global.options.varConflAct) {
-    for (Var v : confl->getVars()) {
-      if (isFalse(level, confl->getLit(v))) {
-        actSet.add(v);
-      }
-    }
-  }
+  VarVec vars =
+      aux::to_vector(confl->getVars() | std::views::filter([&](Var v) { return isFalse(level, confl->getLit(v)); }));
+  aux::timeCallVoid([&] { heur.vBumpActivity(vars, getPos(), global.options.varWeight.get(), global.stats.NCONFL.z); },
+                    global.stats.HEURTIME.z);
 
 resolve:
   while (decisionLevel() > 0) {
@@ -504,14 +500,6 @@ resolve:
       goto resolve;
     }
   }
-
-  aux::timeCallVoid(
-      [&] {
-        heur.vBumpActivity(actSet.getKeysMutable(), getPos(), global.options.varWeight.get(), global.stats.NCONFL.z);
-      },
-      global.stats.HEURTIME.z);
-
-  global.isPool.release(actSet);
 
   assert(confl->hasNegativeSlack(level));
   return confl;
@@ -606,17 +594,6 @@ CeSuper Solver::extractCore(const CeSuper& conflict, Lit l_assump) {
   CeSuper core = getAnalysisCE(conflict);
   core->orig = Origin::LEARNED;
 
-  // analyze conflict to the point where we have a decision core
-  IntSet& actSet = global.isPool.take();
-  // TODO: test with change below
-  // if (global.options.varConflAct) {
-  //   for (Var v : core->getVars()) {
-  //     if (isFalse(level, core->getLit(v))) {
-  //       actSet.add(v);
-  //     }
-  //   }
-  // }
-
   core->setTmpSlack(level);
   core->setTmpPrevious(level, decisionLevel());  // TODO: unnecessary overhead for extracting core
   while (decisionLevel() > 0 && isPropagated(reason, trail.back())) {
@@ -634,13 +611,6 @@ CeSuper Solver::extractCore(const CeSuper& conflict, Lit l_assump) {
     core->undoOneTmpPrevious(trail, trail_lim);
     undoOne();
   }
-
-  aux::timeCallVoid(
-      [&] {
-        heur.vBumpActivity(actSet.getKeysMutable(), getPos(), global.options.varWeight.get(), global.stats.NCONFL.z);
-      },
-      global.stats.HEURTIME.z);
-  global.isPool.release(actSet);
 
   // weaken non-falsifieds
   assert(core->hasNegativeSlack(assumptions.getIndex()));

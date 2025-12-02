@@ -632,6 +632,11 @@ bool in(const R& range, const E& element) {
   return (std::ranges::any_of(range, [element](auto e) { return e == element; }));
 }
 
+template <std::ranges::range R>
+auto to_vector(R&& r) {
+  return std::vector<std::ranges::range_value_t<R>>(r.begin(), r.end());
+}
+
 }  // namespace aux
 
 }  // namespace xct
