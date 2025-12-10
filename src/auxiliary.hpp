@@ -504,23 +504,34 @@ uint32_t xorshift32();
 
 int32_t getRand(int32_t min, int32_t max);
 
+uint64_t shift_hash(uint64_t x);
+uint64_t seed_hash(uint64_t x, uint64_t seed);
+
 template <typename T>
 uint64_t hash(const T& el) {
-  return std::hash<T>()(el);
+  return shift_hash(el);
 }
 template <>
-uint64_t hash(const uint64_t& el);
-// template <>
-// uint64_t hash(const boost::multiprecision::cpp_int& el);
+uint64_t hash(const __int128& el);
+template <>
+uint64_t hash(const boost::multiprecision::int128_t& el);
+template <>
+uint64_t hash(const boost::multiprecision::int256_t& el);
+template <>
+uint64_t hash(const boost::multiprecision::cpp_int& el);
 
-uint64_t shift_hash(uint64_t x);
+template <typename T>
+struct hsh {
+  uint64_t operator()(T const& el) const noexcept { return hash(el); }
+};
+
 template <typename T>
 uint64_t hash_comb_unordered(uint64_t seed, const T& add) {
-  return seed ^ shift_hash(hash(add));
+  return seed ^ hash(add);
 }
 template <typename T>
 uint64_t hash_comb_ordered(uint64_t seed, const T& add) {
-  return seed ^ (shift_hash(hash(add)) + 0x9e3779b9 + (seed << 6) + (seed >> 2));
+  return seed_hash(hash(add), seed);
 }
 
 template <typename Element, typename Iterable>
@@ -536,14 +547,6 @@ uint64_t hashForList(const Iterable& els) {
   uint64_t result = els.size();
   for (const Element& el : els) {
     result = hash_comb_ordered<Element>(result, el);
-  }
-  return result;
-}
-template <typename Element>
-uint64_t hashForArray(Element const* x, size_t n) {
-  uint64_t result = n;
-  for (size_t i = 0; i < n; ++i) {
-    result = hash_comb_ordered<Element>(result, x[i]);
   }
   return result;
 }

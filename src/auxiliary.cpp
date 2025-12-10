@@ -119,22 +119,42 @@ int32_t getRand(int32_t min, int32_t max) {
   return (((uint64_t)rng::xorshift32() * (uint64_t)(max - min + 1)) >> 32) + min;
 }
 
-template <>
-uint64_t hash(const uint64_t& el) {
-  return el;
-}
-// template <>
-// uint64_t hash(const boost::multiprecision::cpp_int& el) {
-//   // 0xffffffffffffffc5 is largest prime less than 2^64
-//   return el >= 0 ? uint64_t(el % UINT64_C(0xffffffffffffffc5)) : ~uint64_t((-el) % UINT64_C(0xffffffffffffffc5));
-// }
-
 uint64_t shift_hash(uint64_t x) {
   // based on
   // https://stackoverflow.com/questions/664014/what-integer-hash-function-are-good-that-accepts-an-integer-hash-key/12996028#12996028
   x = (x ^ (x >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
   x = (x ^ (x >> 27)) * UINT64_C(0x94d049bb133111eb);
   return x ^ (x >> 31);
+}
+uint64_t seed_hash(uint64_t x, uint64_t seed) { return seed ^ (x + 0x9e3779b9 + (seed << 6) + (seed >> 2)); }
+
+template <>
+uint64_t hash(const __int128& el) {
+  const uint64_t seed = shift_hash(static_cast<uint64_t>(el));
+  return seed_hash(shift_hash(static_cast<uint64_t>(el >> 64)), seed);
+}
+template <>
+uint64_t hash(const boost::multiprecision::int128_t& el) {
+  const uint64_t seed = shift_hash(static_cast<uint64_t>(el));
+  return seed_hash(shift_hash(static_cast<uint64_t>(el >> 64)), seed);
+}
+template <>
+uint64_t hash(const boost::multiprecision::int256_t& el) {
+  uint64_t seed = shift_hash(static_cast<uint64_t>(el));
+  seed = seed_hash(shift_hash(static_cast<uint64_t>(el >> 64)), seed);
+  seed = seed_hash(shift_hash(static_cast<uint64_t>(el >> 128)), seed);
+  seed = seed_hash(shift_hash(static_cast<uint64_t>(el >> 192)), seed);
+  return seed;
+}
+template <>
+uint64_t hash(const boost::multiprecision::cpp_int& el) {
+  uint64_t seed = el >= 0;
+  boost::multiprecision::cpp_int x = aux::abs(el);
+  while (x > 0) {
+    seed = seed_hash(shift_hash(static_cast<uint64_t>(x)), seed);
+    x >>= 64;
+  }
+  return seed;
 }
 
 void* align_alloc(size_t alignment, size_t size) {

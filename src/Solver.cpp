@@ -658,10 +658,9 @@ CRef Solver::attachConstraint(const CeSuper& constraint, bool locked) {
     }
   }
   if (c.isAtMostOne() && c.size() > 2) {
-    uint64_t hash = c.size();
-    for (unsigned int i = 0; i < c.size(); ++i) {
-      hash ^= aux::hash(c.lit(i));
-    }
+    auto lambda = [&](unsigned i) { return c.lit(i); };
+    auto lits = std::views::iota(0u, c.size()) | std::views::transform(lambda);
+    const uint64_t hash = aux::hashForSet<Lit>(lits);
     if (auto bestsize = atMostOneHashes.find(hash); bestsize == atMostOneHashes.end() || bestsize->second < c.size()) {
       atMostOneHashes[hash] = c.size();
     }

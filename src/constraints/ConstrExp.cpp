@@ -2003,7 +2003,7 @@ void ConstrExp<SMALL, LARGE>::strengthen() {
     cfs.emplace_back(aux::abs(coefs[v]));
   }
 
-  unordered_map<LARGE, SMALL>& sums = tmpmap;
+  unordered_map<LARGE, SMALL, aux::hsh<LARGE>>& sums = tmpmap;
   std::vector<std::pair<LARGE, SMALL>>& stack = tmppairvec;
   auto [newdegree, hasLast] = subsetsum_set(global, cfs, degree, total, sums, stack);
 

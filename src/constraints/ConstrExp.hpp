@@ -78,8 +78,9 @@ std::pair<int32_t, bool> subsetsum_dp(const Global& global, const std::vector<in
 
 template <typename SMALL, typename LARGE>
 LARGE subsetsum_set_withsol(const Global& global, const std::vector<SMALL>& vals, const LARGE& target,
-                            unordered_map<LARGE, SMALL>& sums, std::vector<std::pair<LARGE, SMALL>>& stack,
-                            unordered_map<SMALL, int32_t>* subset = nullptr) {
+                            unordered_map<LARGE, SMALL, aux::hsh<LARGE>>& sums,
+                            std::vector<std::pair<LARGE, SMALL>>& stack,
+                            unordered_map<SMALL, int32_t, aux::hsh<SMALL>>* subset = nullptr) {
   assert(std::ranges::is_sorted(vals, std::greater<SMALL>()));
   assert(target > 0);
   assert(!vals.empty());
@@ -168,7 +169,7 @@ LARGE subsetsum_set_withsol(const Global& global, const std::vector<SMALL>& vals
 
 template <typename SMALL, typename LARGE>
 std::pair<LARGE, bool> subsetsum_set(const Global& global, const std::vector<SMALL>& vals, const LARGE& target,
-                                     const LARGE& total, unordered_map<LARGE, SMALL>& sums,
+                                     const LARGE& total, unordered_map<LARGE, SMALL, aux::hsh<LARGE>>& sums,
                                      std::vector<std::pair<LARGE, SMALL>>& stack) {
   assert(std::ranges::is_sorted(vals, std::greater<SMALL>()));
   assert(target > 0);
@@ -428,7 +429,7 @@ struct ConstrExp final : ConstrExpSuper {
 
  private:
   std::vector<SMALL> tmpvec;
-  unordered_map<LARGE, SMALL> tmpmap;
+  unordered_map<LARGE, SMALL, aux::hsh<LARGE>> tmpmap;
   std::vector<std::pair<LARGE, SMALL>> tmppairvec;
   std::vector<int32_t> tmpintvec;
   std::vector<std::pair<int32_t, int32_t>> tmpintpairvec;
