@@ -64,11 +64,10 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "../Solver.hpp"
 
 namespace xct {
-Constr::Constr(ID i, const Origin o, bool lkd, uint32_t lngth, float strngth, uint32_t maxLBD)
-    : header{0, 0, lkd, static_cast<uint32_t>(o), i}, priority(static_cast<float>(maxLBD + 1) - strngth), sze(lngth) {
+Constr::Constr(ID i, const Origin o, bool lkd, uint32_t lngth, float strngth)
+    : header{0, 0, lkd, static_cast<uint32_t>(o), i}, priority(static_cast<float>(MAXLBD + 1) - strngth), sze(lngth) {
   assert(strngth <= 1);
   assert(strngth > 0);  // so we know that 1-strngth < 1 and it will not interfere with the LBD when stored together
-  assert(maxLBD <= MAXLBD);
   assert(lngth < INF);
 }
 
@@ -88,11 +87,10 @@ void Constr::decreaseLBD(const uint32_t lbd) {
   float fractional = std::modf(priority, &integral);
   priority = std::min<float>(static_cast<float>(lbd), integral) + fractional;
 }
-void Constr::decayLBD(const uint32_t decay, const uint32_t maxLBD) {
-  assert(maxLBD <= MAXLBD);
+void Constr::decayLBD(const uint32_t decay) {
   float integral;
   float fractional = std::modf(priority, &integral);
-  priority = std::min<float>(integral + static_cast<float>(decay), static_cast<float>(maxLBD)) + fractional;
+  priority = std::min<float>(integral + static_cast<float>(decay), static_cast<float>(MAXLBD)) + fractional;
 }
 uint32_t Constr::lbd() const { return static_cast<uint32_t>(priority); }
 float Constr::strength() const {

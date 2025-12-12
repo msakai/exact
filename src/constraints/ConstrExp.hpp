@@ -393,6 +393,8 @@ struct ConstrExpSuper {
   virtual void toStreamWithAssignment(std::ostream& o, const IntMap<int>& level, const std::vector<int>& pos) const = 0;
   virtual void toStreamPure(std::ostream& o) const = 0;
 
+  static size_t calculateLbd(auto lits_, const IntMap<int>& level);
+
   virtual unsigned int resolveWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit l,
                                    const Solver& solver, const SymbolicBound* sb) = 0;
   virtual unsigned int resolveWith(const Lit* lits, const int* coefs, unsigned int size, const int64_t& degr, ID id,
@@ -1010,18 +1012,9 @@ struct ConstrExp final : ConstrExpSuper {
     }
     symbBound.reset();  // NOTE: almost always, a saturation step will be necessary on both the reason and conflict side
 
-    IntSet& lbdSet = global.isPool.take();
-    for (unsigned int i = 0; i < size; ++i) {
-      Lit l = lits[i] >> 1;
-      if (l == toSubsume || saturatedLits.has(l)) {
-        lbdSet.add(level[-l] % INF);
-      }
-    }
-    lbdSet.remove(0);  // unit literals and non-falsifieds should not be counted
-    unsigned int lbd = lbdSet.size();
-    assert(lbd > 0);
-    global.isPool.release(lbdSet);
-    return lbd;
+    return calculateLbd(std::views::iota(0u, size) | std::views::transform([&](unsigned i) { return lits[i] >> 1; }) |
+                            std::views::filter([&](Lit l) { return l == toSubsume || saturatedLits.has(l); }),
+                        level);
   }
 
   template <typename S, typename L>

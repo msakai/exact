@@ -219,10 +219,8 @@ struct Options {
   ValOption<double> dbScale{"db-scale", "Multiplier of the learned clause database and inprocessing intervals", 500,
                             "0 < float", [](const double& x) -> bool { return 0 < x; }};
   ValOption<int32_t> dbSafeLBD{"db-safelbd", "Learned constraints with this LBD or less are safe from database cleanup",
-                               1, "0 (nobody is safe) =< int", [](const int32_t& x) -> bool { return 0 <= x; }};
-  ValOption<int32_t> dbMaxLBD{"db-maxlbd", "Constraints with an LBD larger than this are considered to have this LBD",
-                              60, "1 =< int =< 1e3",
-                              [](const int32_t& x) -> bool { return 1 <= x && x <= static_cast<int32_t>(MAXLBD); }};
+                               1, "0 (nobody is safe) =< " + std::to_string(MAXLBD),
+                               [](const int32_t& x) -> bool { return 0 <= x; }};
   ValOption<double> lpTimeRatio{
       "lp", "Ratio of time spent in LP calls (0 means no LP solving, 1 means no limit on LP solver)",
 #if WITHSOPLEX
@@ -346,7 +344,6 @@ struct Options {
       &dbExp,
       &dbScale,
       &dbSafeLBD,
-      &dbMaxLBD,
 #if WITHSOPLEX
       &lpTimeRatio,
       &lpPivotBudget,

@@ -85,7 +85,7 @@ struct Constr {  // internal solver constraint optimized for fast propagation
 
   virtual size_t getMemSize() const = 0;
 
-  Constr(ID i, Origin o, bool lkd, uint32_t lngth, float strngth, uint32_t maxLBD);
+  Constr(ID i, Origin o, bool lkd, uint32_t lngth, float strngth);
   virtual ~Constr() {}
   virtual void cleanup() = 0;  // poor man's destructor
 
@@ -94,7 +94,7 @@ struct Constr {  // internal solver constraint optimized for fast propagation
   bool isLocked() const;
   Origin getOrigin() const;
   void decreaseLBD(uint32_t lbd);
-  void decayLBD(uint32_t decay, uint32_t maxLBD);
+  void decayLBD(uint32_t decay);
   uint32_t lbd() const;
   float strength() const;
   bool isMarkedForDelete() const;
@@ -146,7 +146,7 @@ struct Binary final : Constr {
 
   template <typename SMALL, typename LARGE>
   Binary(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id)
-      : Constr(_id, constraint->orig, locked, 2, 0.5f, constraint->global.options.dbMaxLBD.get()),
+      : Constr(_id, constraint->orig, locked, 2, 0.5f),
         data({constraint->getLit(constraint->getVars()[0]), constraint->getLit(constraint->getVars()[1])}) {
     assert(_id > ID_Trivial);
     assert(constraint->nVars() == 2);
@@ -187,8 +187,7 @@ struct Clause final : Constr {
 
   template <typename SMALL, typename LARGE>
   Clause(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id)
-      : Constr(_id, constraint->orig, locked, constraint->nVars(), 1.0 / static_cast<double>(constraint->nVars()),
-               constraint->global.options.dbMaxLBD.get()),
+      : Constr(_id, constraint->orig, locked, constraint->nVars(), 1.0 / static_cast<double>(constraint->nVars())),
         next_watch_idx(sze) {
     assert(_id > ID_Trivial);
     assert(constraint->nVars() < INF);
@@ -232,8 +231,7 @@ struct Cardinality final : Constr {
 
   template <typename SMALL, typename LARGE>
   Cardinality(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id)
-      : Constr(_id, constraint->orig, locked, constraint->nVars(), constraint->getStrength(),
-               constraint->global.options.dbMaxLBD.get()),
+      : Constr(_id, constraint->orig, locked, constraint->nVars(), constraint->getStrength()),
         degr(static_cast<uint32_t>(constraint->getDegree())),
         next_watch_idx(constraint->nVars()) {
     assert(degr > 1);  // otherwise should be a clause
@@ -285,7 +283,7 @@ struct Watched32 final : Constr {
 
   template <typename SMALL, typename LARGE>
   Watched32(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id, double strngth)
-      : Constr(_id, constraint->orig, locked, constraint->nVars(), strngth, constraint->global.options.dbMaxLBD.get()),
+      : Constr(_id, constraint->orig, locked, constraint->nVars(), strngth),
         next_watch_idx(sze),
         unsaturatedIdx(0),
         degr(static_cast<int64_t>(constraint->getDegree())),
@@ -349,7 +347,7 @@ struct Watched final : Constr {
 
   template <typename SMALL, typename LARGE>
   Watched(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id, double strngth)
-      : Constr(_id, constraint->orig, locked, constraint->nVars(), strngth, constraint->global.options.dbMaxLBD.get()),
+      : Constr(_id, constraint->orig, locked, constraint->nVars(), strngth),
         next_watch_idx(sze),
         unsaturatedIdx(0),
         degr(static_cast<DG>(constraint->getDegree())),

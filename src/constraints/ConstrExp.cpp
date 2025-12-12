@@ -70,7 +70,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "Constr.hpp"
 
 namespace xct {
-
 int32_t subsetsum_dp_withsol(const Global& global, const std::vector<int32_t>& vals, int32_t target,
                              std::vector<std::pair<int32_t, int32_t>>& sums, unordered_map<int32_t, int32_t>* subset) {
   assert(std::ranges::is_sorted(vals, std::greater<int>()));
@@ -837,14 +836,7 @@ unsigned int ConstrExp<SMALL, LARGE>::getLBD(const IntMap<int>& level) const {
     if (isFalse(level, getLit(v))) weakenedDeg -= aux::abs(coefs[v]);
   }
   assert(i >= 0);  // constraint is asserting or conflicting
-  IntSet& lbdSet = global.isPool.take();
-  for (; i >= 0; --i) {  // gather all levels
-    lbdSet.add(level[-getLit(vars[i])] % INF);
-  }
-  lbdSet.remove(0);  // unit literals and non-falsifieds should not be counted
-  unsigned int lbd = lbdSet.size();
-  global.isPool.release(lbdSet);
-  return lbd;
+  return calculateLbd(vars | std::views::transform([&](Var v) { return getLit(v); }), level);
 }
 
 template <typename SMALL, typename LARGE>
@@ -2153,6 +2145,20 @@ void ConstrExp<SMALL, LARGE>::toStreamPure(std::ostream& o) const {
   std::cout << ">= " << degree << " (" << rhs << ")";
 }
 
+size_t ConstrExpSuper::calculateLbd(auto lits_, const IntMap<int>& level) {
+  std::vector<int> levels;
+  levels.reserve(MAXLBD);
+  for (Lit l : lits_) {
+    const int lvl = level[-l];
+    if (lvl == 0 || lvl == INF) continue;
+    if (std::ranges::find(levels, lvl) == levels.end()) {
+      levels.push_back(lvl);
+      if (levels.size() >= MAXLBD) return MAXLBD;
+    }
+  }
+  return levels.size();
+}
+
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit toProp,
                                                   const Solver& solver, const SymbolicBound* sb) {
@@ -2312,14 +2318,7 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
   assert(hasCorrectTmpSlack(level));
   assert(hasCorrectTmpPrevious(level, decisionLvl));
 
-  IntSet& lbdSet = global.isPool.take();
-  for (Lit l : data) {
-    lbdSet.add(level[-l] % INF);
-  }
-  lbdSet.remove(0);  // unit literals and non-falsifieds should not be counted
-  unsigned int lbd = lbdSet.size();
-  global.isPool.release(lbdSet);
-  return lbd;
+  return calculateLbd(data, level);
 }
 
 //@post: variable vector vars is not changed, but coefs[toVar(toSubsume)] may become 0
@@ -2371,17 +2370,7 @@ unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const std::span<const Lit>& da
   }
   symbBound.reset();  // almost always some form of saturation going on
 
-  IntSet& lbdSet = global.isPool.take();
-  for (Lit l : data) {
-    if (l == toSubsume || saturatedLits.has(l)) {
-      lbdSet.add(level[-l] % INF);
-    }
-  }
-  lbdSet.remove(0);  // unit literals and non-falsifieds should not be counted
-  unsigned int lbd = lbdSet.size();
-  assert(lbd > 0);
-  global.isPool.release(lbdSet);
-  return lbd;
+  return calculateLbd(data | std::views::filter([&](Lit l) { return l == toSubsume || saturatedLits.has(l); }), level);
 }
 
 template <typename SMALL, typename LARGE>
