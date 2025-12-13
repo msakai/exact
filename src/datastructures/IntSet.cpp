@@ -110,9 +110,10 @@ bool IntSet::has(int key) const {
 
 void IntSet::add(int key) {
   if (index.reserved() <= (unsigned int)2 * std::abs(key)) resize(std::abs(key));
-  if (index[key] != _unused_()) return;
+  int& val = index[key];
+  if (val != _unused_()) return;
   assert(!aux::contains(keys, key));
-  index[key] = static_cast<int>(keys.size());
+  val = static_cast<int>(keys.size());
   keys.push_back(key);
 }
 

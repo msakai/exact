@@ -1136,7 +1136,7 @@ void Solver::reduceDB() {
     if (Constr& c = ca[constraints[i]]; c.isMarkedForDelete()) {
       c.cleanup();  // free up indirectly owned memory before implicitly deleting c during garbage collect
     } else {
-      c.decayLBD(decay, global.options.dbMaxLBD.get());
+      c.decayLBD(decay);
       constraints[j++] = constraints[i];
     }
   }

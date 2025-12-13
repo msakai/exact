@@ -70,7 +70,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "Constr.hpp"
 
 namespace xct {
-
 int32_t subsetsum_dp_withsol(const Global& global, const std::vector<int32_t>& vals, int32_t target,
                              std::vector<std::pair<int32_t, int32_t>>& sums, unordered_map<int32_t, int32_t>* subset) {
   assert(std::ranges::is_sorted(vals, std::greater<int>()));
@@ -837,14 +836,7 @@ unsigned int ConstrExp<SMALL, LARGE>::getLBD(const IntMap<int>& level) const {
     if (isFalse(level, getLit(v))) weakenedDeg -= aux::abs(coefs[v]);
   }
   assert(i >= 0);  // constraint is asserting or conflicting
-  IntSet& lbdSet = global.isPool.take();
-  for (; i >= 0; --i) {  // gather all levels
-    lbdSet.add(level[-getLit(vars[i])] % INF);
-  }
-  lbdSet.remove(0);  // unit literals and non-falsifieds should not be counted
-  unsigned int lbd = lbdSet.size();
-  global.isPool.release(lbdSet);
-  return lbd;
+  return calculateLbd(vars | std::views::transform([&](Var v) { return getLit(v); }), level);
 }
 
 template <typename SMALL, typename LARGE>
@@ -1177,7 +1169,11 @@ bool ConstrExp<SMALL, LARGE>::isSaturated(const aux::predicate<Lit>& toWeaken) c
 
 template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::getSaturatedLits(IntSet& out) const {
-  if (getLargestCoef() < degree) return;  // no saturated lits
+  assert(hasNoZeroes());
+  if (isClause()) {
+    for (Var v : vars) out.add(getLit(v));
+    return;
+  }
   SMALL smalldeg = aux::cast<SMALL>(degree);
   for (Var v : vars) {
     if (aux::abs(coefs[v]) >= smalldeg) out.add(getLit(v));
@@ -1589,7 +1585,22 @@ std::pair<int, bool> ConstrExp<SMALL, LARGE>::getAssertionStatus(const IntMap<in
   assert(hasNoZeroes());
   assert(isSortedInDecreasingCoefOrder());
   assert(hasNoUnits(level));
-  litsByPos.clear();
+
+  if (isClause()) {
+    // just find the highest level
+    int lvl1 = 0;
+    int lvl2 = 0;
+    for (Var v : vars) {
+      const int lvl3 = level[-getLit(v)];
+      if (lvl3 > lvl1) {
+        lvl2 = lvl1;
+        lvl1 = lvl3;
+      } else if (lvl3 > lvl2) {
+        lvl2 = lvl3;
+      }
+    }
+    return {lvl2, lvl2 != INF};
+  }
 
   // calculate slack at level 0
   LARGE slack = -degree;
@@ -1597,6 +1608,7 @@ std::pair<int, bool> ConstrExp<SMALL, LARGE>::getAssertionStatus(const IntMap<in
   if (slack < 0) return {-1, false};
 
   // create useful datastructures
+  litsByPos.clear();
   for (Var v : vars) {
     Lit l = getLit(v);
     assert(l != 0);
@@ -1774,7 +1786,7 @@ int ConstrExp<SMALL, LARGE>::getCardinalityDegree() const {
   assert(isSortedInDecreasingCoefOrder());
   assert(hasNoZeroes());
   if (vars.empty()) return degree > 0;
-  if (degree == 1) return 1;
+  if (isClause()) return 1;
   if (aux::abs(coefs[vars[0]]) == 1) return static_cast<int>(degree);
   LARGE coefsum = -degree;
   int i = 0;
@@ -1787,7 +1799,7 @@ int ConstrExp<SMALL, LARGE>::getCardinalityDegree() const {
 template <typename SMALL, typename LARGE>
 int ConstrExp<SMALL, LARGE>::getMaxStrengthCardinalityDegree(std::vector<int>& cardPoints) const {
   if (vars.empty() == 0) return degree > 0;
-  if (degree == 1) return 1;
+  if (isClause()) return 1;
   if (aux::abs(coefs[vars[0]]) == 1) return static_cast<int>(degree);
   getCardinalityPoints(cardPoints);
   int bestCardDegree = 0;
@@ -2153,6 +2165,20 @@ void ConstrExp<SMALL, LARGE>::toStreamPure(std::ostream& o) const {
   std::cout << ">= " << degree << " (" << rhs << ")";
 }
 
+size_t ConstrExpSuper::calculateLbd(auto lits_, const IntMap<int>& level) {
+  std::vector<int> levels;
+  levels.reserve(MAXLBD);
+  for (Lit l : lits_) {
+    const int lvl = level[-l];
+    if (lvl == 0 || lvl == INF) continue;
+    if (std::ranges::find(levels, lvl) == levels.end()) {
+      levels.push_back(lvl);
+      if (levels.size() >= MAXLBD) return MAXLBD;
+    }
+  }
+  return levels.size();
+}
+
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit toProp,
                                                   const Solver& solver, const SymbolicBound* sb) {
@@ -2312,14 +2338,7 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
   assert(hasCorrectTmpSlack(level));
   assert(hasCorrectTmpPrevious(level, decisionLvl));
 
-  IntSet& lbdSet = global.isPool.take();
-  for (Lit l : data) {
-    lbdSet.add(level[-l] % INF);
-  }
-  lbdSet.remove(0);  // unit literals and non-falsifieds should not be counted
-  unsigned int lbd = lbdSet.size();
-  global.isPool.release(lbdSet);
-  return lbd;
+  return calculateLbd(data, level);
 }
 
 //@post: variable vector vars is not changed, but coefs[toVar(toSubsume)] may become 0
@@ -2371,17 +2390,7 @@ unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const std::span<const Lit>& da
   }
   symbBound.reset();  // almost always some form of saturation going on
 
-  IntSet& lbdSet = global.isPool.take();
-  for (Lit l : data) {
-    if (l == toSubsume || saturatedLits.has(l)) {
-      lbdSet.add(level[-l] % INF);
-    }
-  }
-  lbdSet.remove(0);  // unit literals and non-falsifieds should not be counted
-  unsigned int lbd = lbdSet.size();
-  assert(lbd > 0);
-  global.isPool.release(lbdSet);
-  return lbd;
+  return calculateLbd(data | std::views::filter([&](Lit l) { return l == toSubsume || saturatedLits.has(l); }), level);
 }
 
 template <typename SMALL, typename LARGE>
