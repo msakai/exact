@@ -68,10 +68,7 @@ ext_modules = [
             "src/used_licenses/EPL.cpp",
             "src/used_licenses/COPYING.cpp"
         ],
-        # FOR WINDOWS
-        # include_dirs=['C:\\Program Files\\boost\\boost_1_85_0','.\\src'],
-        # extra_compile_args=["/O2","/std:c++20"],
-        # define_macros=[("UNIXLIKE",0),("ANKERLMAPS",1)]
+
         # FOR LINUX / OSX
         include_dirs=["./src"],
         define_macros=[("UNIXLIKE",1), ("ANKERLMAPS",1)],
@@ -79,9 +76,15 @@ ext_modules = [
         # include_dirs=["./src","./soplex/src","./soplex_build"],
         # library_dirs=["./soplex_build/lib"],
         # libraries=["soplex"], # or soplexshared for the shared .so library instead of the static .a
-        # define_macros=[("UNIXLIKE",1),("ANKERLMAPS",1),("WITHSOPLEX",1)],
+        # define_macros=[("UNIXLIKE",1), ("ANKERLMAPS",1), ("WITHSOPLEX",1)],
+
+        # FOR WINDOWS
+        # include_dirs=['C:\\Program Files\\boost\\boost_1_85_0','.\\src'],
+        # extra_compile_args=["/O2","/std:c++20"],
+        # define_macros=[("UNIXLIKE",0), ("ANKERLMAPS",1)]
+
         extra_compile_args=["-O3", "-std=c++20"],
-        # for profiling runs:
+        # PROFILING FLAGS
         # extra_compile_args=["-O2", "-std=c++20", "-g", "-fno-omit-frame-pointer"],
     ),
 ]
