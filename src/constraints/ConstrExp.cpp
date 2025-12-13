@@ -1169,7 +1169,11 @@ bool ConstrExp<SMALL, LARGE>::isSaturated(const aux::predicate<Lit>& toWeaken) c
 
 template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::getSaturatedLits(IntSet& out) const {
-  if (getLargestCoef() < degree) return;  // no saturated lits
+  assert(hasNoZeroes());
+  if (isClause()) {
+    for (Var v : vars) out.add(getLit(v));
+    return;
+  }
   SMALL smalldeg = aux::cast<SMALL>(degree);
   for (Var v : vars) {
     if (aux::abs(coefs[v]) >= smalldeg) out.add(getLit(v));
@@ -1581,7 +1585,22 @@ std::pair<int, bool> ConstrExp<SMALL, LARGE>::getAssertionStatus(const IntMap<in
   assert(hasNoZeroes());
   assert(isSortedInDecreasingCoefOrder());
   assert(hasNoUnits(level));
-  litsByPos.clear();
+
+  if (isClause()) {
+    // just find the highest level
+    int lvl1 = 0;
+    int lvl2 = 0;
+    for (Var v : vars) {
+      const int lvl3 = level[-getLit(v)];
+      if (lvl3 > lvl1) {
+        lvl2 = lvl1;
+        lvl1 = lvl3;
+      } else if (lvl3 > lvl2) {
+        lvl2 = lvl3;
+      }
+    }
+    return {lvl2, lvl2 != INF};
+  }
 
   // calculate slack at level 0
   LARGE slack = -degree;
@@ -1589,6 +1608,7 @@ std::pair<int, bool> ConstrExp<SMALL, LARGE>::getAssertionStatus(const IntMap<in
   if (slack < 0) return {-1, false};
 
   // create useful datastructures
+  litsByPos.clear();
   for (Var v : vars) {
     Lit l = getLit(v);
     assert(l != 0);
@@ -1766,7 +1786,7 @@ int ConstrExp<SMALL, LARGE>::getCardinalityDegree() const {
   assert(isSortedInDecreasingCoefOrder());
   assert(hasNoZeroes());
   if (vars.empty()) return degree > 0;
-  if (degree == 1) return 1;
+  if (isClause()) return 1;
   if (aux::abs(coefs[vars[0]]) == 1) return static_cast<int>(degree);
   LARGE coefsum = -degree;
   int i = 0;
@@ -1779,7 +1799,7 @@ int ConstrExp<SMALL, LARGE>::getCardinalityDegree() const {
 template <typename SMALL, typename LARGE>
 int ConstrExp<SMALL, LARGE>::getMaxStrengthCardinalityDegree(std::vector<int>& cardPoints) const {
   if (vars.empty() == 0) return degree > 0;
-  if (degree == 1) return 1;
+  if (isClause()) return 1;
   if (aux::abs(coefs[vars[0]]) == 1) return static_cast<int>(degree);
   getCardinalityPoints(cardPoints);
   int bestCardDegree = 0;
