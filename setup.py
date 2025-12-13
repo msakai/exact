@@ -74,13 +74,15 @@ ext_modules = [
         # define_macros=[("UNIXLIKE",0),("ANKERLMAPS",1)]
         # FOR LINUX / OSX
         include_dirs=["./src"],
-        define_macros=[("UNIXLIKE",1),("ANKERLMAPS",1)],
+        define_macros=[("UNIXLIKE",1), ("ANKERLMAPS",1)],
         # REPLACE TWO LINES ABOVE WITH FOUR BELOW TO INCLUDE SOPLEX (pre-built in soplex_build)
         # include_dirs=["./src","./soplex/src","./soplex_build"],
         # library_dirs=["./soplex_build/lib"],
         # libraries=["soplex"], # or soplexshared for the shared .so library instead of the static .a
         # define_macros=[("UNIXLIKE",1),("ANKERLMAPS",1),("WITHSOPLEX",1)],
-        extra_compile_args=["-O3","-std=c++20"],
+        extra_compile_args=["-O3", "-std=c++20"],
+        # for profiling runs:
+        # extra_compile_args=["-O2", "-std=c++20", "-g", "-fno-omit-frame-pointer"],
     ),
 ]
 
