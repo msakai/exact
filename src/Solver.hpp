@@ -104,6 +104,7 @@ class Solver {
   bool firstRun = true;
   bool unsatReached = false;
   bool objectiveSet = false;
+  bool pureClausalInput = true;
   std::vector<bool> isorig;
   bigint lastSymbBoundUpper;
   bigint lastSymbBoundLower;

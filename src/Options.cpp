@@ -135,7 +135,7 @@ bool EnumOption::is(const std::string& v) const {
 
 const std::string& EnumOption::get() const { return val; }
 
-Options::Options() {
+Options::Options() : pureClausalInput(true) {
   for (Option* opt : options) name2opt[opt->name] = opt;
 }
 
@@ -185,5 +185,11 @@ void Options::usage(const char* name) {
   std::cout << "Options:\n";
   for (Option* opt : options) opt->printUsage(24);
 }
+
+void Options::setClausalInput(bool isClause) { pureClausalInput = pureClausalInput && isClause; }
+
+int Options::getBitsOverflow() const { return pureClausalInput ? limitBitConfl<int, int64_t>() : bitsOverflow.get(); }
+int Options::getBitsReduced() const { return pureClausalInput ? limitBit<int, int64_t>() : bitsReduced.get(); }
+int Options::getBitsLearned() const { return pureClausalInput ? limitBit<int, int64_t>() : bitsLearned.get(); }
 
 }  // namespace xct

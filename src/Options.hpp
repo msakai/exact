@@ -208,6 +208,7 @@ struct Options {
       "0 =< float =< 1", [](const double& x) -> bool { return 0 <= x && x <= 1; }};
   BoolOption varSol{"var-sol", "Use last solution as phase", true};
   BoolOption varObjective{"var-objective", "Initialize heuristic to optimize the objective variables first", false};
+  BoolOption varRandom{"var-random", "Random variable heuristic", false};
   ValOption<int32_t> dbDecayLBD{"db-decay", "Decay term for the LBD of constraints", 1, "0 (no decay) =< int",
                                 [](const int32_t& x) -> bool { return 0 <= x; }};
   ValOption<int64_t> dbBase{"db-base", "Initial number of conflicts at which database cleaning is performed.", 2000,
@@ -339,6 +340,7 @@ struct Options {
       &varWeight,
       &varSol,
       &varObjective,
+      &varRandom,
       &dbDecayLBD,
       &dbBase,
       &dbExp,
@@ -392,6 +394,16 @@ struct Options {
   void parseOption(const std::string& option, const std::string& value);
   void parseCommandLine(int argc, char** argv);
   void usage(const char* name);
+
+ private:
+  bool pureClausalInput;
+
+ public:
+  void setClausalInput(bool isClause);
+
+  int getBitsOverflow() const;
+  int getBitsReduced() const;
+  int getBitsLearned() const;
 };
 
 }  // namespace xct
