@@ -222,6 +222,7 @@ struct Options {
   ValOption<int32_t> dbSafeLBD{"db-safelbd", "Learned constraints with this LBD or less are safe from database cleanup",
                                1, "0 (nobody is safe) =< " + std::to_string(MAXLBD),
                                [](const int32_t& x) -> bool { return 0 <= x; }};
+  BoolOption dbRandom{"db-random", "Random constraint deletion", false};
   ValOption<double> lpTimeRatio{
       "lp", "Ratio of time spent in LP calls (0 means no LP solving, 1 means no limit on LP solver)",
 #if WITHSOPLEX
@@ -346,6 +347,7 @@ struct Options {
       &dbExp,
       &dbScale,
       &dbSafeLBD,
+      &dbRandom,
 #if WITHSOPLEX
       &lpTimeRatio,
       &lpPivotBudget,

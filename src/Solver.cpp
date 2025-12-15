@@ -1080,8 +1080,14 @@ void Solver::reduceDB() {
     }
   }
 
-  boost::sort::pdqsort(db_learnts.begin(), db_learnts.end(),
-                       [&](CRef x, CRef y) { return ca[x].priority < ca[y].priority; });
+  if (global.options.dbRandom) {
+    std::mt19937 gen(std::random_device{}());
+    std::ranges::shuffle(db_learnts, gen);
+  } else {
+    boost::sort::pdqsort(db_learnts.begin(), db_learnts.end(),
+                         [&](CRef x, CRef y) { return ca[x].priority < ca[y].priority; });
+  }
+
   int64_t limit = global.options.dbScale.get() *
                   std::pow(std::log(static_cast<double>(global.stats.NCONFL.z)), global.options.dbExp.get());
   // NOTE: cast to double to avoid an issue with GCC13/14 giving NaN after std::log with -03 and single source on
