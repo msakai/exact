@@ -1174,9 +1174,8 @@ void ConstrExp<SMALL, LARGE>::getSaturatedLits(IntSet& out) const {
     for (Var v : vars) out.add(getLit(v));
     return;
   }
-  SMALL smalldeg = aux::cast<SMALL>(degree);
   for (Var v : vars) {
-    if (aux::abs(coefs[v]) >= smalldeg) out.add(getLit(v));
+    if (aux::abs(coefs[v]) >= degree) out.add(getLit(v));
   }
 }
 
