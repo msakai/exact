@@ -64,8 +64,13 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "../Solver.hpp"
 
 namespace xct {
-Constr::Constr(ID i, const Origin o, bool lkd, uint32_t lngth, float strngth)
-    : header{0, 0, lkd, static_cast<uint32_t>(o), i}, priority(static_cast<float>(MAXLBD + 1) - strngth), sze(lngth) {
+Constr::Constr(ID i, const Origin o, bool lkd, uint32_t lngth, uint32_t lbd, int64_t nConfl, float strngth)
+    : header{0, 0, lkd, aux::min(lbd, MAXLBD), static_cast<uint32_t>(o), i},
+      mostRecentConfl(nConfl),
+      strength(strngth),
+      sze(lngth) {
+  assert(lbd > 0);
+  assert(header.lbd > 0);
   assert(strngth <= 1);
   assert(strngth > 0);  // so we know that 1-strngth < 1 and it will not interfere with the LBD when stored together
   assert(lngth < INF);
@@ -82,27 +87,22 @@ uint32_t Constr::size() const { return sze; }
 void Constr::setLocked(const bool lkd) { header.locked = lkd; }
 bool Constr::isLocked() const { return header.locked; }
 Origin Constr::getOrigin() const { return static_cast<Origin>(header.origin); }
-void Constr::decreaseLBD(const uint32_t lbd) {
-  float integral;
-  float fractional = std::modf(priority, &integral);
-  priority = std::min<float>(static_cast<float>(lbd), integral) + fractional;
-}
-void Constr::decayLBD(const uint32_t decay) {
-  float integral;
-  float fractional = std::modf(priority, &integral);
-  priority = std::min<float>(integral + static_cast<float>(decay), static_cast<float>(MAXLBD)) + fractional;
-}
-uint32_t Constr::lbd() const { return static_cast<uint32_t>(priority); }
-float Constr::strength() const {
-  float tmp;
-  return 1 - std::modf(priority, &tmp);
+uint32_t Constr::lbd() const { return header.lbd; }
+double Constr::getPriority(int64_t nConfl) const {
+  return static_cast<double>(strength) / static_cast<double>(header.lbd) * static_cast<double>(mostRecentConfl + 1) /
+         static_cast<double>(nConfl + 1);
 }
 bool Constr::isMarkedForDelete() const { return header.markedfordel; }
 bool Constr::isSeen() const { return header.seen; }
 void Constr::setSeen(const bool s) { header.seen = s; }
 ID Constr::id() const { return header.id; }
 
-void Constr::fixEncountered(Stats& stats) const {  // TODO: better as method of Stats?
+void Constr::fixEncountered(uint32_t lbd, Stats& stats) {
+  assert(lbd > 0);
+  header.lbd = aux::min<uint32_t>(header.lbd, lbd);
+  assert(header.lbd > 0);
+  assert(mostRecentConfl <= stats.getNConfl());
+  mostRecentConfl = stats.getNConfl();
   const Origin o = getOrigin();
   stats.NENCFORMULA.z += o == Origin::FORMULA;
   stats.NENCDOMBREAKER.z += o == Origin::DOMBREAKER;

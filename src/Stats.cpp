@@ -100,6 +100,8 @@ StatNum Stats::getNonLpDetTime() const {
 
 StatNum Stats::getDetTime() const { return getLpDetTime() + getNonLpDetTime(); }
 
+[[nodiscard]] int64_t Stats::getNConfl() const { return static_cast<int64_t>(NCONFL.z); }
+
 void Stats::print(const StatNum& lowerbound, const StatNum& upperbound) {
   setDerivedStats(lowerbound, upperbound);
   for (Stat* s : statsToDisplay) {

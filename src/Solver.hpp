@@ -260,7 +260,7 @@ class Solver {
   // ---------------------------------------------------------------------
   // Constraint management
 
-  [[nodiscard]] CRef attachConstraint(const CeSuper& constraint, bool locked);
+  [[nodiscard]] CRef attachConstraint(const CeSuper& constraint, bool locked, uint32_t lbd);
   void removeConstraint(const CRef& cr, bool override = false);
   void learnConstraint(const CeSuper& c);
   void learnUnitConstraint(Lit l, Origin orig, ID id);

@@ -200,7 +200,7 @@ void Solver::fixPhase(const std::vector<std::pair<Var, Lit>>& vls, bool bump) {
   }
   if (bump) {
     VarVec vs = aux::comprehension(vls, [](const std::pair<Var, Lit>& vl) { return vl.first; });
-    heur.vBumpActivity(vs, getPos(), global.options.varWeight.get(), global.stats.NCONFL.z);
+    heur.vBumpActivity(vs, getPos(), global.options.varWeight.get(), global.stats.getNConfl());
   }
 }
 
@@ -385,8 +385,7 @@ CeSuper Solver::runDatabasePropagation() {
           }
         }
         CeSuper result = expandWithSymbBound(c);
-        c.decreaseLBD(result->getLBD(level));
-        c.fixEncountered(global.stats);
+        c.fixEncountered(result->getLbd(level), global.stats);
         assert(result);
         return result;
       } else {
@@ -463,8 +462,9 @@ CeSuper Solver::analyze(const CeSuper& conflict) {
 
   VarVec vars =
       aux::to_vector(confl->getVars() | std::views::filter([&](Var v) { return isFalse(level, confl->getLit(v)); }));
-  aux::timeCallVoid([&] { heur.vBumpActivity(vars, getPos(), global.options.varWeight.get(), global.stats.NCONFL.z); },
-                    global.stats.HEURTIME.z);
+  aux::timeCallVoid(
+      [&] { heur.vBumpActivity(vars, getPos(), global.options.varWeight.get(), global.stats.getNConfl()); },
+      global.stats.HEURTIME.z);
 
 resolve:
   while (decisionLevel() > 0) {
@@ -484,8 +484,7 @@ resolve:
       Constr& reasonC = ca[reason[toVar(l)]];
 
       unsigned int lbd = reasonC.resolveWith(confl, l, *this);
-      reasonC.decreaseLBD(lbd);
-      reasonC.fixEncountered(global.stats);
+      reasonC.fixEncountered(lbd, global.stats);
     }
     confl->undoOneTmpSlack(l);  // TODO: not strictly needed?
     confl->undoOneTmpPrevious(trail, trail_lim);
@@ -532,10 +531,7 @@ void Solver::minimize(CeSuper& conflict) {
     assert(conflict->getLit(toVar(l)) != 0);
     Constr& reasonC = ca[reason[toVar(l)]];
     unsigned int lbd = reasonC.subsumeWith(conflict, -l, *this, saturatedLits);
-    if (lbd > 0) {
-      reasonC.decreaseLBD(lbd);
-      reasonC.fixEncountered(global.stats);
-    }
+    if (lbd > 0) reasonC.fixEncountered(lbd, global.stats);  // otherwise no subsumption
     if (saturatedLits.isEmpty()) break;
   }
   global.stats.MINTIME.z +=
@@ -603,9 +599,8 @@ CeSuper Solver::extractCore(const CeSuper& conflict, Lit l_assump) {
       assert(isPropagated(reason, l));
       Constr& reasonC = ca[reason[toVar(l)]];
 
-      unsigned int lbd = reasonC.resolveWith(core, l, *this);
-      reasonC.decreaseLBD(lbd);
-      reasonC.fixEncountered(global.stats);
+      uint32_t lbd = reasonC.resolveWith(core, l, *this);
+      reasonC.fixEncountered(aux::max<uint32_t>(1, lbd), global.stats);
     }
     core->undoOneTmpSlack(l);
     core->undoOneTmpPrevious(trail, trail_lim);
@@ -630,7 +625,7 @@ CeSuper Solver::extractCore(const CeSuper& conflict, Lit l_assump) {
 // ---------------------------------------------------------------------
 // Constraint management
 
-CRef Solver::attachConstraint(const CeSuper& constraint, bool locked) {
+CRef Solver::attachConstraint(const CeSuper& constraint, bool locked, uint32_t lbd) {
   assert(constraint->isSortedInDecreasingCoefOrder());
   assert(constraint->isSaturated());
   assert(constraint->hasNoZeroes());
@@ -639,8 +634,10 @@ CRef Solver::attachConstraint(const CeSuper& constraint, bool locked) {
   assert(!constraint->empty());
   assert(!constraint->hasNegativeSlack(getLevel()));
   assert(constraint->orig != Origin::UNKNOWN);
+  assert(lbd > 0);
 
-  CRef cr = constraint->toConstr(ca, locked, global.logger.logProofLineWithInfo(constraint, "Attach"));
+  CRef cr = constraint->toConstr(ca, locked, lbd, global.stats.getNConfl(),
+                                 global.logger.logProofLineWithInfo(constraint, "Attach"));
   if (constraint->symbBound.isValid()) {
     symbbounds[cr] = constraint->symbBound;
     ++global.stats.NSYMBBOUNDADDED.z;
@@ -670,11 +667,11 @@ CRef Solver::attachConstraint(const CeSuper& constraint, bool locked) {
   if (learned) {
     global.stats.LEARNEDLENGTHSUM.z += c.size();
     global.stats.LEARNEDDEGREESUM.z += static_cast<StatNum>(c.degree());
-    global.stats.LEARNEDSTRENGTHSUM.z += c.strength();
+    global.stats.LEARNEDSTRENGTHSUM.z += c.strength;
   } else {
     global.stats.EXTERNLENGTHSUM.z += c.size();
     global.stats.EXTERNDEGREESUM.z += static_cast<StatNum>(c.degree());
-    global.stats.EXTERNSTRENGTHSUM.z += c.strength();
+    global.stats.EXTERNSTRENGTHSUM.z += c.strength;
   }
   if (c.degree() == 1) {
     global.stats.NCLAUSESLEARNED.z += learned;
@@ -749,9 +746,8 @@ void Solver::learnConstraint(const CeSuper& ce) {
   if (learned->symbBound.isValid() && learned->symbBound.getDegree(getSymbBoundUpper(), getSymbBoundLower()) <= 0) {
     learned->symbBound.reset();
   }
-  CRef cr = attachConstraint(learned, false);
+  CRef cr = attachConstraint(learned, false, isAsserting ? learned->getLbd(level) : learned->nVars());
   Constr& c = ca[cr];
-  c.decreaseLBD(isAsserting ? learned->getLBD(level) : learned->nVars());
   // the LBD of non-asserting constraints is undefined, so we take a safe upper bound
   global.stats.LEARNEDLBDSUM += c.lbd();
 }
@@ -768,10 +764,8 @@ void Solver::learnUnitConstraint(Lit l, Origin orig, ID id) {
   unit->addRhs(1);
   unit->addLhs(1, l);
   unit->resetBuffer(id);
-  CRef cr = attachConstraint(unit, false);
+  CRef cr = attachConstraint(unit, false, 1);
   assert(cr != CRef_Undef);
-  Constr& c = ca[cr];
-  c.decreaseLBD(1);
 }
 
 void Solver::learnClause(Lit l1, Lit l2, Origin orig, ID id) {
@@ -832,7 +826,7 @@ std::pair<ID, ID> Solver::addInputConstraint(const CeSuper& ce) {  // NOTE: shou
 
   try {
     global.options.setClausalInput(ce->isClause());
-    CRef cr = attachConstraint(ce, true);
+    CRef cr = attachConstraint(ce, true, 1);
     assert(cr != CRef_Undef);
     ID id = ca[cr].id();
     Origin orig = ca[cr].getOrigin();
@@ -1063,9 +1057,10 @@ void Solver::garbage_collect() {
 // only place where constraints are removed from memory.
 void Solver::reduceDB() {
   backjumpTo(0);  // otherwise reason CRefs need to be taken care of
-  db_learnts.clear();
+  std::vector<std::pair<CRef, double>> ordered_learnts;
 
   removeSatisfiedNonImpliedsAtRoot();
+  const int64_t nconfl = global.stats.getNConfl();
   for (const CRef& cr : constraints) {
     Constr& c = ca[cr];
     if (c.isMarkedForDelete() || c.isLocked() || external.count(c.id())) {
@@ -1075,18 +1070,34 @@ void Solver::reduceDB() {
     if (c.isSatisfiedAtRoot(getLevel())) {
       ++global.stats.NSATISFIEDSREMOVED;
       removeConstraint(cr);
-    } else if ((int)c.lbd() > global.options.dbSafeLBD.get()) {
-      db_learnts.push_back(cr);  // Don't erase glue constraints
+    } else {
+      ordered_learnts.emplace_back(cr, 0);
+      if (global.options.dbCleaningPriority.is("strength")) {
+        const double nconfl_norm = static_cast<double>(c.mostRecentConfl + 1) / static_cast<double>(nconfl + 1);
+        ordered_learnts.back().second = static_cast<double>(c.strength) * INF + nconfl_norm;
+      } else if (global.options.dbCleaningPriority.is("lbd")) {
+        const double nconfl_norm = static_cast<double>(c.mostRecentConfl + 1) / static_cast<double>(nconfl + 1);
+        ordered_learnts.back().second = nconfl_norm - static_cast<double>(c.lbd());
+      } else if (global.options.dbCleaningPriority.is("activity")) {
+        ordered_learnts.back().second = static_cast<double>(c.mostRecentConfl + 1) + c.strength;
+      } else if (global.options.dbCleaningPriority.is("combo")) {
+        ordered_learnts.back().second = c.getPriority(nconfl);
+      } else {
+        assert(false);
+      }
     }
   }
 
-  if (global.options.dbRandom) {
+  if (global.options.dbCleaningPriority.is("random")) {
     std::mt19937 gen(std::random_device{}());
-    std::ranges::shuffle(db_learnts, gen);
+    std::ranges::shuffle(ordered_learnts, gen);
   } else {
-    boost::sort::pdqsort(db_learnts.begin(), db_learnts.end(),
-                         [&](CRef x, CRef y) { return ca[x].priority < ca[y].priority; });
+    boost::sort::pdqsort(
+        ordered_learnts.begin(), ordered_learnts.end(),
+        [&](const std::pair<CRef, double>& x, const std::pair<CRef, double>& y) { return x.second > y.second; });
   }
+  db_learnts.clear();
+  for (const std::pair<CRef, double>& lrnt : ordered_learnts) db_learnts.push_back(lrnt.first);
 
   int64_t limit = global.options.dbScale.get() *
                   std::pow(std::log(static_cast<double>(global.stats.NCONFL.z)), global.options.dbExp.get());
@@ -1107,19 +1118,17 @@ void Solver::reduceDB() {
     }
     ++global.stats.NCONSREADDED;
     CeSuper ce = expandWithSymbBound(c);
-    bool isLocked = c.isLocked();
-    unsigned int lbd = c.lbd();
+    const bool isLocked = c.isLocked();
+    const uint32_t lbd = c.lbd();
+    assert(lbd > 0);
     ce->strongPostProcess(*this);
     if (ce->isUnsat()) reportUnsat(ce);
     if (ce->isTautology()) {
       removeConstraint(cr, true);
       continue;
     }
-    CRef crnew = attachConstraint(ce, isLocked);  // NOTE: this invalidates ce!
+    CRef crnew = attachConstraint(ce, isLocked, lbd);  // NOTE: this invalidates ce!
     if (crnew == CRef_Undef) continue;
-    Constr& cnew = ca[crnew];
-    cnew.decreaseLBD(lbd);
-    // if (isNonImplied(cnew.getOrigin())) getLogger().logAsCore(cnew.id);
     removeConstraint(cr, true);  // NOTE: remove after attaching a stronger version
   }
 
@@ -1138,12 +1147,10 @@ void Solver::reduceDB() {
   }
 
   size_t j = 0;
-  unsigned int decay = (unsigned int)global.options.dbDecayLBD.get();
   for (size_t i = 0; i < constraints.size(); ++i) {
     if (Constr& c = ca[constraints[i]]; c.isMarkedForDelete()) {
       c.cleanup();  // free up indirectly owned memory before implicitly deleting c during garbage collect
     } else {
-      c.decayLBD(decay);
       constraints[j++] = constraints[i];
     }
   }
@@ -1376,7 +1383,7 @@ SolveState Solver::solve() {
       assert(confl->hasNegativeSlack(level));
       ++global.stats.NCONFL;
       nconfl_to_restart--;
-      int64_t nconfl = static_cast<int64_t>(global.stats.NCONFL.z);
+      const int64_t nconfl = global.stats.getNConfl();
       if (nconfl % 1000 == 0 && global.options.verbosity.get() > 0) {
         std::cout << "c " << nconfl << " confls " << constraints.size() << " constrs "
                   << getNbVars() - static_cast<int64_t>(global.stats.NUNITS.z) << " vars" << std::endl;
@@ -1410,7 +1417,7 @@ SolveState Solver::solve() {
         double rest_base = luby(global.options.lubyBase.get(), static_cast<int>(global.stats.NRESTARTS.z));
         nconfl_to_restart = (int64_t)rest_base * global.options.lubyMult.get();
       }
-      if (global.stats.NCONFL >= nconfl_to_reduce) {
+      if (global.stats.getNConfl() >= nconfl_to_reduce) {
         ++global.stats.NCLEANUP;
         nconfl_to_reduce +=
             1 + global.options.dbScale.get() *

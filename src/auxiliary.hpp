@@ -599,7 +599,6 @@ auto comprehension(CONTAINER&& container, LAM_MAP&& map, LAM_FILTER&& filter) {
 struct IntVecHash {
   size_t operator()(const std::vector<int32_t>& t) const { return xct::aux::hashForList<int32_t>(t); }
 };
-
 struct StringHash {
   size_t operator()(const std::string& t) const { return xct::aux::hashForList<char>(t); }
 };

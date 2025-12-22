@@ -498,6 +498,7 @@ struct Stats {
   [[nodiscard]] StatNum getLpDetTime() const;
   [[nodiscard]] StatNum getNonLpDetTime() const;
   [[nodiscard]] StatNum getDetTime() const;
+  [[nodiscard]] int64_t getNConfl() const;
 
   void print(const StatNum& lowerbound, const StatNum& upperbound);
   void printCsvLine(const StatNum& lowerbound, const StatNum& upperbound);

@@ -70,7 +70,7 @@ constexpr ID ID_Undef = 0;
 constexpr ID ID_Trivial = 1;  // represents constraint 0 >= 0
 inline bool isValid(ID id) { return id != ID_Undef; }
 
-constexpr unsigned int MAXLBD = 60;
+constexpr unsigned int MAXLBD = 7;
 
 using Var = int32_t;
 using Lit = int32_t;

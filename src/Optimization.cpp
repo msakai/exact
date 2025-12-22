@@ -273,7 +273,7 @@ void Optimization<SMALL, LARGE>::printObjBounds(bool upperImproved) {
   } else {
     std::cout << "-";
   }
-  std::cout << " >= " << getLowerBound() << " @ " << global.stats.getTime() << ", " << global.stats.NCONFL.z << "\n";
+  std::cout << " >= " << getLowerBound() << " @ " << global.stats.getTime() << ", " << global.stats.getNConfl() << "\n";
 }
 
 template <typename SMALL, typename LARGE>

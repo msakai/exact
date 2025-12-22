@@ -414,7 +414,8 @@ CeSuper ConstrExp<SMALL, LARGE>::clone(ConstrExpPools& cePools) const {
 }
 
 template <typename SMALL, typename LARGE>
-CRef ConstrExp<SMALL, LARGE>::toConstr(ConstraintAllocator& ca, bool locked, ID id) const {
+CRef ConstrExp<SMALL, LARGE>::toConstr(ConstraintAllocator& ca, bool locked, uint32_t lbd, int64_t nConfl,
+                                       ID id) const {
   // assert(testConstraint());
   assert(isSortedInDecreasingCoefOrder());
   assert(isSaturated());
@@ -422,6 +423,7 @@ CRef ConstrExp<SMALL, LARGE>::toConstr(ConstraintAllocator& ca, bool locked, ID 
   assert(!vars.empty());
   assert(!isTautology());
   assert(!isUnsat());
+  assert(lbd > 0);
 
   CRef result = CRef{ca.at};
   SMALL maxCoef = aux::abs(coefs[vars[0]]);
@@ -429,32 +431,32 @@ CRef ConstrExp<SMALL, LARGE>::toConstr(ConstraintAllocator& ca, bool locked, ID 
     // assert((nNonZeroVars() < 2 || getStrength() >= std::sqrt(1.8) / vars.size()));
     // assert(getStrength() <= std::sqrt(2.2) / vars.size());
     // if (vars.size() == 2) {
-    //   new (ca.alloc<Binary>(vars.size())) Binary(this, locked, id);
+    //   new (ca.alloc<Binary>(vars.size())) Binary(this, locked, id, lbd, nConfl);
     // } else {
-    new (ca.alloc<Clause>(vars.size())) Clause(this, locked, id);
+    new (ca.alloc<Clause>(vars.size())) Clause(this, locked, id, lbd, nConfl);
     // }
   } else if (maxCoef == 1) {
     // assert(getStrength() >= 0.9 * static_cast<double>(degree) / vars.size());
     // assert(getStrength() <= 1.1 * (static_cast<double>(degree) + 1) / vars.size());
-    new (ca.alloc<Cardinality>(vars.size())) Cardinality(this, locked, id);
+    new (ca.alloc<Cardinality>(vars.size())) Cardinality(this, locked, id, lbd, nConfl);
   } else {
     double strngth = getStrength();
     if (maxCoef <= static_cast<LARGE>(limitAbs<int, int64_t>())) {
       global.stats.NSMALL.z += 1;
       assert(degree >= maxCoef);
-      new (ca.alloc<Watched32>(vars.size())) Watched32(this, locked, id, strngth);
+      new (ca.alloc<Watched32>(vars.size())) Watched32(this, locked, id, lbd, nConfl, strngth);
     } else if (maxCoef <= static_cast<LARGE>(limitAbs<int64_t, int128>())) {
       global.stats.NLARGE.z += 1;
-      new (ca.alloc<Watched64>(vars.size())) Watched64(this, locked, id, strngth);
+      new (ca.alloc<Watched64>(vars.size())) Watched64(this, locked, id, lbd, nConfl, strngth);
     } else if (maxCoef <= static_cast<LARGE>(limitAbs<int128, int128>())) {
       global.stats.NLARGE.z += 1;
-      new (ca.alloc<Watched96>(vars.size())) Watched96(this, locked, id, strngth);
+      new (ca.alloc<Watched96>(vars.size())) Watched96(this, locked, id, lbd, nConfl, strngth);
     } else if (maxCoef <= static_cast<LARGE>(limitAbs<int128, int256>())) {
       global.stats.NLARGE.z += 1;
-      new (ca.alloc<Watched128>(vars.size())) Watched128(this, locked, id, strngth);
+      new (ca.alloc<Watched128>(vars.size())) Watched128(this, locked, id, lbd, nConfl, strngth);
     } else {
       global.stats.NARB.z += 1;
-      new (ca.alloc<WatchedArb>(vars.size())) WatchedArb(this, locked, id, strngth);
+      new (ca.alloc<WatchedArb>(vars.size())) WatchedArb(this, locked, id, lbd, nConfl, strngth);
     }
   }
   return result;
@@ -820,7 +822,7 @@ bool ConstrExp<SMALL, LARGE>::isSatisfied(const LitVec& assignment) const {
 }
 
 template <typename SMALL, typename LARGE>
-unsigned int ConstrExp<SMALL, LARGE>::getLBD(const IntMap<int>& level) const {
+unsigned int ConstrExp<SMALL, LARGE>::getLbd(const IntMap<int>& level) const {
   // calculate delete-lbd-e according to "On Dedicated CDCL Strategies for PB Solvers" - Le Berre & Wallon - 2021
   assert(isSortedInDecreasingCoefOrder());
   LARGE weakenedDeg = degree;
@@ -2165,17 +2167,23 @@ void ConstrExp<SMALL, LARGE>::toStreamPure(std::ostream& o) const {
 }
 
 size_t ConstrExpSuper::calculateLbd(auto lits_, const IntMap<int>& level) {
-  std::vector<int> levels;
-  levels.reserve(MAXLBD);
+  std::array<int, MAXLBD> levels{};  // initial value is all zeroes
+  int n = 0;
   for (Lit l : lits_) {
     const int lvl = level[-l];
     if (lvl == 0 || lvl == INF) continue;
-    if (std::ranges::find(levels, lvl) == levels.end()) {
-      levels.push_back(lvl);
-      if (levels.size() >= MAXLBD) return MAXLBD;
+    levels[n] = lvl;  // add the level
+    ++n;
+    for (int32_t i = 0; i < n - 1; ++i) {
+      if (levels[i] == lvl) {
+        --n;
+        levels[n] = 0;  // remove the level if it is found before
+        break;
+      }
     }
+    if (n == MAXLBD) return MAXLBD;
   }
-  return levels.size();
+  return aux::max(n, 1);  // avoid returning 0
 }
 
 template <typename SMALL, typename LARGE>

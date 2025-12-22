@@ -209,8 +209,6 @@ struct Options {
   BoolOption varSol{"var-sol", "Use last solution as phase", true};
   BoolOption varObjective{"var-objective", "Initialize heuristic to optimize the objective variables first", false};
   BoolOption varRandom{"var-random", "Random variable heuristic", false};
-  ValOption<int32_t> dbDecayLBD{"db-decay", "Decay term for the LBD of constraints", 1, "0 (no decay) =< int",
-                                [](const int32_t& x) -> bool { return 0 <= x; }};
   ValOption<int64_t> dbBase{"db-base", "Initial number of conflicts at which database cleaning is performed.", 2000,
                             "1 =< int", [](const int64_t& x) -> bool { return x >= 1; }};
   ValOption<double> dbExp{"db-exp",
@@ -219,10 +217,10 @@ struct Options {
                           1.1, "0 =< float", [](const double& x) -> bool { return 0 <= x; }};
   ValOption<double> dbScale{"db-scale", "Multiplier of the learned clause database and inprocessing intervals", 500,
                             "0 < float", [](const double& x) -> bool { return 0 < x; }};
-  ValOption<int32_t> dbSafeLBD{"db-safelbd", "Learned constraints with this LBD or less are safe from database cleanup",
-                               1, "0 (nobody is safe) =< " + std::to_string(MAXLBD),
-                               [](const int32_t& x) -> bool { return 0 <= x; }};
-  BoolOption dbRandom{"db-random", "Random constraint deletion", false};
+  EnumOption dbCleaningPriority{"db-cleaning",
+                                "Heuristic to decide which constraints get cleaned from the store",
+                                "combo",
+                                {"random", "strength", "lbd", "activity", "combo"}};
   ValOption<double> lpTimeRatio{
       "lp", "Ratio of time spent in LP calls (0 means no LP solving, 1 means no limit on LP solver)",
 #if WITHSOPLEX
@@ -342,12 +340,10 @@ struct Options {
       &varSol,
       &varObjective,
       &varRandom,
-      &dbDecayLBD,
       &dbBase,
       &dbExp,
       &dbScale,
-      &dbSafeLBD,
-      &dbRandom,
+      &dbCleaningPriority,
 #if WITHSOPLEX
       &lpTimeRatio,
       &lpPivotBudget,

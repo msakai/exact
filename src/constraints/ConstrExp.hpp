@@ -314,7 +314,7 @@ struct ConstrExpSuper {
   virtual void copyTo(ConstrSimpleArb& cs) const = 0;
 
   virtual CeSuper clone(ConstrExpPools& ce) const = 0;
-  virtual CRef toConstr(ConstraintAllocator& ca, bool locked, ID id) const = 0;
+  virtual CRef toConstr(ConstraintAllocator& ca, bool locked, uint32_t lbd, int64_t nConfl, ID id) const = 0;
 
   virtual void resize(size_t s) = 0;
   virtual bool isReset() const = 0;
@@ -343,7 +343,7 @@ struct ConstrExpSuper {
   virtual bool isTautology() const = 0;
   virtual bool isUnsat() const = 0;
   virtual bool isSatisfied(const LitVec& assignment) const = 0;
-  virtual unsigned int getLBD(const IntMap<int>& level) const = 0;
+  virtual unsigned int getLbd(const IntMap<int>& level) const = 0;
 
   virtual void removeUnitsAndZeroes(const IntMap<int>& level, const std::vector<int>& pos) = 0;
   virtual void removeZeroes() = 0;
@@ -462,7 +462,7 @@ struct ConstrExp final : ConstrExpSuper {
   void copyTo(ConstrSimpleArb& cs) const;
 
   CeSuper clone(ConstrExpPools& ce) const;
-  CRef toConstr(ConstraintAllocator& ca, bool locked, ID id) const;
+  CRef toConstr(ConstraintAllocator& ca, bool locked, uint32_t lbd, int64_t nConfl, ID id) const;
 
   void resize(size_t s);
   bool isReset() const;
@@ -505,7 +505,7 @@ struct ConstrExp final : ConstrExpSuper {
   bool isTautology() const;
   bool isUnsat() const;
   bool isSatisfied(const LitVec& assignment) const;
-  unsigned int getLBD(const IntMap<int>& level) const;
+  unsigned int getLbd(const IntMap<int>& level) const;
 
   // @post: preserves order of vars
   void removeUnitsAndZeroes(const IntMap<int>& level, const std::vector<int>& pos);
@@ -953,7 +953,7 @@ struct ConstrExp final : ConstrExpSuper {
     assert(hasCorrectTmpSlack(level));
     assert(hasCorrectTmpPrevious(level, decisionLvl));
 
-    return reason->getLBD(level);
+    return reason->getLbd(level);
   }
 
   //@post: variable vector vars is not changed, but coefs[toVar(toSubsume)] may become 0
