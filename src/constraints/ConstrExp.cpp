@@ -1051,11 +1051,11 @@ void ConstrExp<SMALL, LARGE>::removeEqualities(Equalities& equalities) {
 template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::selfSubsumeImplications(const Implications& implications) {
   assert(!symbBound.isValid());  // almost always some form of saturation going on
-  saturate(true, false);         // needed to get the proof to agree
+  removeZeroes();
+  saturate(true, false);  // needed to get the proof to agree
   IntSet& saturateds = global.isPool.take();
   getSaturatedLits(saturateds);
   for (Var v : vars) {
-    if (coefs[v] == 0) continue;
     Lit l = getLit(v);
     for (Lit ll : implications.getImplieds(l)) {
       if (!saturateds.has(ll)) continue;
