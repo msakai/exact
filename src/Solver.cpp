@@ -764,7 +764,7 @@ void Solver::learnUnitConstraint(Lit l, Origin orig, ID id) {
   unit->addRhs(1);
   unit->addLhs(1, l);
   unit->resetBuffer(id);
-  CRef cr = attachConstraint(unit, false, 1);
+  [[maybe_unused]] CRef cr = attachConstraint(unit, false, 1);
   assert(cr != CRef_Undef);
 }
 
