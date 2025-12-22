@@ -928,7 +928,7 @@ struct ConstrExp final : ConstrExpSuper {
     bool resetTmpPrevious = false;
     if (largestCF > getDegree()) {
       resetTmpPrevious = true;
-      // largestCF = static_cast<SMALL>(getDegree());
+      largestCF = static_cast<SMALL>(getDegree());
       // const SMALL& smallDeg = largestCF;
       // if (tmpPrevLargestCf > smallDeg) {
       //   // unknowns at the current level can impact tmpPrevSlack and tmpPrefLargestCf
