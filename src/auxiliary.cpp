@@ -100,7 +100,7 @@ bool contains(const std::string& s, char c) { return s.find(c) != std::string::n
 
 namespace rng {
 
-uint32_t seed = 1;
+uint32_t seed = 2;
 
 uint32_t xorshift32() {
   /* Algorithm "xor" from p. 4 of Marsaglia, "Xorshift RNGs" */
@@ -112,11 +112,12 @@ uint32_t xorshift32() {
 
 }  // namespace rng
 
+// returns a value in interval [min,max[
 int32_t getRand(int32_t min, int32_t max) {
   assert(rng::seed != 0);
   // based on https://lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction
   assert(min < max);
-  return (((uint64_t)rng::xorshift32() * (uint64_t)(max - min + 1)) >> 32) + min;
+  return (((uint64_t)rng::xorshift32() * (uint64_t)(max - min)) >> 32) + min;
 }
 
 uint64_t shift_hash(uint64_t x) {

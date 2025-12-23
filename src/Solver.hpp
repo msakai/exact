@@ -100,6 +100,7 @@ class Solver {
   Global& global;
 
  private:
+  std::mt19937 gen;
   int n = 0;
   bool firstRun = true;
   bool unsatReached = false;

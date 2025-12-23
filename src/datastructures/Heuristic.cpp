@@ -64,7 +64,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 namespace xct {
 
-Heuristic::Heuristic() : nextDecision(0) {
+Heuristic::Heuristic(const Global& g) : global(g), nextDecision(0) {
   phase.resize(1);
   phase[0] = {0, 0};
   actList.resize(1);
@@ -86,6 +86,7 @@ void Heuristic::resize(int nvars) {
   phase.resize(nvars);
   actList.resize(nvars);
   for (Var v = old_n; v < nvars; ++v) {
+    varsLeft.add(v);
     phase[v] = {0, -v};
     ActNode& node = actList[v];
     node.activity = -v / static_cast<ActValV>(INF);  // early variables have slightly higher initial activity
@@ -103,6 +104,7 @@ void Heuristic::resize(int nvars) {
 void Heuristic::undoOne(Var v, Lit l) {
   setPhase(v, l);
   if (before(v, nextDecision)) nextDecision = v;
+  varsLeft.add(v);
 }
 
 void Heuristic::setPhase(Var v, Lit l) { phase[v].second = l; }
@@ -192,14 +194,41 @@ Lit Heuristic::pickBranchLit(const std::vector<int>& position, bool coreguided) 
   assert(phase[0].first == 0);     // so will return right phase
   assert(phase[0].second == 0);    // so will return right phase
   assert(isUnknown(position, 0));  // so will eventually stop
-  // Activity based decision:
-  if (nextDecision == 0) {
-    nextDecision = actList[0].next;
+
+  Var next = 0;
+  if (global.options.varRandom) {
+    // Random decision
+    while (!varsLeft.isEmpty()) {
+      next = varsLeft.getKeys()[aux::getRand(0, varsLeft.size())];
+      varsLeft.remove(next);
+      if (!isKnown(position, next)) break;
+    }
+    if (next == 0 || isKnown(position, next)) {
+      assert(varsLeft.isEmpty());
+      return 0;
+    }
+  } else {
+    // Activity based decision
+    if (nextDecision == 0) {
+      nextDecision = actList[0].next;
+    }
+    while (isKnown(position, nextDecision)) {
+      nextDecision = actList[nextDecision].next;
+    }
+    next = nextDecision;
   }
-  while (isKnown(position, nextDecision)) {
-    nextDecision = actList[nextDecision].next;
+  if (global.options.varPolarity.is("random")) {
+    int32_t sign = aux::getRand(0, 2) * 2 - 1;
+    assert(sign == 1 || sign == -1);
+    return sign * next;
+  } else {
+    Lit result = (!coreguided && phase[next].first) ? phase[next].first : phase[next].second;
+    if (global.options.varPolarity.is("phase")) {
+      return result;
+    } else {
+      return -result;
+    }
   }
-  return (!coreguided && phase[nextDecision].first) ? phase[nextDecision].first : phase[nextDecision].second;
 }
 
 Var Heuristic::nextInActOrder(Var v) const { return actList[v].next; }

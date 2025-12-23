@@ -61,6 +61,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #pragma once
 
+#include "Global.hpp"
+#include "IntSet.hpp"
 #include "SolverStructs.hpp"
 
 namespace xct {
@@ -72,14 +74,16 @@ struct ActNode {
 };
 
 class Heuristic {
+  const Global& global;
   std::vector<std::pair<Lit, Lit>> phase;  // first lit is user-fixed phase, second is dynamic phase
   std::vector<ActNode> actList;
   Var nextDecision;
+  IntSet varsLeft;
 
   int nVars() const;
 
  public:
-  Heuristic();
+  Heuristic(const Global& g);
   void resize(int n);
 
   void undoOne(Var v, Lit l);
