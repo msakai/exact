@@ -71,10 +71,15 @@ namespace xct {
 Solver::Solver(Global& g)
     : lastCore(g.cePools.take32()),
       global(g),
+      gen(std::random_device{}()),
+      heur(g),
       equalities(*this),
       implications(*this),
       nconfl_to_reduce(global.options.dbBase.get()),
       nconfl_to_restart(global.options.lubyMult.get()) {
+  for (int i = 0; i < 100; ++i) {
+    aux::cout << aux::getRand(10, 1000) << std::endl;
+  }
   ca.capacity(1048576);  // 4MiB
   position.resize(1, INF);
   isorig.resize(1, true);
@@ -764,7 +769,7 @@ void Solver::learnUnitConstraint(Lit l, Origin orig, ID id) {
   unit->addRhs(1);
   unit->addLhs(1, l);
   unit->resetBuffer(id);
-  CRef cr = attachConstraint(unit, false, 1);
+  [[maybe_unused]] CRef cr = attachConstraint(unit, false, 1);
   assert(cr != CRef_Undef);
 }
 
@@ -1089,7 +1094,6 @@ void Solver::reduceDB() {
   }
 
   if (global.options.dbCleaningPriority.is("random")) {
-    std::mt19937 gen(std::random_device{}());
     std::ranges::shuffle(ordered_learnts, gen);
   } else {
     boost::sort::pdqsort(

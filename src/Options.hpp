@@ -208,7 +208,8 @@ struct Options {
       "0 =< float =< 1", [](const double& x) -> bool { return 0 <= x && x <= 1; }};
   BoolOption varSol{"var-sol", "Use last solution as phase", true};
   BoolOption varObjective{"var-objective", "Initialize heuristic to optimize the objective variables first", false};
-  BoolOption varRandom{"var-random", "Random variable heuristic", false};
+  BoolOption varRandom{"var-random", "Random variable order heuristic", false};
+  EnumOption varPolarity{"var-polarity", "Variable polarity", "phase", {"phase", "inverse", "random"}};
   ValOption<int64_t> dbBase{"db-base", "Initial number of conflicts at which database cleaning is performed.", 2000,
                             "1 =< int", [](const int64_t& x) -> bool { return x >= 1; }};
   ValOption<double> dbExp{"db-exp",
@@ -340,6 +341,7 @@ struct Options {
       &varSol,
       &varObjective,
       &varRandom,
+      &varPolarity,
       &dbBase,
       &dbExp,
       &dbScale,
