@@ -77,9 +77,6 @@ Solver::Solver(Global& g)
       implications(*this),
       nconfl_to_reduce(global.options.dbBase.get()),
       nconfl_to_restart(global.options.lubyMult.get()) {
-  for (int i = 0; i < 100; ++i) {
-    aux::cout << aux::getRand(10, 1000) << std::endl;
-  }
   ca.capacity(1048576);  // 4MiB
   position.resize(1, INF);
   isorig.resize(1, true);

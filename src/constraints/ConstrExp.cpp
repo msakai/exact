@@ -761,10 +761,6 @@ bool ConstrExp<SMALL, LARGE>::hasCorrectTmpPrevious(const IntMap<int>& level, in
   bool result = true;
   result = result && tps == tmpPrevSlack;
   result = result && tplcf >= tmpPrevLargestCf;
-  if (!result) {
-    aux::cout << tmpPrevSlack << " " << tmpPrevLargestCf << std::endl;  // new
-    aux::cout << tps << " " << tplcf << std::endl;                      // original
-  }
   tmpPrevSlack = tps;
   tmpPrevLargestCf = tplcf;
   return result;
