@@ -221,7 +221,7 @@ struct Options {
   EnumOption dbCleaningPriority{"db-cleaning",
                                 "Heuristic to decide which constraints get cleaned from the store",
                                 "combo",
-                                {"random", "strength", "lbd", "activity", "combo"}};
+                                {"random", "strength", "lbd", "activity", "combo", "tricombo"}};
   ValOption<double> lpTimeRatio{
       "lp", "Ratio of time spent in LP calls (0 means no LP solving, 1 means no limit on LP solver)",
 #if WITHSOPLEX

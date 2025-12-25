@@ -1084,9 +1084,14 @@ void Solver::reduceDB() {
         const double nconfl_norm = static_cast<double>(c.mostRecentConfl + 1) / static_cast<double>(nconfl + 1);
         ordered_learnts.back().second = nconfl_norm - static_cast<double>(c.lbd());
       } else if (global.options.dbCleaningPriority.is("activity")) {
-        ordered_learnts.back().second = static_cast<double>(c.mostRecentConfl + 1) + c.strength;
+        ordered_learnts.back().second =
+            static_cast<double>(c.mostRecentConfl + 1) - static_cast<double>(c.lbd()) / static_cast<double>(MAXLBD);
       } else if (global.options.dbCleaningPriority.is("combo")) {
-        ordered_learnts.back().second = c.getPriority(nconfl);
+        ordered_learnts.back().second = static_cast<double>(c.mostRecentConfl + 1) / static_cast<double>(c.lbd());
+      } else if (global.options.dbCleaningPriority.is("tricombo")) {
+        const double nconfl_norm = static_cast<double>(c.mostRecentConfl + 1) / static_cast<double>(nconfl + 1);
+        const double lbd_inv_norm = static_cast<double>(MAXLBD) / static_cast<double>(c.lbd());
+        ordered_learnts.back().second = nconfl_norm * lbd_inv_norm * c.strength;
       } else {
         assert(false);
       }

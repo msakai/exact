@@ -88,10 +88,6 @@ void Constr::setLocked(const bool lkd) { header.locked = lkd; }
 bool Constr::isLocked() const { return header.locked; }
 Origin Constr::getOrigin() const { return static_cast<Origin>(header.origin); }
 uint32_t Constr::lbd() const { return header.lbd; }
-double Constr::getPriority(int64_t nConfl) const {
-  return static_cast<double>(strength) / static_cast<double>(header.lbd) * static_cast<double>(mostRecentConfl + 1) /
-         static_cast<double>(nConfl + 1);
-}
 bool Constr::isMarkedForDelete() const { return header.markedfordel; }
 bool Constr::isSeen() const { return header.seen; }
 void Constr::setSeen(const bool s) { header.seen = s; }

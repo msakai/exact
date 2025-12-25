@@ -96,7 +96,6 @@ struct Constr {  // internal solver constraint optimized for fast propagation
   bool isLocked() const;
   Origin getOrigin() const;
   uint32_t lbd() const;
-  double getPriority(int64_t nConfl) const;
   bool isMarkedForDelete() const;
   bool isSeen() const;
   void setSeen(bool s);
