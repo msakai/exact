@@ -1086,9 +1086,10 @@ void Solver::reduceDB() {
       } else if (global.options.dbCleaningPriority.is("combo")) {
         ordered_learnts.back().second = static_cast<double>(c.mostRecentConfl + 1) / static_cast<double>(c.lbd());
       } else if (global.options.dbCleaningPriority.is("tricombo")) {
-        const double nconfl_norm = static_cast<double>(c.mostRecentConfl + 1) / static_cast<double>(nconfl + 1);
-        const double lbd_inv_norm = static_cast<double>(MAXLBD) / static_cast<double>(c.lbd());
-        ordered_learnts.back().second = nconfl_norm * lbd_inv_norm * c.strength;
+        int exp;
+        std::frexpf(c.strength, &exp);
+        ordered_learnts.back().second =
+            static_cast<double>(c.mostRecentConfl + 1) / static_cast<double>(c.lbd()) / (-exp);
       } else {
         assert(false);
       }
