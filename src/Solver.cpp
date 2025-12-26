@@ -493,7 +493,7 @@ resolve:
     undoOne();
   }
   assert(confl->hasCorrectTmpSlack(level));
-  assert(confl->hasCorrectTmpPrevious(level, decisionLevel()));
+  assert(decisionLevel() == 0 || confl->hasCorrectTmpPrevious(level, decisionLevel()));
 
   if (global.options.learnedMin && decisionLevel() > 0) {
     minimize(confl);
@@ -1087,7 +1087,7 @@ void Solver::reduceDB() {
         ordered_learnts.back().second = static_cast<double>(c.mostRecentConfl + 1) / static_cast<double>(c.lbd());
       } else if (global.options.dbCleaningPriority.is("tricombo")) {
         int exp;
-        std::frexpf(c.strength, &exp);
+        std::frexp(c.strength, &exp);
         ordered_learnts.back().second =
             static_cast<double>(c.mostRecentConfl + 1) / static_cast<double>(c.lbd()) / (-exp);
       } else {

@@ -1583,10 +1583,12 @@ std::pair<int, bool> ConstrExp<SMALL, LARGE>::getAssertionStatus(const IntMap<in
   assert(isSortedInDecreasingCoefOrder());
   assert(hasNoUnits(level));
 
+  if (vars.empty() && degree > 0) return {-1, false};
+
   if (isClause()) {
     // just find the highest level
     int lvl1 = 0;
-    int lvl2 = 0;
+    int lvl2 = -1;
     for (Var v : vars) {
       const int lvl3 = level[-getLit(v)];
       if (lvl3 > lvl1) {
