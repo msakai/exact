@@ -396,10 +396,11 @@ struct Options {
   void usage(const char* name);
 
  private:
-  bool pureClausalInput;
+  bool pureClausalConstraints;
 
  public:
-  void setClausalInput(bool isClause);
+  void setClausalConstraints(bool isClause);
+  bool hasOnlyClausalConstraints() const;
 
   int getBitsOverflow() const;
   int getBitsReduced() const;

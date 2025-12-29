@@ -638,6 +638,8 @@ CRef Solver::attachConstraint(const CeSuper& constraint, bool locked, uint32_t l
   assert(constraint->orig != Origin::UNKNOWN);
   assert(lbd > 0);
 
+  global.options.setClausalConstraints(constraint->isClause());
+
   CRef cr = constraint->toConstr(ca, locked, lbd, global.stats.getNConfl(),
                                  global.logger.logProofLineWithInfo(constraint, "Attach"));
   if (constraint->symbBound.isValid()) {
@@ -827,7 +829,6 @@ std::pair<ID, ID> Solver::addInputConstraint(const CeSuper& ce) {  // NOTE: shou
   }
 
   try {
-    global.options.setClausalInput(ce->isClause());
     CRef cr = attachConstraint(ce, true, 1);
     assert(cr != CRef_Undef);
     ID id = ca[cr].id();
@@ -1234,6 +1235,10 @@ void Solver::presolve() {
   aux::timeCallVoid([&] { inProcess(); }, global.stats.INPROCESSTIME);
 
 #if WITHSOPLEX
+  if (!objectiveIsSet() && global.options.hasOnlyClausalConstraints()) {
+    global.options.lpTimeRatio.set(0);  // no use having an LP solver for a clausal decision problem
+  }
+
   if (global.options.lpTimeRatio.get() > 0) {
     lpSolver = std::make_shared<LpSolver>(*this);
     lpSolver->setObjective(objective);

@@ -135,7 +135,7 @@ bool EnumOption::is(const std::string& v) const {
 
 const std::string& EnumOption::get() const { return val; }
 
-Options::Options() : pureClausalInput(true) {
+Options::Options() : pureClausalConstraints(true) {
   for (Option* opt : options) name2opt[opt->name] = opt;
 }
 
@@ -186,10 +186,15 @@ void Options::usage(const char* name) {
   for (Option* opt : options) opt->printUsage(24);
 }
 
-void Options::setClausalInput(bool isClause) { pureClausalInput = pureClausalInput && isClause; }
+void Options::setClausalConstraints(bool isClause) { pureClausalConstraints = pureClausalConstraints && isClause; }
+bool Options::hasOnlyClausalConstraints() const { return pureClausalConstraints; }
 
-int Options::getBitsOverflow() const { return pureClausalInput ? limitBitConfl<int, int64_t>() : bitsOverflow.get(); }
-int Options::getBitsReduced() const { return pureClausalInput ? limitBit<int, int64_t>() : bitsReduced.get(); }
-int Options::getBitsLearned() const { return pureClausalInput ? limitBit<int, int64_t>() : bitsLearned.get(); }
+int Options::getBitsOverflow() const {
+  return pureClausalConstraints ? limitBitConfl<int, int64_t>() : bitsOverflow.get();
+}
+int Options::getBitsReduced() const {
+  return pureClausalConstraints ? limitBitConfl<int, int64_t>() : bitsReduced.get();
+}
+int Options::getBitsLearned() const { return pureClausalConstraints ? limitBit<int, int64_t>() : bitsLearned.get(); }
 
 }  // namespace xct

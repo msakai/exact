@@ -1212,6 +1212,7 @@ bool ConstrExp<SMALL, LARGE>::fixOverflow(const IntMap<int>& level, int decision
   assert(bitOverflow >= bitReduce);
   LARGE maxVal = std::max<LARGE>(largestCoef, std::max(degree, aux::abs(rhs)) / INF);
   if (maxVal > 0 && aux::msb(maxVal) >= bitOverflow) {
+    assert(!global.options.hasOnlyClausalConstraints());  // pure clausal never yields overflow
     assert(getCutoffVal() == maxVal);
     LARGE div = aux::ceildiv<LARGE>(maxVal, aux::powtwo<LARGE>(bitReduce) - 1);
     assert(aux::ceildiv<LARGE>(maxVal, div) <= aux::powtwo<LARGE>(bitReduce) - 1);
