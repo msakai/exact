@@ -414,8 +414,7 @@ CeSuper ConstrExp<SMALL, LARGE>::clone(ConstrExpPools& cePools) const {
 }
 
 template <typename SMALL, typename LARGE>
-CRef ConstrExp<SMALL, LARGE>::toConstr(ConstraintAllocator& ca, bool locked, uint32_t lbd, int64_t nConfl,
-                                       ID id) const {
+CRef ConstrExp<SMALL, LARGE>::toConstr(ConstraintAllocator& ca, bool locked, ID id) const {
   // assert(testConstraint());
   assert(isSortedInDecreasingCoefOrder());
   assert(isSaturated());
@@ -423,7 +422,6 @@ CRef ConstrExp<SMALL, LARGE>::toConstr(ConstraintAllocator& ca, bool locked, uin
   assert(!vars.empty());
   assert(!isTautology());
   assert(!isUnsat());
-  assert(lbd > 0);
 
   CRef result = CRef{ca.at};
   SMALL maxCoef = aux::abs(coefs[vars[0]]);
@@ -433,30 +431,30 @@ CRef ConstrExp<SMALL, LARGE>::toConstr(ConstraintAllocator& ca, bool locked, uin
     // if (vars.size() == 2) {
     //   new (ca.alloc<Binary>(vars.size())) Binary(this, locked, id, lbd, nConfl);
     // } else {
-    new (ca.alloc<Clause>(vars.size())) Clause(this, locked, id, lbd, nConfl);
+    new (ca.alloc<Clause>(vars.size())) Clause(this, locked, id);
     // }
   } else if (maxCoef == 1) {
     // assert(getStrength() >= 0.9 * static_cast<double>(degree) / vars.size());
     // assert(getStrength() <= 1.1 * (static_cast<double>(degree) + 1) / vars.size());
-    new (ca.alloc<Cardinality>(vars.size())) Cardinality(this, locked, id, lbd, nConfl);
+    new (ca.alloc<Cardinality>(vars.size())) Cardinality(this, locked, id);
   } else {
     double strngth = getStrength();
     if (maxCoef <= static_cast<LARGE>(limitAbs<int, int64_t>())) {
       global.stats.NSMALL.z += 1;
       assert(degree >= maxCoef);
-      new (ca.alloc<Watched32>(vars.size())) Watched32(this, locked, id, lbd, nConfl, strngth);
+      new (ca.alloc<Watched32>(vars.size())) Watched32(this, locked, id, strngth);
     } else if (maxCoef <= static_cast<LARGE>(limitAbs<int64_t, int128>())) {
       global.stats.NLARGE.z += 1;
-      new (ca.alloc<Watched64>(vars.size())) Watched64(this, locked, id, lbd, nConfl, strngth);
+      new (ca.alloc<Watched64>(vars.size())) Watched64(this, locked, id, strngth);
     } else if (maxCoef <= static_cast<LARGE>(limitAbs<int128, int128>())) {
       global.stats.NLARGE.z += 1;
-      new (ca.alloc<Watched96>(vars.size())) Watched96(this, locked, id, lbd, nConfl, strngth);
+      new (ca.alloc<Watched96>(vars.size())) Watched96(this, locked, id, strngth);
     } else if (maxCoef <= static_cast<LARGE>(limitAbs<int128, int256>())) {
       global.stats.NLARGE.z += 1;
-      new (ca.alloc<Watched128>(vars.size())) Watched128(this, locked, id, lbd, nConfl, strngth);
+      new (ca.alloc<Watched128>(vars.size())) Watched128(this, locked, id, strngth);
     } else {
       global.stats.NARB.z += 1;
-      new (ca.alloc<WatchedArb>(vars.size())) WatchedArb(this, locked, id, lbd, nConfl, strngth);
+      new (ca.alloc<WatchedArb>(vars.size())) WatchedArb(this, locked, id, strngth);
     }
   }
   return result;

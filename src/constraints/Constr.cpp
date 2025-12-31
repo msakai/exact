@@ -64,12 +64,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "../Solver.hpp"
 
 namespace xct {
-Constr::Constr(ID i, const Origin o, bool lkd, uint32_t lngth, uint32_t lbd, int64_t nConfl, float strngth)
-    : header{0, 0, lkd, aux::min(lbd, MAXLBD), static_cast<uint32_t>(o), i},
-      mostRecentConfl(nConfl),
-      strength(strngth),
-      sze(lngth) {
-  assert(lbd > 0);
+Constr::Constr(ID i, const Origin o, bool lkd, uint32_t lngth, float strngth)
+    : header{0, 0, lkd, MAXLBD, static_cast<uint32_t>(o), i}, activity(0), strength(strngth), sze(lngth) {
   assert(header.lbd > 0);
   assert(strngth <= 1);
   assert(strngth > 0);  // so we know that 1-strngth < 1 and it will not interfere with the LBD when stored together
@@ -93,26 +89,30 @@ bool Constr::isSeen() const { return header.seen; }
 void Constr::setSeen(const bool s) { header.seen = s; }
 ID Constr::id() const { return header.id; }
 
-void Constr::fixEncountered(uint32_t lbd, Stats& stats) {
+void Constr::fixEncountered(uint32_t lbd, Global& global, bool updateStats) {
+  Stats& stats = global.stats;
+  const Options& opts = global.options;
   assert(lbd > 0);
   header.lbd = aux::min<uint32_t>(header.lbd, lbd);
   assert(header.lbd > 0);
-  assert(mostRecentConfl <= stats.getNConfl());
-  mostRecentConfl = stats.getNConfl();
-  const Origin o = getOrigin();
-  stats.NENCFORMULA.z += o == Origin::FORMULA;
-  stats.NENCDOMBREAKER.z += o == Origin::DOMBREAKER;
-  stats.NENCLEARNED.z += o == Origin::LEARNED;
-  stats.NENCBOUND.z += isBound(o);
-  stats.NENCCOREGUIDED.z += o == Origin::COREGUIDED || o == Origin::BOTTOMUP;
-  stats.NLPENCGOMORY.z += o == Origin::GOMORY;
-  stats.NLPENCDUAL.z += o == Origin::DUAL;
-  stats.NLPENCFARKAS.z += o == Origin::FARKAS;
-  stats.NENCDETECTEDAMO.z += o == Origin::DETECTEDAMO;
-  stats.NENCREDUCED.z += o == Origin::REDUCED;
-  stats.NENCEQ.z += o == Origin::EQUALITY;
-  stats.NENCIMPL.z += o == Origin::IMPLICATION;
-  stats.NRESOLVESTEPS.z += 1;
+  assert(activity <= stats.getNConfl());
+  activity = activity * (1 - opts.dbWeight.get()) + stats.getNConfl() * opts.dbWeight.get();
+  if (updateStats) {
+    const Origin o = getOrigin();
+    stats.NENCFORMULA.z += o == Origin::FORMULA;
+    stats.NENCDOMBREAKER.z += o == Origin::DOMBREAKER;
+    stats.NENCLEARNED.z += o == Origin::LEARNED;
+    stats.NENCBOUND.z += isBound(o);
+    stats.NENCCOREGUIDED.z += o == Origin::COREGUIDED || o == Origin::BOTTOMUP;
+    stats.NLPENCGOMORY.z += o == Origin::GOMORY;
+    stats.NLPENCDUAL.z += o == Origin::DUAL;
+    stats.NLPENCFARKAS.z += o == Origin::FARKAS;
+    stats.NENCDETECTEDAMO.z += o == Origin::DETECTEDAMO;
+    stats.NENCREDUCED.z += o == Origin::REDUCED;
+    stats.NENCEQ.z += o == Origin::EQUALITY;
+    stats.NENCIMPL.z += o == Origin::IMPLICATION;
+    stats.NRESOLVESTEPS.z += 1;
+  }
 }
 
 size_t Binary::getMemSize(const uint32_t) { return aux::ceildiv(sizeof(Binary), maxAlign); }

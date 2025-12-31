@@ -314,7 +314,7 @@ struct ConstrExpSuper {
   virtual void copyTo(ConstrSimpleArb& cs) const = 0;
 
   virtual CeSuper clone(ConstrExpPools& ce) const = 0;
-  virtual CRef toConstr(ConstraintAllocator& ca, bool locked, uint32_t lbd, int64_t nConfl, ID id) const = 0;
+  virtual CRef toConstr(ConstraintAllocator& ca, bool locked, ID id) const = 0;
 
   virtual void resize(size_t s) = 0;
   virtual bool isReset() const = 0;
@@ -462,7 +462,7 @@ struct ConstrExp final : ConstrExpSuper {
   void copyTo(ConstrSimpleArb& cs) const;
 
   CeSuper clone(ConstrExpPools& ce) const;
-  CRef toConstr(ConstraintAllocator& ca, bool locked, uint32_t lbd, int64_t nConfl, ID id) const;
+  CRef toConstr(ConstraintAllocator& ca, bool locked, ID id) const;
 
   void resize(size_t s);
   bool isReset() const;

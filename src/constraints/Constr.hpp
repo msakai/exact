@@ -81,13 +81,13 @@ struct Constr {  // internal solver constraint optimized for fast propagation
     const unsigned origin : 5;
     const unsigned long long id : 53;  // plenty of bits to store ID
   } header;
-  int64_t mostRecentConfl;
+  float activity;
   const float strength;  // Integer part is LBD (0 to 1e3), fractional part is 1-strength. Lower is better.
   const uint32_t sze;
 
   virtual size_t getMemSize() const = 0;
 
-  Constr(ID i, Origin o, bool lkd, uint32_t lngth, uint32_t lbd, int64_t nConfl, float strngth);
+  Constr(ID i, Origin o, bool lkd, uint32_t lngth, float strngth);
   virtual ~Constr() {}
   virtual void cleanup() = 0;  // poor man's destructor
 
@@ -100,7 +100,7 @@ struct Constr {  // internal solver constraint optimized for fast propagation
   bool isSeen() const;
   void setSeen(bool s);
   ID id() const;
-  void fixEncountered(uint32_t lbd, Stats& stats);
+  void fixEncountered(uint32_t lbd, Global& global, bool updateStats = true);
 
   // TODO: remove direct uses of these bigint methods, convert to ConstrExp instead
   // NOTE: useful for debugging though!
@@ -144,8 +144,8 @@ struct Binary final : Constr {
   bool isAtMostOne() const;
 
   template <typename SMALL, typename LARGE>
-  Binary(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id, uint32_t lbd, int64_t nConfl)
-      : Constr(_id, constraint->orig, locked, 2, lbd, nConfl, 0.5f),
+  Binary(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id)
+      : Constr(_id, constraint->orig, locked, 2, 0.5f),
         data({constraint->getLit(constraint->getVars()[0]), constraint->getLit(constraint->getVars()[1])}) {
     assert(_id > ID_Trivial);
     assert(constraint->nVars() == 2);
@@ -185,9 +185,8 @@ struct Clause final : Constr {
   bool isAtMostOne() const;
 
   template <typename SMALL, typename LARGE>
-  Clause(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id, uint32_t lbd, int64_t nConfl)
-      : Constr(_id, constraint->orig, locked, constraint->nVars(), lbd, nConfl,
-               1.0 / static_cast<double>(constraint->nVars())),
+  Clause(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id)
+      : Constr(_id, constraint->orig, locked, constraint->nVars(), 1.0 / static_cast<double>(constraint->nVars())),
         next_watch_idx(sze) {
     assert(_id > ID_Trivial);
     assert(constraint->nVars() < INF);
@@ -230,8 +229,8 @@ struct Cardinality final : Constr {
   bool isAtMostOne() const;
 
   template <typename SMALL, typename LARGE>
-  Cardinality(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id, uint32_t lbd, int64_t nConfl)
-      : Constr(_id, constraint->orig, locked, constraint->nVars(), lbd, nConfl, constraint->getStrength()),
+  Cardinality(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id)
+      : Constr(_id, constraint->orig, locked, constraint->nVars(), constraint->getStrength()),
         degr(static_cast<uint32_t>(constraint->getDegree())),
         next_watch_idx(constraint->nVars()) {
     assert(degr > 1);  // otherwise should be a clause
@@ -282,9 +281,8 @@ struct Watched32 final : Constr {
   bool isAtMostOne() const;
 
   template <typename SMALL, typename LARGE>
-  Watched32(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id, uint32_t lbd, int64_t nConfl,
-            double strngth)
-      : Constr(_id, constraint->orig, locked, constraint->nVars(), lbd, nConfl, strngth),
+  Watched32(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id, double strngth)
+      : Constr(_id, constraint->orig, locked, constraint->nVars(), strngth),
         next_watch_idx(sze),
         unsaturatedIdx(0),
         degr(static_cast<int64_t>(constraint->getDegree())),
@@ -294,7 +292,6 @@ struct Watched32 final : Constr {
     assert(fitsIn<int64_t>(constraint->getDegree()));
     assert(fitsIn<int32_t>(constraint->getLargestCoef()));
     assert(strngth == constraint->getStrength());
-    assert(lbd > 0);
 
     for (uint32_t i = 0; i < size(); ++i) {
       Var v = constraint->getVars()[i];
@@ -348,8 +345,8 @@ struct Watched final : Constr {
   bool isAtMostOne() const;
 
   template <typename SMALL, typename LARGE>
-  Watched(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id, uint32_t lbd, int64_t nConfl, double strngth)
-      : Constr(_id, constraint->orig, locked, constraint->nVars(), lbd, nConfl, strngth),
+  Watched(const ConstrExp<SMALL, LARGE>* constraint, bool locked, ID _id, double strngth)
+      : Constr(_id, constraint->orig, locked, constraint->nVars(), strngth),
         next_watch_idx(sze),
         unsaturatedIdx(0),
         degr(static_cast<DG>(constraint->getDegree())),

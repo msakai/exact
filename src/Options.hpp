@@ -216,12 +216,14 @@ struct Options {
                           "Exponent of the growth of the learned constraint database and the inprocessing intervals, "
                           "with log(#conflicts) as base",
                           1.1, "0 =< float", [](const double& x) -> bool { return 0 <= x; }};
-  ValOption<double> dbScale{"db-scale", "Multiplier of the learned clause database and inprocessing intervals", 500,
+  ValOption<double> dbScale{"db-scale", "Multiplier of the learned constraint database and inprocessing intervals", 500,
                             "0 < float", [](const double& x) -> bool { return 0 < x; }};
   EnumOption dbCleaningPriority{"db-cleaning",
                                 "Heuristic to decide which constraints get cleaned from the store",
                                 "combo",
                                 {"random", "strength", "lbd", "activity", "combo", "tricombo"}};
+  ValOption<float> dbWeight{"db-weight", "Weight of the most recent activity in weighted activity average", 0.5,
+                            "0 < float <= 1", [](const double& x) -> bool { return 0 < x && x <= 1; }};
   ValOption<double> lpTimeRatio{
       "lp", "Ratio of time spent in LP calls (0 means no LP solving, 1 means no limit on LP solver)",
 #if WITHSOPLEX
@@ -346,6 +348,7 @@ struct Options {
       &dbExp,
       &dbScale,
       &dbCleaningPriority,
+      &dbWeight,
 #if WITHSOPLEX
       &lpTimeRatio,
       &lpPivotBudget,

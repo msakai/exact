@@ -387,9 +387,9 @@ CeSuper Solver::runDatabasePropagation() {
           }
         }
         CeSuper result = expandWithSymbBound(c);
-        c.fixEncountered(result->getLbd(level), global.stats);
         assert(result);
-        return result;
+        c.fixEncountered(result->getLbd(level), global);
+        return expandWithSymbBound(c);
       } else {
         assert(wstat == WatchStatus::KEEPWATCH);
       }
@@ -486,7 +486,7 @@ resolve:
       Constr& reasonC = ca[reason[toVar(l)]];
 
       unsigned int lbd = reasonC.resolveWith(confl, l, *this);
-      reasonC.fixEncountered(lbd, global.stats);
+      reasonC.fixEncountered(lbd, global);
     }
     confl->undoOneTmpSlack(l);  // TODO: not strictly needed?
     confl->undoOneTmpPrevious(trail, trail_lim);
@@ -533,7 +533,7 @@ void Solver::minimize(CeSuper& conflict) {
     assert(conflict->getLit(toVar(l)) != 0);
     Constr& reasonC = ca[reason[toVar(l)]];
     unsigned int lbd = reasonC.subsumeWith(conflict, -l, *this, saturatedLits);
-    if (lbd > 0) reasonC.fixEncountered(lbd, global.stats);  // otherwise no subsumption
+    if (lbd > 0) reasonC.fixEncountered(lbd, global);  // otherwise no subsumption
     if (saturatedLits.isEmpty()) break;
   }
   global.stats.MINTIME.z +=
@@ -602,7 +602,7 @@ CeSuper Solver::extractCore(const CeSuper& conflict, Lit l_assump) {
       Constr& reasonC = ca[reason[toVar(l)]];
 
       uint32_t lbd = reasonC.resolveWith(core, l, *this);
-      reasonC.fixEncountered(aux::max<uint32_t>(1, lbd), global.stats);
+      reasonC.fixEncountered(aux::max<uint32_t>(1, lbd), global);
     }
     core->undoOneTmpSlack(l);
     core->undoOneTmpPrevious(trail, trail_lim);
@@ -640,14 +640,14 @@ CRef Solver::attachConstraint(const CeSuper& constraint, bool locked, uint32_t l
 
   global.options.setClausalConstraints(constraint->isClause());
 
-  CRef cr = constraint->toConstr(ca, locked, lbd, global.stats.getNConfl(),
-                                 global.logger.logProofLineWithInfo(constraint, "Attach"));
+  CRef cr = constraint->toConstr(ca, locked, global.logger.logProofLineWithInfo(constraint, "Attach"));
   if (constraint->symbBound.isValid()) {
     symbbounds[cr] = constraint->symbBound;
     ++global.stats.NSYMBBOUNDADDED.z;
     assert(symbbounds[ca(ca[cr])] == constraint->symbBound);
   }
   Constr& c = ca[cr];
+  c.fixEncountered(lbd, global, false);
   c.initializeWatches(cr, *this);
   constraints.push_back(cr);
   const Origin& orig = constraint->orig;
@@ -1076,21 +1076,19 @@ void Solver::reduceDB() {
     } else {
       ordered_learnts.emplace_back(cr, 0);
       if (global.options.dbCleaningPriority.is("strength")) {
-        const double nconfl_norm = static_cast<double>(c.mostRecentConfl + 1) / static_cast<double>(nconfl + 1);
+        const double nconfl_norm = (c.activity + 1) / static_cast<double>(nconfl + 1);
         ordered_learnts.back().second = static_cast<double>(c.strength) * INF + nconfl_norm;
       } else if (global.options.dbCleaningPriority.is("lbd")) {
-        const double nconfl_norm = static_cast<double>(c.mostRecentConfl + 1) / static_cast<double>(nconfl + 1);
+        const double nconfl_norm = (c.activity + 1) / static_cast<double>(nconfl + 1);
         ordered_learnts.back().second = nconfl_norm - static_cast<double>(c.lbd());
       } else if (global.options.dbCleaningPriority.is("activity")) {
-        ordered_learnts.back().second =
-            static_cast<double>(c.mostRecentConfl + 1) - static_cast<double>(c.lbd()) / static_cast<double>(MAXLBD);
+        ordered_learnts.back().second = (c.activity + 1) - static_cast<double>(c.lbd()) / static_cast<double>(MAXLBD);
       } else if (global.options.dbCleaningPriority.is("combo")) {
-        ordered_learnts.back().second = static_cast<double>(c.mostRecentConfl + 1) / static_cast<double>(c.lbd());
+        ordered_learnts.back().second = (c.activity + 1) / static_cast<double>(c.lbd());
       } else if (global.options.dbCleaningPriority.is("tricombo")) {
         int exp;
         std::frexp(c.strength, &exp);
-        ordered_learnts.back().second =
-            static_cast<double>(c.mostRecentConfl + 1) / static_cast<double>(c.lbd()) / (-exp);
+        ordered_learnts.back().second = (c.activity + 1) / static_cast<double>(c.lbd()) / (-exp);
       } else {
         assert(false);
       }
