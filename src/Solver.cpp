@@ -462,11 +462,14 @@ CeSuper Solver::analyze(const CeSuper& conflict) {
   confl->setTmpSlack(level);
   confl->setTmpPrevious(level, decisionLevel());
 
-  VarVec vars =
-      aux::to_vector(confl->getVars() | std::views::filter([&](Var v) { return isFalse(level, confl->getLit(v)); }));
-  aux::timeCallVoid(
-      [&] { heur.vBumpActivity(vars, getPos(), global.options.varWeight.get(), global.stats.getNConfl()); },
-      global.stats.HEURTIME.z);
+  if (!global.options.varConstraint.is("learned")) {
+    assert(confl->hasNoZeroes());
+    VarVec vars =
+        aux::to_vector(confl->getVars() | std::views::filter([&](Var v) { return isFalse(level, confl->getLit(v)); }));
+    aux::timeCallVoid(
+        [&] { heur.vBumpActivity(vars, getPos(), global.options.varWeight.get(), global.stats.getNConfl()); },
+        global.stats.HEURTIME.z);
+  }
 
 resolve:
   while (decisionLevel() > 0) {
@@ -500,6 +503,15 @@ resolve:
     if (!confl->setTmpPrevious(level, decisionLevel())) {
       goto resolve;
     }
+  }
+
+  if (!global.options.varConstraint.is("conflict")) {
+    assert(confl->hasNoZeroes());
+    VarVec vars =
+        aux::to_vector(confl->getVars() | std::views::filter([&](Var v) { return isFalse(level, confl->getLit(v)); }));
+    aux::timeCallVoid(
+        [&] { heur.vBumpActivity(vars, getPos(), global.options.varWeight.get(), global.stats.getNConfl()); },
+        global.stats.HEURTIME.z);
   }
 
   assert(confl->hasNegativeSlack(level));

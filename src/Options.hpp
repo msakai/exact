@@ -203,12 +203,14 @@ struct Options {
                              [](double x) -> bool { return 1 <= x; }};
   ValOption<int32_t> lubyMult{"luby-mult", "Multiplier of the Luby restart sequence", 100, "1 =< int",
                               [](const int32_t& x) -> bool { return x >= 1; }};
+  EnumOption varConstraint{
+      "var-constraint", "Constraint to bump variable activity with", "conflict", {"conflict", "learned", "both"}};
   ValOption<double> varWeight{
       "var-weight", "Activity weight for latest conflict variables - 0 = fixed activity, 0.5 = ACIDS, 1 = VMTF.", 0.99,
       "0 =< float =< 1", [](const double& x) -> bool { return 0 <= x && x <= 1; }};
-  BoolOption varSol{"var-sol", "Use last solution as phase", true};
   BoolOption varObjective{"var-objective", "Initialize heuristic to optimize the objective variables first", false};
   BoolOption varRandom{"var-random", "Random variable order heuristic", false};
+  BoolOption varSol{"var-sol", "Use last solution as phase", true};
   EnumOption varPolarity{"var-polarity", "Variable polarity", "phase", {"phase", "inverse", "random"}};
   ValOption<int64_t> dbBase{"db-base", "Initial number of conflicts at which database cleaning is performed.", 2000,
                             "1 =< int", [](const int64_t& x) -> bool { return x >= 1; }};
@@ -339,6 +341,7 @@ struct Options {
       &proofAssumps,
       &lubyBase,
       &lubyMult,
+      &varConstraint,
       &varWeight,
       &varSol,
       &varObjective,
