@@ -1666,48 +1666,49 @@ void ConstrExp<SMALL, LARGE>::weakenNonImplied(const IntMap<int>& level, const L
 }
 
 // @post: preserves order after removeZeroes()
-// TODO: return modified slack?
 template <typename SMALL, typename LARGE>
-bool ConstrExp<SMALL, LARGE>::weakenNonImplying(const IntMap<int>& level, const SMALL& propCoef, const LARGE& slack) {
-  LARGE slk = slack;
+void ConstrExp<SMALL, LARGE>::weakenNonImplying(const IntMap<int>& level, const SMALL& propCoef, LARGE& slack) {
   assert(hasNoZeroes());
   assert(isSortedInDecreasingCoefOrder());
+  const SMALL orig_slk = static_cast<SMALL>(aux::max<LARGE>(static_cast<LARGE>(limitAbs<SMALL, LARGE>()), slack));
   int weakenings = 0;
-  for (int i = vars.size() - 1; i >= 0 && slk + aux::abs(coefs[vars[i]]) < propCoef; --i) {
-    Var v = vars[i];
+  for (Var v : vars | std::views::reverse) {
+    const SMALL cf = aux::abs(coefs[v]);
+    if (slack + cf >= propCoef || cf > orig_slk) break;
     if (falsified(level, v)) {
-      slk += aux::abs(coefs[v]);
+      slack += cf;
       weaken(v);
       ++weakenings;
     }
   }
   global.stats.NWEAKENEDNONIMPLYING.z += weakenings;
-  return weakenings != 0;
 }
 
 // @post: preserves order after removeZeroes()
 template <typename SMALL, typename LARGE>
 void ConstrExp<SMALL, LARGE>::heuristicWeakening(const IntMap<int>& level, const std::vector<int>& pos) {
+  assert(hasNoZeroes());
   assert(isSortedInDecreasingCoefOrder());
-  if (aux::abs(coefs[vars[0]]) == aux::abs(coefs[vars.back()])) return;
+  const SMALL smallestCf = aux::abs(coefs[vars.back()]);
+  if (aux::abs(coefs[vars[0]]) == smallestCf) return;
   LARGE slk = getSlack(level);
-  if (slk < 0) return;  // no propagation, no idea what to weaken
+  if (slk < smallestCf) return;  // only literals less than or equal to slack will be weakened
   Var v_prop = -1;
   for (int i = vars.size() - 1; i >= 0; --i) {
     Var v = vars[i];
-    if (aux::abs(coefs[v]) > slk && isUnknown(pos, v)) {
+    if (isUnknown(pos, v) && aux::abs(coefs[v]) > slk) {
       v_prop = v;
       break;
     }
   }
   if (v_prop == -1) return;  // no propagation, no idea what to weaken
+  weakenNonImplied(level, slk);
   if (global.options.weakenNonImplying) {
-    if (weakenNonImplying(level, aux::abs(coefs[v_prop]), slk)) {
-      slk = getSlack(level);  // slack changed
-    }
+    removeZeroes();
+    weakenNonImplying(level, aux::abs(coefs[v_prop]), slk);
   }
   assert(slk < aux::abs(coefs[v_prop]));
-  weakenNonImplied(level, slk);
+  assert(slk == getSlack(level));
 }
 
 template <typename SMALL, typename LARGE>

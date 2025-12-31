@@ -606,7 +606,7 @@ struct ConstrExp final : ConstrExpSuper {
   // @post: preserves order after removeZeroes()
   void weakenNonImplied(const IntMap<int>& level, const LARGE& slack);
   // @post: preserves order after removeZeroes()
-  bool weakenNonImplying(const IntMap<int>& level, const SMALL& propCoef, const LARGE& slack);
+  void weakenNonImplying(const IntMap<int>& level, const SMALL& propCoef, LARGE& slack);
   // @post: preserves order after removeZeroes()
   void heuristicWeakening(const IntMap<int>& level, const std::vector<int>& pos);
 
