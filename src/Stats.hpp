@@ -191,10 +191,8 @@ struct Stats {
 
   Stat EXTERNLENGTHSUM{0, "input length sum"};
   Stat EXTERNDEGREESUM{0, "input degree sum"};
-  Stat EXTERNSTRENGTHSUM{0, "input strength sum"};
   Stat LEARNEDLENGTHSUM{0, "learned length sum"};
   Stat LEARNEDDEGREESUM{0, "learned degree sum"};
-  Stat LEARNEDSTRENGTHSUM{0, "learned strength sum"};
   Stat LEARNEDLBDSUM{0, "learned LBD sum"};
 
   Stat NUNITS{0, "unit literals derived"};
@@ -312,10 +310,8 @@ struct Stats {
 
   Stat EXTERNLENGTHAVG{0, "input length average"};
   Stat EXTERNDEGREEAVG{0, "input degree average"};
-  Stat EXTERNSTRENGTHAVG{0, "input strength average"};
   Stat LEARNEDLENGTHAVG{0, "learned length average"};
   Stat LEARNEDDEGREEAVG{0, "learned degree average"};
-  Stat LEARNEDSTRENGTHAVG{0, "learned strength average"};
   Stat LEARNEDLBDAVG{0, "learned LBD average"};
 
   Stat LASTLB{std::numeric_limits<StatNum>::quiet_NaN(), "best lower bound"};
@@ -339,11 +335,9 @@ struct Stats {
     StatNum nonLearneds = NCLAUSESEXTERN + NCARDINALITIESEXTERN + NGENERALSEXTERN;
     EXTERNLENGTHAVG.z = (nonLearneds == 0 ? 0 : EXTERNLENGTHSUM / nonLearneds);
     EXTERNDEGREEAVG.z = (nonLearneds == 0 ? 0 : EXTERNDEGREESUM / nonLearneds);
-    EXTERNSTRENGTHAVG.z = (nonLearneds == 0 ? 0 : EXTERNSTRENGTHSUM / nonLearneds);
     StatNum learneds = NCLAUSESLEARNED + NCARDINALITIESLEARNED + NGENERALSLEARNED;
     LEARNEDLENGTHAVG.z = (learneds == 0 ? 0 : LEARNEDLENGTHSUM / learneds);
     LEARNEDDEGREEAVG.z = (learneds == 0 ? 0 : LEARNEDDEGREESUM / learneds);
-    LEARNEDSTRENGTHAVG.z = (learneds == 0 ? 0 : LEARNEDSTRENGTHSUM / learneds);
     LEARNEDLBDAVG.z = (learneds == 0 ? 0 : LEARNEDLBDSUM / learneds);
 
     LASTLB.z = lowerbound;
@@ -391,13 +385,11 @@ struct Stats {
       &NGENERALSEXTERN,
       &EXTERNLENGTHAVG,
       &EXTERNDEGREEAVG,
-      &EXTERNSTRENGTHAVG,
       &NCLAUSESLEARNED,
       &NCARDINALITIESLEARNED,
       &NGENERALSLEARNED,
       &LEARNEDLENGTHAVG,
       &LEARNEDDEGREEAVG,
-      &LEARNEDSTRENGTHAVG,
       &LEARNEDLBDAVG,
       &NUNITS,
       &NPURELITS,

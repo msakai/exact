@@ -438,23 +438,22 @@ CRef ConstrExp<SMALL, LARGE>::toConstr(ConstraintAllocator& ca, bool locked, ID 
     // assert(getStrength() <= 1.1 * (static_cast<double>(degree) + 1) / vars.size());
     new (ca.alloc<Cardinality>(vars.size())) Cardinality(this, locked, id);
   } else {
-    double strngth = getStrength();
     if (maxCoef <= static_cast<LARGE>(limitAbs<int, int64_t>())) {
       global.stats.NSMALL.z += 1;
       assert(degree >= maxCoef);
-      new (ca.alloc<Watched32>(vars.size())) Watched32(this, locked, id, strngth);
+      new (ca.alloc<Watched32>(vars.size())) Watched32(this, locked, id);
     } else if (maxCoef <= static_cast<LARGE>(limitAbs<int64_t, int128>())) {
       global.stats.NLARGE.z += 1;
-      new (ca.alloc<Watched64>(vars.size())) Watched64(this, locked, id, strngth);
+      new (ca.alloc<Watched64>(vars.size())) Watched64(this, locked, id);
     } else if (maxCoef <= static_cast<LARGE>(limitAbs<int128, int128>())) {
       global.stats.NLARGE.z += 1;
-      new (ca.alloc<Watched96>(vars.size())) Watched96(this, locked, id, strngth);
+      new (ca.alloc<Watched96>(vars.size())) Watched96(this, locked, id);
     } else if (maxCoef <= static_cast<LARGE>(limitAbs<int128, int256>())) {
       global.stats.NLARGE.z += 1;
-      new (ca.alloc<Watched128>(vars.size())) Watched128(this, locked, id, strngth);
+      new (ca.alloc<Watched128>(vars.size())) Watched128(this, locked, id);
     } else {
       global.stats.NARB.z += 1;
-      new (ca.alloc<WatchedArb>(vars.size())) WatchedArb(this, locked, id, strngth);
+      new (ca.alloc<WatchedArb>(vars.size())) WatchedArb(this, locked, id);
     }
   }
   return result;

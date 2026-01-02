@@ -64,11 +64,9 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "../Solver.hpp"
 
 namespace xct {
-Constr::Constr(ID i, const Origin o, bool lkd, uint32_t lngth, float strngth)
-    : header{0, 0, lkd, MAXLBD, static_cast<uint32_t>(o), i}, activity(0), strength(strngth), sze(lngth) {
+Constr::Constr(ID i, const Origin o, bool lkd, uint32_t lngth)
+    : header{0, 0, lkd, MAXLBD, static_cast<uint32_t>(o), i}, activity(0), sze(lngth) {
   assert(header.lbd > 0);
-  assert(strngth <= 1);
-  assert(strngth > 0);  // so we know that 1-strngth < 1 and it will not interfere with the LBD when stored together
   assert(lngth < INF);
 }
 

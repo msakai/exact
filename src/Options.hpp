@@ -223,7 +223,7 @@ struct Options {
   EnumOption dbCleaningPriority{"db-cleaning",
                                 "Heuristic to decide which constraints get cleaned from the store",
                                 "combo",
-                                {"random", "strength", "lbd", "activity", "combo", "tricombo"}};
+                                {"random", "lbd", "activity", "combo"}};
   ValOption<float> dbWeight{"db-weight", "Weight of the most recent activity in weighted activity average", 0.5,
                             "0 < float <= 1", [](const double& x) -> bool { return 0 < x && x <= 1; }};
   ValOption<double> lpTimeRatio{

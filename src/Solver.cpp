@@ -683,11 +683,9 @@ CRef Solver::attachConstraint(const CeSuper& constraint, bool locked, uint32_t l
   if (learned) {
     global.stats.LEARNEDLENGTHSUM.z += c.size();
     global.stats.LEARNEDDEGREESUM.z += static_cast<StatNum>(c.degree());
-    global.stats.LEARNEDSTRENGTHSUM.z += c.strength;
   } else {
     global.stats.EXTERNLENGTHSUM.z += c.size();
     global.stats.EXTERNDEGREESUM.z += static_cast<StatNum>(c.degree());
-    global.stats.EXTERNSTRENGTHSUM.z += c.strength;
   }
   if (c.degree() == 1) {
     global.stats.NCLAUSESLEARNED.z += learned;
@@ -1087,20 +1085,13 @@ void Solver::reduceDB() {
       removeConstraint(cr);
     } else {
       ordered_learnts.emplace_back(cr, 0);
-      if (global.options.dbCleaningPriority.is("strength")) {
-        const double nconfl_norm = (c.activity + 1) / static_cast<double>(nconfl + 1);
-        ordered_learnts.back().second = static_cast<double>(c.strength) * INF + nconfl_norm;
-      } else if (global.options.dbCleaningPriority.is("lbd")) {
+      if (global.options.dbCleaningPriority.is("lbd")) {
         const double nconfl_norm = (c.activity + 1) / static_cast<double>(nconfl + 1);
         ordered_learnts.back().second = nconfl_norm - static_cast<double>(c.lbd());
       } else if (global.options.dbCleaningPriority.is("activity")) {
         ordered_learnts.back().second = (c.activity + 1) - static_cast<double>(c.lbd()) / static_cast<double>(MAXLBD);
       } else if (global.options.dbCleaningPriority.is("combo")) {
         ordered_learnts.back().second = (c.activity + 1) / static_cast<double>(c.lbd());
-      } else if (global.options.dbCleaningPriority.is("tricombo")) {
-        int exp;
-        std::frexp(c.strength, &exp);
-        ordered_learnts.back().second = (c.activity + 1) / static_cast<double>(c.lbd()) / (-exp);
       } else {
         assert(false);
       }
