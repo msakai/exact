@@ -224,8 +224,8 @@ struct Options {
                                 "Heuristic to decide which constraints get cleaned from the store",
                                 "combo",
                                 {"random", "lbd", "activity", "combo"}};
-  ValOption<float> dbWeight{"db-weight", "Weight of the most recent activity in weighted activity average", 0.5,
-                            "0 < float <= 1", [](const double& x) -> bool { return 0 < x && x <= 1; }};
+  ValOption<double> dbWeight{"db-weight", "Weight of the most recent activity in weighted activity average", 0.5,
+                             "0 < float <= 1", [](const double& x) -> bool { return 0 < x && x <= 1; }};
   ValOption<double> lpTimeRatio{
       "lp", "Ratio of time spent in LP calls (0 means no LP solving, 1 means no limit on LP solver)",
 #if WITHSOPLEX

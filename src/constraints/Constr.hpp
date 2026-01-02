@@ -81,7 +81,7 @@ struct Constr {  // internal solver constraint optimized for fast propagation
     const unsigned origin : 5;
     const unsigned long long id : 53;  // plenty of bits to store ID
   } header;
-  float activity;
+  double activity;  // NOTE can probably be a float without too much precision loss
   const uint32_t sze;
 
   virtual size_t getMemSize() const = 0;
