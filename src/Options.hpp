@@ -279,7 +279,7 @@ struct Options {
       "Bit width of maximum coefficient for learned constraints (0 is unlimited, 1 reduces to cardinalities)",
       limitBit<int, int64_t>(), "0 =< int", [](const int32_t& x) -> bool { return x >= 0; }};
   ValOption<float> optRatio{"opt-ratio", "Ratio of bottom-up optimization time (0 means top-down, 1 fully bottom-up)",
-                            0.5, "0 =< float =< 1", [](const double& x) -> bool { return x >= 0 && x <= 1; }};
+                            0.9, "0 =< float =< 1", [](const double& x) -> bool { return x >= 0 && x <= 1; }};
   BoolOption optCoreguided{"opt-coreguided", "Core-guided bottom up optimization instead of a basic approach", true};
   BoolOption optReuseCores{"opt-reusecores", "Reuse cores during core-guided bottom up optimization", true};
   ValOption<int32_t> optStratification{
