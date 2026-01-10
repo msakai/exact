@@ -167,6 +167,7 @@ void Solver::improveSymbBounds() {
 }
 
 void Solver::setObjective(const CeArb& obj) {
+  global.options.setClausalConstraints(false);
   objectiveSet = true;
   objective = obj;
   auto [lb, ub] = obj->getLhsExtrema();
@@ -1236,7 +1237,7 @@ void Solver::presolve() {
   aux::timeCallVoid([&] { inProcess(); }, global.stats.INPROCESSTIME);
 
 #if WITHSOPLEX
-  if (!objectiveIsSet() && global.options.hasOnlyClausalConstraints()) {
+  if (global.options.hasOnlyClausalConstraints()) {
     global.options.lpTimeRatio.set(0);  // no use having an LP solver for a clausal decision problem
   }
 

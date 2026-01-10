@@ -513,10 +513,6 @@ void Optimization<SMALL, LARGE>::boundObjByLastSol() {
   aux->invert();
   aux->addRhs(upbound);
 
-  solver.dropExternal(lastUpperBound, true, true);
-
-  if (global.options.proofAssumps) addReformUpperBound(true);
-
   if (global.options.liftDegreeSymbolic.get() > 0) {
     solver.setSymbBoundUpper(upbound);
     aux->symbBound.mult_upper = 1;
@@ -527,6 +523,10 @@ void Optimization<SMALL, LARGE>::boundObjByLastSol() {
   } else {
     assert(!aux->symbBound.isValid());
   }
+
+  solver.dropExternal(lastUpperBound, true, true);
+
+  if (global.options.proofAssumps) addReformUpperBound(true);
 
   std::pair<ID, ID> res = solver.addConstraint(aux);
   lastUpperBound = res.second;

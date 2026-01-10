@@ -1582,6 +1582,7 @@ std::pair<int, bool> ConstrExp<SMALL, LARGE>::getAssertionStatus(const IntMap<in
   assert(hasNoUnits(level));
 
   if (vars.empty() && degree > 0) return {-1, false};
+  if (vars.empty() && degree <= 0) return {0, false};
 
   if (isClause()) {
     // just find the highest level
@@ -1595,6 +1596,12 @@ std::pair<int, bool> ConstrExp<SMALL, LARGE>::getAssertionStatus(const IntMap<in
       } else if (lvl3 > lvl2) {
         lvl2 = lvl3;
       }
+    }
+    if (lvl2 == lvl1 && lvl2 != INF) {
+      // apparently non-propagating. In this case, just jump back on level
+      // works for falsified clauses, safe for non-falsified clauses
+      assert(lvl1 != 0);  // no unit literals
+      return {lvl1 - 1, false};
     }
     return {lvl2, lvl2 != INF};
   }
