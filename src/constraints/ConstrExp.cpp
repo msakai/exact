@@ -815,23 +815,10 @@ bool ConstrExp<SMALL, LARGE>::isSatisfied(const LitVec& assignment) const {
 }
 
 template <typename SMALL, typename LARGE>
-unsigned int ConstrExp<SMALL, LARGE>::getLbd(const IntMap<int>& level) const {
-  // calculate delete-lbd-e according to "On Dedicated CDCL Strategies for PB Solvers" - Le Berre & Wallon - 2021
-  assert(isSortedInDecreasingCoefOrder());
-  LARGE weakenedDeg = degree;
-  for (Var v : vars) {  // weaken all non-falsifieds
-    if (!isFalse(level, getLit(v))) {
-      weakenedDeg -= aux::abs(coefs[v]);
-      if (weakenedDeg <= 0) break;
-    }
-  }
-  int i = int(vars.size()) - 1;
-  for (; i >= 0 && weakenedDeg > 0; --i) {  // weaken all smallest falsifieds
-    Var v = vars[i];
-    if (isFalse(level, getLit(v))) weakenedDeg -= aux::abs(coefs[v]);
-  }
-  assert(i >= 0);  // constraint is asserting or conflicting
-  return calculateLbd(vars | std::views::transform([&](Var v) { return getLit(v); }), level);
+unsigned int ConstrExp<SMALL, LARGE>::getLbd(const IntMap<int>& level, int assumpLevel) const {
+  // calculate delete-lbd-f according to "On Dedicated CDCL Strategies for PB Solvers" - Le Berre & Wallon - 2021
+  // TODO we could also eliminate superfluous false literals
+  return calculateLbd(vars | std::views::transform([&](Var v) { return getLit(v); }), level, assumpLevel);
 }
 
 template <typename SMALL, typename LARGE>
@@ -2170,12 +2157,12 @@ void ConstrExp<SMALL, LARGE>::toStreamPure(std::ostream& o) const {
   std::cout << ">= " << degree << " (" << rhs << ")";
 }
 
-size_t ConstrExpSuper::calculateLbd(auto lits_, const IntMap<int>& level) {
+size_t ConstrExpSuper::calculateLbd(auto lits_, const IntMap<int>& level, int assumpLevel) {
   std::array<int, MAXLBD> levels{};  // initial value is all zeroes
   int n = 0;
   for (Lit l : lits_) {
     const int lvl = level[-l];
-    if (lvl == 0 || lvl == INF) continue;
+    if (lvl <= assumpLevel || lvl == INF) continue;
     levels[n] = lvl;  // add the level
     ++n;
     for (int32_t i = 0; i < n - 1; ++i) {
@@ -2349,7 +2336,7 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const std::span<const Lit>& da
   assert(hasCorrectTmpSlack(level));
   assert(hasCorrectTmpPrevious(level, decisionLvl));
 
-  return calculateLbd(data, level);
+  return calculateLbd(data, level, solver.assumptionLevelForLbd());
 }
 
 //@post: variable vector vars is not changed, but coefs[toVar(toSubsume)] may become 0
@@ -2401,7 +2388,8 @@ unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const std::span<const Lit>& da
   }
   symbBound.reset();  // almost always some form of saturation going on
 
-  return calculateLbd(data | std::views::filter([&](Lit l) { return l == toSubsume || saturatedLits.has(l); }), level);
+  return calculateLbd(data | std::views::filter([&](Lit l) { return l == toSubsume || saturatedLits.has(l); }), level,
+                      solver.assumptionLevelForLbd());
 }
 
 template <typename SMALL, typename LARGE>
@@ -2409,66 +2397,71 @@ unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* lits, const int* cf
                                                   const int64_t& degr, ID id, Origin o, Lit l, const Solver& solver,
                                                   const SymbolicBound* sb) {
   return genericResolve(lits, cfs, size, degr, id, o, l, solver.getLevel(), solver.getPos(), solver.decisionLevel(),
-                        solver.decisionPos(), sb);
+                        solver.assumptionLevelForLbd(), solver.decisionPos(), sb);
 }
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* lits, const int64_t* cfs, unsigned int size,
                                                   const int128& degr, ID id, Origin o, Lit l, const Solver& solver,
                                                   const SymbolicBound* sb) {
   return genericResolve(lits, cfs, size, degr, id, o, l, solver.getLevel(), solver.getPos(), solver.decisionLevel(),
-                        solver.decisionPos(), sb);
+                        solver.assumptionLevelForLbd(), solver.decisionPos(), sb);
 }
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* lits, const int128* cfs, unsigned int size,
                                                   const int128& degr, ID id, Origin o, Lit l, const Solver& solver,
                                                   const SymbolicBound* sb) {
   return genericResolve(lits, cfs, size, degr, id, o, l, solver.getLevel(), solver.getPos(), solver.decisionLevel(),
-                        solver.decisionPos(), sb);
+                        solver.assumptionLevelForLbd(), solver.decisionPos(), sb);
 }
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* lits, const int128* cfs, unsigned int size,
                                                   const int256& degr, ID id, Origin o, Lit l, const Solver& solver,
                                                   const SymbolicBound* sb) {
   return genericResolve(lits, cfs, size, degr, id, o, l, solver.getLevel(), solver.getPos(), solver.decisionLevel(),
-                        solver.decisionPos(), sb);
+                        solver.assumptionLevelForLbd(), solver.decisionPos(), sb);
 }
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::resolveWith(const Lit* lits, const bigint* cfs, unsigned int size,
                                                   const bigint& degr, ID id, Origin o, Lit l, const Solver& solver,
                                                   const SymbolicBound* sb) {
   return genericResolve(lits, cfs, size, degr, id, o, l, solver.getLevel(), solver.getPos(), solver.decisionLevel(),
-                        solver.decisionPos(), sb);
+                        solver.assumptionLevelForLbd(), solver.decisionPos(), sb);
 }
 
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const Lit* lits, const int* cfs, unsigned int size,
                                                   const int64_t& degr, ID id, Lit l, const Solver& solver,
                                                   IntSet& saturatedLits) {
-  return genericSubsume(lits, cfs, size, degr, id, l, solver.getLevel(), solver.getPos(), saturatedLits);
+  return genericSubsume(lits, cfs, size, degr, id, l, solver.getLevel(), solver.getPos(),
+                        solver.assumptionLevelForLbd(), saturatedLits);
 }
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const Lit* lits, const int64_t* cfs, unsigned int size,
                                                   const int128& degr, ID id, Lit l, const Solver& solver,
                                                   IntSet& saturatedLits) {
-  return genericSubsume(lits, cfs, size, degr, id, l, solver.getLevel(), solver.getPos(), saturatedLits);
+  return genericSubsume(lits, cfs, size, degr, id, l, solver.getLevel(), solver.getPos(),
+                        solver.assumptionLevelForLbd(), saturatedLits);
 }
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const Lit* lits, const int128* cfs, unsigned int size,
                                                   const int128& degr, ID id, Lit l, const Solver& solver,
                                                   IntSet& saturatedLits) {
-  return genericSubsume(lits, cfs, size, degr, id, l, solver.getLevel(), solver.getPos(), saturatedLits);
+  return genericSubsume(lits, cfs, size, degr, id, l, solver.getLevel(), solver.getPos(),
+                        solver.assumptionLevelForLbd(), saturatedLits);
 }
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const Lit* lits, const int128* cfs, unsigned int size,
                                                   const int256& degr, ID id, Lit l, const Solver& solver,
                                                   IntSet& saturatedLits) {
-  return genericSubsume(lits, cfs, size, degr, id, l, solver.getLevel(), solver.getPos(), saturatedLits);
+  return genericSubsume(lits, cfs, size, degr, id, l, solver.getLevel(), solver.getPos(),
+                        solver.assumptionLevelForLbd(), saturatedLits);
 }
 template <typename SMALL, typename LARGE>
 unsigned int ConstrExp<SMALL, LARGE>::subsumeWith(const Lit* lits, const bigint* cfs, unsigned int size,
                                                   const bigint& degr, ID id, Lit l, const Solver& solver,
                                                   IntSet& saturatedLits) {
-  return genericSubsume(lits, cfs, size, degr, id, l, solver.getLevel(), solver.getPos(), saturatedLits);
+  return genericSubsume(lits, cfs, size, degr, id, l, solver.getLevel(), solver.getPos(),
+                        solver.assumptionLevelForLbd(), saturatedLits);
 }
 
 template struct ConstrExp<int, int64_t>;

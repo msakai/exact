@@ -207,6 +207,9 @@ void Solver::fixPhase(const std::vector<std::pair<Var, Lit>>& vls, bool bump) {
   }
 }
 
+int Solver::assumptionLevelForVarAct() const { return global.options.varAssump ? 0 : assumptionLevel(); }
+int Solver::assumptionLevelForLbd() const { return global.options.dbAssump ? 0 : assumptionLevel(); }
+
 // ---------------------------------------------------------------------
 // Assignment manipulation
 
@@ -389,7 +392,7 @@ CeSuper Solver::runDatabasePropagation() {
         }
         CeSuper result = expandWithSymbBound(c);
         assert(result);
-        c.fixEncountered(result->getLbd(level), global);
+        c.fixEncountered(result->getLbd(level, assumptionLevelForLbd()), global);
         return expandWithSymbBound(c);
       } else {
         assert(wstat == WatchStatus::KEEPWATCH);
@@ -465,8 +468,11 @@ CeSuper Solver::analyze(const CeSuper& conflict) {
 
   if (!global.options.varConstraint.is("learned")) {
     assert(confl->hasNoZeroes());
-    VarVec vars =
-        aux::to_vector(confl->getVars() | std::views::filter([&](Var v) { return isFalse(level, confl->getLit(v)); }));
+    const int assumpLevel = assumptionLevelForVarAct();
+    VarVec vars = aux::to_vector(confl->getVars() | std::views::filter([&](Var v) {
+                                   const int falseLvl = level[-confl->getLit(v)];
+                                   return falseLvl < INF && falseLvl > assumpLevel;
+                                 }));
     aux::timeCallVoid(
         [&] { heur.vBumpActivity(vars, getPos(), global.options.varWeight.get(), global.stats.getNConfl()); },
         global.stats.HEURTIME.z);
@@ -475,7 +481,7 @@ CeSuper Solver::analyze(const CeSuper& conflict) {
 resolve:
   while (decisionLevel() > 0) {
     quit::checkInterrupt(global);
-    Lit l = trail.back();
+    const Lit l = trail.back();
     if (confl->hasLit(-l)) {
       assert(confl->hasNegativeSlack(level));
       if (confl->canPropagateOnPrevious(getPos(), decisionPos())) {
@@ -508,8 +514,11 @@ resolve:
 
   if (!global.options.varConstraint.is("conflict")) {
     assert(confl->hasNoZeroes());
-    VarVec vars =
-        aux::to_vector(confl->getVars() | std::views::filter([&](Var v) { return isFalse(level, confl->getLit(v)); }));
+    const int assumpLevel = assumptionLevelForVarAct();
+    VarVec vars = aux::to_vector(confl->getVars() | std::views::filter([&](Var v) {
+                                   const int falseLvl = level[-confl->getLit(v)];
+                                   return falseLvl < INF && falseLvl > assumpLevel;
+                                 }));
     aux::timeCallVoid(
         [&] { heur.vBumpActivity(vars, getPos(), global.options.varWeight.get(), global.stats.getNConfl()); },
         global.stats.HEURTIME.z);
@@ -761,7 +770,8 @@ void Solver::learnConstraint(const CeSuper& ce) {
   if (learned->symbBound.isValid() && learned->symbBound.getDegree(getSymbBoundUpper(), getSymbBoundLower()) <= 0) {
     learned->symbBound.reset();
   }
-  CRef cr = attachConstraint(learned, false, isAsserting ? learned->getLbd(level) : learned->nVars());
+  CRef cr = attachConstraint(learned, false,
+                             isAsserting ? learned->getLbd(level, assumptionLevelForLbd()) : learned->nVars());
   Constr& c = ca[cr];
   // the LBD of non-asserting constraints is undefined, so we take a safe upper bound
   global.stats.LEARNEDLBDSUM += c.lbd();
@@ -1456,7 +1466,7 @@ SolveState Solver::solve() {
       }
       Lit next = 0;
       assert(assumptionLevel() <= decisionLevel());
-      if (assumptions_lim.back() < (int)assumptions.size()) {
+      if (assumptions_lim.back() < std::ssize(assumptions)) {
         for (int i = (decisionLevel() == 0 ? 0 : trail_lim.back()); i < (int)trail.size(); ++i) {
           Lit l = trail[i];
           if (assumptions.has(-l)) {  // found conflicting assumption
@@ -1473,7 +1483,7 @@ SolveState Solver::solve() {
           }
         }
       }
-      while (assumptions_lim.back() < (int)assumptions.size()) {
+      while (assumptions_lim.back() < std::ssize(assumptions)) {
         assert(decisionLevel() == assumptionLevel());
         Lit l_assump = assumptions.getKeys()[assumptions_lim.back()];
         assert(!isFalse(level, l_assump));  // otherwise above check should have caught this
@@ -1558,10 +1568,10 @@ void Solver::probeRestart(Lit next) {
   }
   // at this point, either we learned unit literals and are at decision level 0
   // or we did not and are at decision level 1 having decided next
-  assert(decisionLevel() == 1 || (decisionLevel() == 0 && (int)trail.size() > oldUnits));
+  assert(decisionLevel() == 1 || (decisionLevel() == 0 && std::ssize(trail) > oldUnits));
   global.stats.NPROBINGLITS += (decisionLevel() == 0 ? trail.size() : trail_lim[0]) - oldUnits;
   assert(assumptionLevel() == 0);
-  if (decisionLevel() == 1 && assumptions_lim.back() < (int)assumptions.size()) {
+  if (decisionLevel() == 1 && assumptions_lim.back() < std::ssize(assumptions)) {
     assert(assumptions.getKeys()[assumptions_lim.back()] == next);
     assumptions_lim.push_back(assumptions_lim.back() + 1);
     // repair assumptions_lim

@@ -208,6 +208,7 @@ struct Options {
   ValOption<double> varWeight{
       "var-weight", "Activity weight for latest conflict variables - 0 = fixed activity, 0.5 = ACIDS, 1 = VMTF.", 0.99,
       "0 =< float =< 1", [](const double& x) -> bool { return 0 <= x && x <= 1; }};
+  BoolOption varAssump{"var-assump", "Activity tracks assumption literals", true};
   BoolOption varObjective{"var-objective", "Initialize heuristic to optimize the objective variables first", false};
   BoolOption varRandom{"var-random", "Random variable order heuristic", false};
   BoolOption varSol{"var-sol", "Use last solution as phase", true};
@@ -226,6 +227,7 @@ struct Options {
                                 {"random", "lbd", "activity", "combo"}};
   ValOption<double> dbWeight{"db-weight", "Weight of the most recent activity in weighted activity average", 0.9,
                              "0 < float <= 1", [](const double& x) -> bool { return 0 < x && x <= 1; }};
+  BoolOption dbAssump{"db-assump", "LBD tracks assumption literals", true};
   ValOption<double> lpTimeRatio{
       "lp", "Ratio of time spent in LP calls (0 means no LP solving, 1 means no limit on LP solver)",
 #if WITHSOPLEX
@@ -343,6 +345,7 @@ struct Options {
       &lubyMult,
       &varConstraint,
       &varWeight,
+      &varAssump,
       &varSol,
       &varObjective,
       &varRandom,
@@ -352,6 +355,7 @@ struct Options {
       &dbScale,
       &dbCleaningPriority,
       &dbWeight,
+      &dbAssump,
 #if WITHSOPLEX
       &lpTimeRatio,
       &lpPivotBudget,

@@ -343,7 +343,7 @@ struct ConstrExpSuper {
   virtual bool isTautology() const = 0;
   virtual bool isUnsat() const = 0;
   virtual bool isSatisfied(const LitVec& assignment) const = 0;
-  virtual unsigned int getLbd(const IntMap<int>& level) const = 0;
+  virtual unsigned int getLbd(const IntMap<int>& level, int assumpLevel) const = 0;
 
   virtual void removeUnitsAndZeroes(const IntMap<int>& level, const std::vector<int>& pos) = 0;
   virtual void removeZeroes() = 0;
@@ -393,7 +393,7 @@ struct ConstrExpSuper {
   virtual void toStreamWithAssignment(std::ostream& o, const IntMap<int>& level, const std::vector<int>& pos) const = 0;
   virtual void toStreamPure(std::ostream& o) const = 0;
 
-  static size_t calculateLbd(auto lits_, const IntMap<int>& level);
+  static size_t calculateLbd(auto lits_, const IntMap<int>& level, int assumpLevel);
 
   virtual unsigned int resolveWith(const std::span<const Lit>& data, unsigned int deg, ID id, Lit l,
                                    const Solver& solver, const SymbolicBound* sb) = 0;
@@ -505,7 +505,7 @@ struct ConstrExp final : ConstrExpSuper {
   bool isTautology() const;
   bool isUnsat() const;
   bool isSatisfied(const LitVec& assignment) const;
-  unsigned int getLbd(const IntMap<int>& level) const;
+  unsigned int getLbd(const IntMap<int>& level, int assumpLevel) const;
 
   // @post: preserves order of vars
   void removeUnitsAndZeroes(const IntMap<int>& level, const std::vector<int>& pos);
@@ -741,7 +741,8 @@ struct ConstrExp final : ConstrExpSuper {
   template <typename CF, typename DG>
   unsigned int genericResolve(const Lit* lits, const CF* cfs, unsigned int size, const DG& degr, ID id, Origin o,
                               Lit asserting, const IntMap<int>& level, const std::vector<int>& pos,
-                              const int decisionLvl, [[maybe_unused]] const int decisionPos, const SymbolicBound* sb) {
+                              const int decisionLvl, const int assumpLevel, [[maybe_unused]] const int decisionPos,
+                              const SymbolicBound* sb) {
     // TODO: remove decisionPos argument
     // TODO: simplify in case degree == 1
     // "this" is the conflict constraint.
@@ -953,13 +954,14 @@ struct ConstrExp final : ConstrExpSuper {
     assert(hasCorrectTmpSlack(level));
     assert(hasCorrectTmpPrevious(level, decisionLvl));
 
-    return reason->getLbd(level);
+    return reason->getLbd(level, assumpLevel);
   }
 
   //@post: variable vector vars is not changed, but coefs[toVar(toSubsume)] may become 0
   template <typename CF, typename DG>
   unsigned int genericSubsume(const Lit* lits, const CF* cfs, unsigned int size, const DG& degr, ID id, Lit toSubsume,
-                              const IntMap<int>& level, const std::vector<int>& pos, IntSet& saturatedLits) {
+                              const IntMap<int>& level, const std::vector<int>& pos, int assumpLevel,
+                              IntSet& saturatedLits) {
     assert(getCoef(-toSubsume) > 0);
     assert(isSaturated());
 
@@ -1014,7 +1016,7 @@ struct ConstrExp final : ConstrExpSuper {
 
     return calculateLbd(std::views::iota(0u, size) | std::views::transform([&](unsigned i) { return lits[i] >> 1; }) |
                             std::views::filter([&](Lit l) { return l == toSubsume || saturatedLits.has(l); }),
-                        level);
+                        level, assumpLevel);
   }
 
   template <typename S, typename L>
