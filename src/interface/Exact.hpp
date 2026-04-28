@@ -349,7 +349,8 @@ class Exact {
    * Calculate the optimal value of the objective function *without* adding objective bound constraints. This way, the
    * search does not reach UNSAT by proving optimality, and the solver can be fully reused. A typical use case is to add
    * the constraint that the objective should take the optimal value after calling toOptimum() to restrict the search to
-   * consider only optimal solutions in the next search phase.
+   * consider only optimal solutions in the next search phase. Note that this function will be slower than its
+   * counterpart "runFull(true)" since that function is allowed to add simple objective bound constraints.
    *
    * @param timeout: a (rough) timeout limit in seconds. The solver state is still valid after hitting timeout. It may
    * happen that an internal routine exceeds timeout without returning for a while, but it should return eventually. A
@@ -439,6 +440,18 @@ class Exact {
    * Print Exact's internal formula.
    */
   void printFormula();
+
+  /**
+   * Write Exact's internal formula to file in opb format.
+   */
+  void writeFormulaOpb(const std::string& path);
+
+  /**
+   * Write Exact's internal formula to file in lp format.
+   * NOTE: requires the option "write-lp" to be set to some non-empty string,
+   * otherwise the integer constraints are not stored, as this would take too much memory.
+   */
+  void writeFormulaLp(const std::string& path);
 
   /**
    * Get Exact's internal statistics

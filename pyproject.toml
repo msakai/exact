@@ -1,7 +1,7 @@
 [build-system]
 requires = [
     "setuptools>=42",
-    "pybind11>=2.10.0",
+    "pybind11>=3.0.0",
     "wheel",
     "boost"
 ]
@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "Exact"
-version = "2.2.1"
+version = "2.3.0"
 authors = [
     { name="Jo Devriendt", email="jo.devriendt@nonfictionsoftware.com" },
 ]

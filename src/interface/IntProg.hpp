@@ -91,7 +91,8 @@ class IntProg {
 
   // only for printing purposes:
   const bool keepInput;
-  std::vector<std::string> constraints;  // encodings
+  std::vector<std::string> constraint_strings;  // encodings
+  std::vector<IntConstraint> int_constraints;
   std::vector<ReifInfo> reifications;
   // value Lit implies lower bound or upper bound on key
   ReifMap reifs;
@@ -156,12 +157,14 @@ class IntProg {
   bool hasLastSolution() const;
   bigint getLastSolutionFor(IntVar* iv) const;
   std::vector<bigint> getLastSolutionFor(const std::vector<IntVar*>& vars) const;
+  std::vector<bigint> getLastSolution() const;
 
   Core getLastCore();
 
   void printOrigSol() const;
-  void printFormula();
   std::ostream& printFormula(std::ostream& out);
+  void writeFormulaOpb(const std::string& filename);
+  void writeFormulaLp(const std::string& filename);
   std::ostream& printInput(std::ostream& out) const;
   std::ostream& printVars(std::ostream& out) const;
   int64_t getNbVars() const;

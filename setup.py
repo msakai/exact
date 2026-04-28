@@ -30,8 +30,12 @@
 # Repeatedly run the "install image" option until completion (up to 5 times!). Be patient
 # Current image works though.
 
-from pybind11.setup_helpers import Pybind11Extension
+from pybind11.setup_helpers import Pybind11Extension, ParallelCompile
 from setuptools import setup
+
+nb_threads = "16" # "4"
+
+ParallelCompile(nb_threads).install()
 
 ext_modules = [
     Pybind11Extension(
@@ -72,11 +76,16 @@ ext_modules = [
         # FOR LINUX / OSX
         include_dirs=["./src"],
         define_macros=[("UNIXLIKE",1), ("ANKERLMAPS",1)],
-        # REPLACE TWO LINES ABOVE WITH FOUR BELOW TO INCLUDE SOPLEX (pre-built in soplex_build)
+        libraries=[],
+        # REPLACE LINES ABOVE WITH BELOW TO INCLUDE SOPLEX (pre-built in soplex_build)
         # include_dirs=["./src","./soplex/src","./soplex_build"],
         # library_dirs=["./soplex_build/lib"],
         # libraries=["soplex"], # or soplexshared for the shared .so library instead of the static .a
         # define_macros=[("UNIXLIKE",1), ("ANKERLMAPS",1), ("WITHSOPLEX",1)],
+        # REPLACE LINES ABOVE WITH BELOW TO INCLUDE COINUTILS (installed as library)
+        # include_dirs=["./src"],
+        # define_macros=[("UNIXLIKE",1), ("ANKERLMAPS",1), ("WITHCOINUTILS",1)],
+        # libraries=["CoinUtils"],
 
         # FOR WINDOWS
         # include_dirs=['C:\\Program Files\\boost\\boost_1_85_0','.\\src'],

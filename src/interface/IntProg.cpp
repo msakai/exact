@@ -29,8 +29,13 @@ See the file LICENSE or run with the flag --license=MIT.
 **********************************************************************/
 
 #include "IntProg.hpp"
-#include <stdexcept>
 #include "Optimization.hpp"
+#if WITHCOINUTILS
+#include "coin/CoinFinite.hpp"
+#include "coin/CoinLpIO.hpp"
+#include "coin/CoinPackedMatrix.hpp"
+#include "coin/CoinPackedVector.hpp"
+#endif
 
 namespace xct {
 void log2assumptions(const VarVec& encoding, const bigint& value, const bigint& lowerbound, IntSet& assumptions) {
@@ -312,7 +317,10 @@ void IntProg::clearSolutionHints(const std::vector<IntVar*>& ivs) {
 void IntProg::addConstraint(const IntConstraint& ic) {
   if (ic.size() > 1e9) throw InvalidArgument("Constraint has more than 1e9 terms.");
   ++nConstrs;
-  if (keepInput) constraints.push_back(ic.encode());
+#if WITHCOINUTILS
+  if (global.options.writeLp.get() != "") int_constraints.push_back(ic);
+#endif
+  if (keepInput) constraint_strings.push_back(ic.encode());
   if (ic.lowerBound.has_value()) {
     CeArb input = global.cePools.takeArb();
     ic.toConstrExp(input, true);
@@ -651,8 +659,6 @@ void IntProg::invalidateLastSol(const std::vector<IntVar*>& ivs, Var flag) {
   solver.invalidateLastSol(vars);
 }
 
-void IntProg::printFormula() { printFormula(std::cout); }
-
 std::ostream& IntProg::printFormula(std::ostream& out) {
   int nbConstraints = 0;
   for (const CRef& cr : solver.getRawConstraints()) {
@@ -691,6 +697,92 @@ std::ostream& IntProg::printFormula(std::ostream& out) {
   return out;
 }
 
+void IntProg::writeFormulaOpb(const std::string& filename) {
+  std::ofstream file(filename);
+  printFormula(file);
+  file.close();
+}
+
+void IntProg::writeFormulaLp([[maybe_unused]] const std::string& filename) {
+  if (global.options.writeLp.get().empty()) {
+    std::ofstream file(filename);
+    file << "No integer constraints available as the option \"write-lp\" not set to a non-empty string.\n";
+    file.close();
+    return;
+  }
+#if WITHCOINUTILS
+  const int numCols = std::ssize(vars);
+  const int numRows = std::ssize(int_constraints);
+
+  // --- Index map ---
+  unordered_map<const IntVar*, int> varToIndex;
+  varToIndex.reserve(numCols);
+  for (int i = 0; i < numCols; ++i) varToIndex[vars[i]] = i;
+
+  // --- Column bounds and objective ---
+  std::vector<double> colLower(numCols), colUpper(numCols), obj_(numCols, 0.0);
+  for (int i = 0; i < numCols; ++i) {
+    colLower[i] = static_cast<double>(vars[i]->lowerBound);
+    colUpper[i] = static_cast<double>(vars[i]->upperBound);
+  }
+  for (const auto& term : obj.lhs) {
+    if (!term.v || term.c == 0) continue;
+    obj_[varToIndex.at(term.v)] = static_cast<double>(term.c);
+  }
+
+  // --- Integer markers (1 = integer, 0 = continuous) ---
+  std::vector<char> integerType(numCols, 1);
+
+  // --- Constraint matrix and row bounds ---
+  // CoinPackedMatrix(isColOrdered, numRows, numCols, numElems, ...)
+  // We build it row-by-row via appendRow.
+  CoinPackedMatrix matrix(/*isColOrdered=*/false, numCols, 0);
+  matrix.setDimensions(0, numCols);
+
+  std::vector<double> rowLower(numRows), rowUpper(numRows);
+
+  for (int i = 0; i < numRows; ++i) {
+    const auto& c = int_constraints[i];
+
+    CoinPackedVector row;
+    for (const auto& term : c.lhs) {
+      if (!term.v || term.c == 0) continue;
+      row.insert(varToIndex.at(term.v), static_cast<double>(term.c));
+    }
+    matrix.appendRow(row);
+
+    rowLower[i] = c.lowerBound.has_value() ? static_cast<double>(*c.lowerBound) : -COIN_DBL_MAX;
+    rowUpper[i] = c.upperBound.has_value() ? static_cast<double>(*c.upperBound) : COIN_DBL_MAX;
+  }
+
+  // --- Row and column names ---
+  // setLpDataRowAndColNames expects rownames[numRows+1], where the last entry is the objective function name.
+  std::vector<const char*> rowNames(numRows + 1);
+  std::vector<std::string> rowNameStorage(numRows);
+  for (int i = 0; i < numRows; ++i) {
+    rowNameStorage[i] = "c" + std::to_string(i);
+    rowNames[i] = rowNameStorage[i].c_str();
+  }
+  rowNames[numRows] = "obj";  // objective name goes last
+
+  std::vector<const char*> colNames(numCols);
+  for (int i = 0; i < numCols; ++i) colNames[i] = vars[i]->name.c_str();
+
+  // --- Populate CoinLpIO ---
+  CoinLpIO lp;
+
+  // Must call setLpDataWithoutRowAndColNames before setLpDataRowAndColNames
+  lp.setLpDataWithoutRowAndColNames(matrix, colLower.data(), colUpper.data(), obj_.data(), integerType.data(),
+                                    rowLower.data(), rowUpper.data());
+  lp.setLpDataRowAndColNames(rowNames.data(), colNames.data());
+
+  // --- Write ---
+  lp.writeLp(filename.data(), true);
+#else
+  std::cout << "Not compiled with COIN-OR library, cannot print LP files." << std::endl;
+#endif
+}
+
 std::ostream& IntProg::printInput(std::ostream& out) const {
   out << "OBJ ";
   if (minimize) {
@@ -716,7 +808,7 @@ std::ostream& IntProg::printInput(std::ostream& out) const {
   for (const std::string& s : strs) out << s << std::endl;
 
   strs.clear();
-  for (const std::string& code : constraints) {
+  for (const std::string& code : constraint_strings) {
     ic.decode(code, getVariables());
     strs.push_back(aux::str(ic));
   }
@@ -776,6 +868,8 @@ std::vector<bigint> IntProg::getLastSolutionFor(const std::vector<IntVar*>& vars
   if (!solver.foundSolution()) throw InvalidArgument("No solution to return.");
   return aux::comprehension(vars, [&](IntVar* iv) { return getLastSolutionFor(iv); });
 }
+
+std::vector<bigint> IntProg::getLastSolution() const { return getLastSolutionFor(getVariables()); }
 
 Core IntProg::getLastCore() {
   Core core = emptyCore();
@@ -1166,7 +1260,8 @@ void IntProg::runFromCmdLine() {
 
   aux::timeCallVoid([&] { parsing::file_read(*this); }, global.stats.PARSETIME.z);
 
-  if (global.options.printOpb) printFormula();
+  if (global.options.writeOpb.get() != "") writeFormulaOpb(global.options.writeOpb.get());
+  if (global.options.writeLp.get() != "") writeFormulaLp(global.options.writeOpb.get());
   if (global.options.noSolve) throw EarlyTermination();
 
   solver.printHeader();

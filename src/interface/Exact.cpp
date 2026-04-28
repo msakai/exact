@@ -233,6 +233,8 @@ void Exact::invalidateLastSol(const std::vector<std::string>& vars) { intprog.in
 void Exact::printVariables() const { intprog.printVars(std::cout); }
 void Exact::printInput() const { intprog.printInput(std::cout); }
 void Exact::printFormula() { intprog.printFormula(std::cout); }
+void Exact::writeFormulaOpb(const std::string& path) { intprog.writeFormulaOpb(path); }
+void Exact::writeFormulaLp(const std::string& path) { intprog.writeFormulaLp(path); }
 
 void Exact::setObjective(const std::vector<std::pair<bigint, std::string>>& terms, bool minimize,
                          const bigint& offset) {
@@ -418,6 +420,8 @@ PYBIND11_MODULE(exact, m) {
       .def("printVariables", &Exact::printVariables, "Print variables given to Exact")
       .def("printInput", &Exact::printInput, "Print objective and constraints given to Exact")
       .def("printFormula", &Exact::printFormula, "Print Exact's internal formula")
+      .def("writeFormulaOpb", &Exact::writeFormulaOpb, "Write Exact's internal formula to file in opb format")
+      .def("writeFormulaLp", &Exact::writeFormulaLp, "Write Exact's internal formula to file in lp format")
       .def("getStats", &Exact::getStats, "Get Exact's internal statistics")
 
       ;

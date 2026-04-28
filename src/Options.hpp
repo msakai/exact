@@ -180,15 +180,20 @@ struct Options {
                         "File format (overridden by corresponding file extension)",
                         "opb",
                         {"opb", "wbo", "cnf", "wcnf", "mps", "lp"}};
-  VoidOption printOpb{"print-opb", "Print OPB of the parsed problem"};
+  ValOption<std::string> writeOpb{"write-opb",
+                                  "Filename to store OPB of the parsed problem, disabled if left unspecified", "",
+                                  "/path/to/file", [](const std::string&) -> bool { return true; }};
+  ValOption<std::string> writeLp{"write-lp", "Filename to store LP of the parsed problem, disabled if left unspecified",
+                                 "", "/path/to/file", [](const std::string&) -> bool { return true; }};
   BoolOption uniformOut{"print-uniform", "Use a default output style for all file formats", true};
   VoidOption printSol{"print-sol", "Print the solution if found (style can be uniform or non-uniform)"};
   VoidOption printUnits{"print-units", "Print unit literals"};
   VoidOption printCsvData{"print-csv", "Print statistics in a comma-separated value format"};
   ValOption<int32_t> verbosity{"verbosity", "Verbosity of the output", 0, "0 =< int",
                                [](const int32_t& x) -> bool { return x >= 0; }};
-  ValOption<std::string> proofLog{"proof-log", "Filename for the proof logs, left unspecified disables proof logging",
-                                  "", "/path/to/file", [](const std::string&) -> bool { return true; }};
+  ValOption<std::string> proofLog{"proof-log",
+                                  "Filename for the proof logs, proof logging disabled if left unspecified", "",
+                                  "/path/to/file", [](const std::string&) -> bool { return true; }};
   BoolOption proofZip{"proof-zip", "Generate proof file in ZIP format. This can alleviate space and IO constraints.",
                       false};
   BoolOption proofAssumps{"proof-assumptions",
@@ -330,7 +335,8 @@ struct Options {
       &randomSeed,
       &noSolve,
       &fileFormat,
-      &printOpb,
+      &writeOpb,
+      &writeLp,
       &uniformOut,
       &printSol,
       &printUnits,
