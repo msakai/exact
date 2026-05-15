@@ -71,6 +71,7 @@ namespace parsing {
 
 bigint read_bigint(const std::string& s, int64_t start, int64_t end);
 void file_read(IntProg& intprog);
+void read_solution_hints(IntProg& intprog, const std::string& filename);
 void opb_read(std::istream& in, IntProg& intprog);
 void cnf_read(std::istream& in, IntProg& intprog);
 void wcnf_read(std::istream& in, IntProg& intprog);

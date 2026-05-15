@@ -136,6 +136,84 @@ void file_read(IntProg& intprog) {
   intprog.global.logger.logComment("INPUT FORMULA ABOVE - AUXILIARY AXIOMS BELOW");
 }
 
+void read_solution_hints(IntProg& intprog, const std::string& filename) {
+  std::ifstream fin(filename);
+  if (!fin) {
+    throw InvalidArgument("Could not open initial-solution file: " + filename);
+  }
+  const int verb = intprog.global.options.verbosity.get();
+  std::vector<std::pair<IntVar*, bigint>> hints;
+  std::string line;
+  int64_t lineno = 0;
+  int64_t skipped = 0;
+  while (std::getline(fin, line)) {
+    ++lineno;
+    size_t a = 0;
+    while (a < line.size() && std::isspace(static_cast<unsigned char>(line[a]))) ++a;
+    if (a == line.size()) continue;
+    if (line[a] == 'c' || line[a] == '*') continue;
+    size_t b = a;
+    while (b < line.size() && !std::isspace(static_cast<unsigned char>(line[b]))) ++b;
+    std::string name = line.substr(a, b - a);
+    size_t c = b;
+    while (c < line.size() && std::isspace(static_cast<unsigned char>(line[c]))) ++c;
+    size_t d = c;
+    while (d < line.size() && !std::isspace(static_cast<unsigned char>(line[d]))) ++d;
+    if (c == d) {
+      if (verb > 0) {
+        std::cout << "c WARNING initial-solution line " << lineno << ": expected '<name> <value>', skipping" << std::endl;
+      }
+      ++skipped;
+      continue;
+    }
+    size_t e = d;
+    while (e < line.size() && std::isspace(static_cast<unsigned char>(line[e]))) ++e;
+    if (e != line.size()) {
+      if (verb > 0) {
+        std::cout << "c WARNING initial-solution line " << lineno << ": extra tokens after value, skipping" << std::endl;
+      }
+      ++skipped;
+      continue;
+    }
+    IntVar* iv = intprog.getVarFor(name);
+    if (!iv) {
+      if (verb > 0) {
+        std::cout << "c WARNING initial-solution line " << lineno << ": unknown variable '" << name << "', skipping"
+                  << std::endl;
+      }
+      ++skipped;
+      continue;
+    }
+    bigint val;
+    try {
+      val = aux::sto<bigint>(line.substr(c, d - c));
+    } catch (const std::exception&) {
+      if (verb > 0) {
+        std::cout << "c WARNING initial-solution line " << lineno << ": could not parse value for '" << name
+                  << "', skipping" << std::endl;
+      }
+      ++skipped;
+      continue;
+    }
+    if (val < iv->lowerBound || val > iv->upperBound) {
+      if (verb > 0) {
+        std::cout << "c WARNING initial-solution line " << lineno << ": value " << val << " for '" << name
+                  << "' is outside [" << iv->lowerBound << "," << iv->upperBound << "], skipping" << std::endl;
+      }
+      ++skipped;
+      continue;
+    }
+    hints.emplace_back(iv, val);
+  }
+  fin.close();
+  intprog.setSolutionHints(hints);
+  if (verb > 0) {
+    std::cout << "c loaded " << hints.size() << " initial-solution hints from " << filename;
+    if (skipped > 0) std::cout << " (" << skipped << " line(s) skipped)";
+    std::cout << std::endl;
+  }
+}
+
 IntVar* indexedBoolVar(IntProg& intprog, const std::string& name) {
   if (IntVar* res = intprog.getVarFor(name); res) return res;
   return intprog.addVar(name, 0, 1, Encoding::ORDER, true);

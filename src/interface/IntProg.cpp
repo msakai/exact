@@ -30,6 +30,7 @@ See the file LICENSE or run with the flag --license=MIT.
 
 #include "IntProg.hpp"
 #include "Optimization.hpp"
+#include "parsing.hpp"
 #if WITHCOINUTILS
 #include "coin/CoinFinite.hpp"
 #include "coin/CoinLpIO.hpp"
@@ -1263,6 +1264,10 @@ void IntProg::runFromCmdLine() {
   if (global.options.writeOpb.get() != "") writeFormulaOpb(global.options.writeOpb.get());
   if (global.options.writeLp.get() != "") writeFormulaLp(global.options.writeOpb.get());
   if (global.options.noSolve) throw EarlyTermination();
+
+  if (global.options.initialSolution.get() != "") {
+    parsing::read_solution_hints(*this, global.options.initialSolution.get());
+  }
 
   solver.printHeader();
 

@@ -185,6 +185,12 @@ struct Options {
                                   "/path/to/file", [](const std::string&) -> bool { return true; }};
   ValOption<std::string> writeLp{"write-lp", "Filename to store LP of the parsed problem, disabled if left unspecified",
                                  "", "/path/to/file", [](const std::string&) -> bool { return true; }};
+  ValOption<std::string> initialSolution{
+      "initial-solution",
+      "Read an initial solution from a file and install it as warm-start hints. "
+      "Format: one '<varname> <value>' per line; lines starting with 'c' or '*' are comments. "
+      "Variables not mentioned receive no hint. Disabled if left unspecified.",
+      "", "/path/to/file", [](const std::string&) -> bool { return true; }};
   BoolOption uniformOut{"print-uniform", "Use a default output style for all file formats", true};
   VoidOption printSol{"print-sol", "Print the solution if found (style can be uniform or non-uniform)"};
   VoidOption printUnits{"print-units", "Print unit literals"};
@@ -337,6 +343,7 @@ struct Options {
       &fileFormat,
       &writeOpb,
       &writeLp,
+      &initialSolution,
       &uniformOut,
       &printSol,
       &printUnits,
