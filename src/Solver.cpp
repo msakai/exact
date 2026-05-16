@@ -218,7 +218,7 @@ void Solver::enqueueUnit([[maybe_unused]] Lit l, Var v, CRef r) {
   assert(global.stats.NUNITS.z == trail.size());
   ++global.stats.NUNITS.z;
   reason[v] = CRef_Undef;  // no need to keep track of reasons for unit literals
-  if (global.options.logFixedLits.get()) {
+  if (global.options.logFixedLits) {
     std::cout << "c fixed " << l << std::endl;
   }
   if (global.logger.isActive()) {
