@@ -188,6 +188,10 @@ struct Options {
   BoolOption uniformOut{"print-uniform", "Use a default output style for all file formats", true};
   VoidOption printSol{"print-sol", "Print the solution if found (style can be uniform or non-uniform)"};
   VoidOption printUnits{"print-units", "Print unit literals"};
+  BoolOption logFixedLits{"log-fixed-lits",
+                          "Stream literals fixed at decision level 0 to stdout (as 'c fixed <lit>' lines) "
+                          "for use by hybrid solvers",
+                          false};
   VoidOption printCsvData{"print-csv", "Print statistics in a comma-separated value format"};
   ValOption<int32_t> verbosity{"verbosity", "Verbosity of the output", 0, "0 =< int",
                                [](const int32_t& x) -> bool { return x >= 0; }};
@@ -340,6 +344,7 @@ struct Options {
       &uniformOut,
       &printSol,
       &printUnits,
+      &logFixedLits,
       &printCsvData,
       &verbosity,
       &timeout,
